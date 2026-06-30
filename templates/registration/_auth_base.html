@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { brand:{50:"#eef6ef",100:"#d6e9da",200:"#aed3b6",300:"#7fb78c",400:"#4f9663",500:"#2f7a47",600:"#1f6b3a",700:"#165230",800:"#103d24",900:"#0b2a19"},
+                gold:{400:"#f6cf3e",500:"#f2c014",600:"#d9a40a"}, cream:"#f7f4ec", ink:"#1b2420" },
+      fontFamily: { display:["Fraunces","Georgia","serif"], sans:["Inter","system-ui","sans-serif"] },
+    } } }
+  </script>
+  <style>
+    body{ font-family:Inter,system-ui,sans-serif; color:#1b2420; }
+    .font-display{ font-family:Fraunces,Georgia,serif; }
+    .btn-primary{ display:inline-flex; align-items:center; justify-content:center; border-radius:9999px; background:#1f6b3a; padding:.75rem 1.5rem; font-weight:600; color:#fff; }
+    .btn-primary:hover{ background:#165230; }
+  </style>
+</head>
+<body class="bg-cream">
+  <div class="grid min-h-screen lg:grid-cols-2">
+    <!-- brand panel -->
+    <div class="relative hidden flex-col justify-between overflow-hidden bg-brand-700 p-12 text-white lg:flex">
+      <div style="background-image:radial-gradient(800px 400px at 80% -10%, rgba(242,192,20,.18), transparent 60%);" class="pointer-events-none absolute inset-0"></div>
+      <a href="/" class="relative flex items-center gap-2">
+        <span class="grid h-10 w-10 place-items-center rounded-full bg-white/10 font-display text-lg font-bold text-gold-500">S</span>
+        <span class="font-display text-2xl font-semibold">{{ SITE_NAME }}</span>
+      </a>
+      <div class="relative">
+        <h2 class="font-display text-4xl font-semibold leading-tight">Pure, organic<br>spices delivered<br>to your door.</h2>
+        <p class="mt-4 max-w-sm text-white/70">Sourced from partner farms across India. Ground fresh, packed with care.</p>
+      </div>
+      <p class="relative text-sm text-white/40">© {{ SITE_NAME }}. All rights reserved.</p>
+    </div>
+
+    <!-- form panel -->
+    <div class="flex items-center justify-center p-6 sm:p-12">
+      <div class="w-full max-w-md">
+        <a href="/" class="mb-8 flex items-center gap-2 lg:hidden">
+          <span class="grid h-9 w-9 place-items-center rounded-full bg-brand-600 font-display text-lg font-bold text-gold-500">S</span>
+          <span class="font-display text-xl font-semibold text-ink">{{ SITE_NAME }}</span>
+        </a>
+
+        {% if messages %}
+          {% for m in messages %}
+            <div class="mb-4 rounded-xl px-4 py-3 text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 ring-1 ring-red-200{% else %}bg-brand-50 text-brand-700 ring-1 ring-brand-200{% endif %}">{{ m }}</div>
+          {% endfor %}
+        {% endif %}
+
+        {% block form %}{% endblock %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

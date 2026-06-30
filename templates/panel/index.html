@@ -1,0 +1,54 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Admin Console · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Admin Console{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-7xl space-y-6">
+
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-semibold text-ink">Admin Console</h1>
+      <p class="mt-1 text-sm text-ink/50">Manage content, banners, blogs, reviews, enquiries, and more</p>
+    </div>
+    <a href="/admin-panel" class="btn-primary">← Custom Dashboard</a>
+  </div>
+
+  {% if app_list %}
+    {% for app in app_list %}
+    <div class="card p-6">
+      <div class="mb-4 flex items-center gap-2">
+        <span class="h-3 w-3 rounded-full bg-brand-500"></span>
+        <h2 class="font-display text-base font-semibold text-ink">{{ app.name }}</h2>
+        <span class="text-xs text-ink/40">({{ app.models|length }} model{{ app.models|length|pluralize }})</span>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {% for model in app.models %}
+        <div class="group flex flex-col gap-2 rounded-xl border border-black/5 bg-brand-50 p-4 transition hover:border-brand-200 hover:bg-brand-100">
+          <p class="text-sm font-semibold text-ink">{{ model.name }}</p>
+          <div class="flex gap-4 text-xs font-medium">
+            {% if model.add_url %}
+            <a href="{{ model.add_url }}" class="flex items-center gap-1 text-brand-600 hover:text-brand-800 hover:underline">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Add
+            </a>
+            {% endif %}
+            {% if model.admin_url %}
+            <a href="{{ model.admin_url }}" class="flex items-center gap-1 text-brand-600 hover:text-brand-800 hover:underline">
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Manage
+            </a>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="card p-12 text-center">
+      <p class="text-ink/40">No models registered.</p>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

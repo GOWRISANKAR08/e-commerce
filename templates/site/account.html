@@ -1,0 +1,65 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}My Account · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-5xl px-4 py-10 lg:px-8">
+  <div class="flex items-center gap-4">
+    <span class="grid h-16 w-16 place-items-center rounded-full bg-brand-600 font-display text-2xl font-bold text-gold-500">{{ user.full_name|initials }}</span>
+    <div>
+      <h1 class="font-display text-3xl font-semibold text-ink">{{ user.full_name|default:"My Account" }}</h1>
+      <p class="text-ink/55">{{ user.email }}</p>
+    </div>
+  </div>
+
+  <div class="mt-8 grid gap-4 sm:grid-cols-3">
+    <a href="/orders" class="card p-5">
+      <p class="text-3xl font-bold text-brand-700">{{ order_count }}</p>
+      <p class="text-sm text-ink/60">Orders placed</p>
+    </a>
+    <a href="/favourites" class="card p-5">
+      <p class="text-3xl font-bold text-brand-700">{{ fav_count }}</p>
+      <p class="text-sm text-ink/60">Saved favourites</p>
+    </a>
+    <a href="/notifications" class="card p-5">
+      <p class="text-3xl font-bold text-brand-700">🔔</p>
+      <p class="text-sm text-ink/60">Notifications</p>
+    </a>
+  </div>
+
+  <div class="mt-8 grid gap-8 lg:grid-cols-2">
+    <div class="card p-6">
+      <h2 class="font-display text-lg font-semibold">Profile Details</h2>
+      <form method="post" action="/account" class="mt-4 grid grid-cols-2 gap-4">
+        {% csrf_token %}
+        <label class="text-sm"><span class="text-ink/60">First name</span>
+          <input name="first_name" value="{{ user.first_name|default:'' }}" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="text-sm"><span class="text-ink/60">Last name</span>
+          <input name="last_name" value="{{ user.last_name|default:'' }}" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="text-sm"><span class="text-ink/60">Mobile</span>
+          <input name="mobile" value="{{ user.mobile|default:'' }}" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="text-sm"><span class="text-ink/60">City</span>
+          <input name="city" value="{{ user.city|default:'' }}" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <div class="col-span-2"><button class="btn-primary">Save changes</button></div>
+      </form>
+    </div>
+
+    <div class="card p-6">
+      <h2 class="font-display text-lg font-semibold">Saved Addresses</h2>
+      <div class="mt-4 space-y-3">
+        {% for a in addresses %}
+          <div class="rounded-xl border border-black/10 p-4">
+            <div class="flex items-center justify-between">
+              <p class="font-semibold">{{ a.address_name|default:"Address" }}</p>
+              {% if a.is_default %}<span class="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">Default</span>{% endif %}
+            </div>
+            <p class="mt-1 text-sm text-ink/60">{{ a.address }}{% if a.street_flat %}, {{ a.street_flat }}{% endif %}, {{ a.city }} — {{ a.pin_code }}</p>
+          </div>
+        {% empty %}
+          <p class="text-sm text-ink/50">No saved addresses. You can add one at checkout.</p>
+        {% endfor %}
+      </div>
+      <a href="/logout" class="btn-ghost mt-5 text-red-600">Logout →</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

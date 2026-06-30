@@ -1,0 +1,72 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Settings · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Settings{% endblock %}
+{% block content %}
+<div class="max-w-3xl space-y-5">
+
+  <div>
+    <h1 class="font-display text-2xl font-bold text-ink">Settings</h1>
+    <p class="mt-0.5 text-sm text-ink/50">Manage your store configuration</p>
+  </div>
+
+  <!-- Store Info -->
+  <div class="card p-6 space-y-4">
+    <h2 class="font-display text-base font-semibold text-ink border-b border-black/5 pb-3">Store Information</h2>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-ink/60">Store Name</span>
+        <input value="{{ SITE_NAME }}" disabled
+               class="mt-1 w-full rounded-lg border border-black/10 bg-ink/3 px-3 py-2 text-sm text-ink/60" />
+      </label>
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-ink/60">Admin URL</span>
+        <input value="/admin-panel" disabled
+               class="mt-1 w-full rounded-lg border border-black/10 bg-ink/3 px-3 py-2 text-sm text-ink/60 font-mono" />
+      </label>
+    </div>
+    <p class="text-xs text-ink/40">Store settings are configured in <code class="rounded bg-ink/5 px-1">settings.py</code>. Update the file directly to change these values.</p>
+  </div>
+
+  <!-- Quick Links -->
+  <div class="card p-6">
+    <h2 class="font-display text-base font-semibold text-ink border-b border-black/5 pb-3 mb-4">Django Admin</h2>
+    <p class="text-sm text-ink/60 mb-4">Manage models, permissions, and long-tail content through the Django admin interface.</p>
+    <div class="grid gap-2 sm:grid-cols-2">
+      {% for link in links %}
+        <a href="{{ link.url }}" class="flex items-center gap-2.5 rounded-xl border border-black/8 px-4 py-3 text-sm font-medium text-ink hover:bg-cream transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-500"><path d="m9 18 6-6-6-6"/></svg>
+          {{ link.label }}
+        </a>
+      {% empty %}
+        <a href="/admin/" class="flex items-center gap-2.5 rounded-xl border border-black/8 px-4 py-3 text-sm font-medium text-ink hover:bg-cream transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-500"><path d="m9 18 6-6-6-6"/></svg>
+          Open Django Admin
+        </a>
+        <a href="/admin/auth/user/" class="flex items-center gap-2.5 rounded-xl border border-black/8 px-4 py-3 text-sm font-medium text-ink hover:bg-cream transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-500"><path d="m9 18 6-6-6-6"/></svg>
+          Manage Users & Permissions
+        </a>
+        <a href="/admin/store/banner/" class="flex items-center gap-2.5 rounded-xl border border-black/8 px-4 py-3 text-sm font-medium text-ink hover:bg-cream transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-500"><path d="m9 18 6-6-6-6"/></svg>
+          Banners & Promotions
+        </a>
+        <a href="/admin/store/notification/" class="flex items-center gap-2.5 rounded-xl border border-black/8 px-4 py-3 text-sm font-medium text-ink hover:bg-cream transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-500"><path d="m9 18 6-6-6-6"/></svg>
+          Newsletter & Notifications
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Danger zone -->
+  <div class="card border border-red-100 p-6">
+    <h2 class="font-display text-base font-semibold text-red-600 border-b border-red-100 pb-3 mb-4">Danger Zone</h2>
+    <p class="text-sm text-ink/60 mb-4">These actions are irreversible. Proceed with caution.</p>
+    <div class="flex flex-wrap gap-2">
+      <button onclick="alert('This feature is coming soon.')" class="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition">Clear Cache</button>
+      <button onclick="alert('Contact your developer to perform this operation.')" class="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition">Reset Demo Data</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Favourites · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-7xl px-4 py-10 lg:px-8">
+  <h1 class="font-display text-3xl font-semibold text-ink">Your Favourites</h1>
+  <p class="mt-1 text-ink/60">Everything you've saved for later.</p>
+
+  {% if favourites %}
+    <div class="mt-8 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
+      {% for f in favourites %}
+        {% with product=f.product %}
+          {% include "site/_product_card.html" with fav_ids=fav_ids %}
+        {% endwith %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card mt-8 flex flex-col items-center gap-3 py-20 text-center">
+      <span class="text-5xl">♥</span>
+      <p class="font-display text-xl font-semibold">No favourites yet</p>
+      <p class="text-ink/50">Tap the heart on any product to save it here.</p>
+      <a href="/products" class="btn-primary mt-2">Browse products</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

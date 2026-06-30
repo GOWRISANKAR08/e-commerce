@@ -1,0 +1,33 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}{{ blog.title }} · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<article class="mx-auto max-w-3xl px-4 py-10 lg:px-8">
+  <a href="/blogs" class="btn-ghost text-sm">← Back to Journal</a>
+  {% if blog.tag %}<span class="section-eyebrow mt-4 !text-[11px]">{{ blog.tag }}</span>{% endif %}
+  <h1 class="mt-2 font-display text-4xl font-semibold leading-tight text-ink">{{ blog.title }}</h1>
+  <p class="mt-2 text-sm text-ink/40">{{ blog.created_at|date:"d M Y" }}</p>
+
+  <div class="relative mt-6 aspect-[16/9] overflow-hidden rounded-2xl bg-gradient-to-br from-brand-50 to-cream">
+    <img src="{{ blog.image }}" alt="{{ blog.title }}" onerror="this.style.display='none'" class="h-full w-full object-cover" />
+  </div>
+
+  <div class="prose mt-8 max-w-none text-ink/80 leading-relaxed">{{ blog.description|safe }}</div>
+</article>
+
+{% if more %}
+<section class="mx-auto max-w-3xl px-4 pb-16 lg:px-8">
+  <h2 class="font-display text-2xl font-semibold">More from the Journal</h2>
+  <div class="mt-5 grid gap-5 sm:grid-cols-3">
+    {% for b in more %}
+      <a href="/blogs/{{ b.slug }}" class="card group overflow-hidden">
+        <div class="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-brand-50 to-cream">
+          <img src="{{ b.image }}" alt="{{ b.title }}" onerror="this.style.display='none'" class="h-full w-full object-cover transition group-hover:scale-105" />
+        </div>
+        <div class="p-4"><h3 class="font-display text-sm font-semibold leading-snug group-hover:text-brand-600">{{ b.title }}</h3></div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

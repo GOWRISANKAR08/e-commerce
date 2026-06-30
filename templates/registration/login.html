@@ -1,0 +1,28 @@
+{% extends "registration/_auth_base.html" %}
+{% block title %}Login · {{ SITE_NAME }}{% endblock %}
+{% block form %}
+<h1 class="font-display text-3xl font-semibold text-ink">Welcome back</h1>
+<p class="mt-2 text-ink/55">Log in with your email or mobile number.</p>
+
+<form method="post" action="/login{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" class="mt-8 space-y-4">
+  {% csrf_token %}
+  <label class="block text-sm">
+    <span class="text-ink/60">Email or mobile</span>
+    <input name="identifier" required autofocus
+           class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+  </label>
+  <label class="block text-sm">
+    <span class="text-ink/60">Password</span>
+    <input name="password" type="password" required
+           class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+  </label>
+  <button class="btn-primary w-full">Log in</button>
+</form>
+
+<p class="mt-6 text-center text-sm text-ink/55">
+  New to {{ SITE_NAME }}? <a href="/signup" class="font-semibold text-brand-700 hover:underline">Create an account</a>
+</p>
+<p class="mt-2 text-center text-xs text-ink/40">
+  Are you an administrator? <a href="/admin-login" class="font-medium text-brand-700 hover:underline">Admin login</a>
+</p>
+{% endblock %}

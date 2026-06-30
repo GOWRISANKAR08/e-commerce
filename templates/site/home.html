@@ -1,0 +1,144 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}{{ SITE_NAME }} — Organic Spices, Herbs & Wellness{% endblock %}
+{% block content %}
+
+{# ── HERO ── #}
+<section class="bg-grain">
+  <div class="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 lg:grid-cols-2 lg:px-8 lg:py-20">
+    <div class="animate-fade-up">
+      <span class="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">🌿 100% Organic &amp; Certified</span>
+      <h1 class="mt-5 font-display text-5xl font-semibold leading-[1.05] text-ink lg:text-6xl">
+        Taste the<br /><span class="text-brand-600">Purity of</span><br />Nature's Finest
+      </h1>
+      <p class="mt-5 max-w-md text-ink/60">Handpicked spices, herbs &amp; wellness products sourced directly from organic farms across India. Rooted in Ayurvedic tradition, crafted for modern living.</p>
+      <div class="mt-7 flex items-center gap-4">
+        <a href="/products" class="btn-primary">Shop Now →</a>
+        <a href="/about-us" class="btn-ghost">Our Story →</a>
+      </div>
+      <div class="mt-8 flex flex-wrap gap-6 border-t border-black/5 pt-6 text-sm text-ink/70">
+        <span class="flex items-center gap-2">🛡️ 100% Organic</span>
+        <span class="flex items-center gap-2">🚚 Free Delivery</span>
+        <span class="flex items-center gap-2">✅ FSSAI Certified</span>
+      </div>
+    </div>
+    <div class="relative animate-fade-up">
+      <div class="overflow-hidden rounded-3xl shadow-soft bg-gradient-to-br from-brand-100 to-gold-400/30 aspect-[4/3]">
+        {% if banner %}<img src="{{ banner.image }}" alt="{{ banner.name }}"
+          onerror="this.style.display='none'" class="aspect-[4/3] w-full object-cover" />{% endif %}
+      </div>
+      <div class="absolute -bottom-5 left-6 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-soft">
+        <span class="text-gold-500">★</span>
+        <div><p class="text-sm font-bold leading-none">4.9</p><p class="text-[11px] text-ink/50">10K+ Reviews</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{# ── CATEGORIES ── #}
+<section class="mx-auto max-w-7xl px-4 py-14 lg:px-8">
+  <div class="mb-8 flex items-end justify-between">
+    <div><span class="section-eyebrow">Browse by category</span><h2 class="mt-2 font-display text-3xl font-semibold">What Are You Looking For?</h2></div>
+    <a href="/categories" class="btn-ghost">View All Categories →</a>
+  </div>
+  <div class="flex gap-5 overflow-x-auto no-scrollbar pb-2">
+    {% for c in categories %}
+      <a href="/products?category={{ c.slug }}" class="group min-w-[150px] flex-1 text-center">
+        <div class="mx-auto grid aspect-square place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-50 to-cream ring-1 ring-black/5 transition group-hover:ring-brand-200">
+          <img src="{{ c.image }}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" class="h-full w-full object-cover" />
+          <span style="display:none" class="font-display text-xl text-brand-600/50">{{ c.name }}</span>
+        </div>
+        <p class="mt-3 font-semibold group-hover:text-brand-600">{{ c.name }}</p>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+{# ── FEATURED PRODUCTS ── #}
+<section class="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+  <div class="mb-8 flex items-end justify-between">
+    <div><span class="section-eyebrow">Handpicked for you</span><h2 class="mt-2 font-display text-3xl font-semibold">Featured Products</h2></div>
+    <a href="/products" class="btn-ghost">View All Products →</a>
+  </div>
+  <div class="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
+    {% for product in products %}{% include "site/_product_card.html" %}{% endfor %}
+  </div>
+</section>
+
+{# ── BRAND VIDEOS ── #}
+{% if brand_videos %}
+<section class="mx-auto max-w-7xl px-4 py-16 lg:px-8">
+  <div class="mb-8 text-center"><span class="section-eyebrow justify-center">Watch &amp; Discover</span><h2 class="mt-2 font-display text-3xl font-semibold">From Our Farms to Your Kitchen</h2></div>
+  <div class="grid gap-6 md:grid-cols-2">
+    {% for v in brand_videos %}
+      <div class="card overflow-hidden">
+        {% if v.video_url %}
+          <video controls class="aspect-video w-full bg-black object-cover"><source src="{{ v.video_url }}"></video>
+        {% else %}
+          <div class="grid aspect-video place-items-center bg-gradient-to-br from-brand-100 to-gold-400/30 font-display text-2xl text-brand-600/50">{{ v.name }}</div>
+        {% endif %}
+        <div class="p-4"><p class="font-display text-lg font-semibold">{{ v.name }}</p>{% if v.description %}<p class="mt-1 text-sm text-ink/60">{{ v.description }}</p>{% endif %}</div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ── OUR STORY ── #}
+<section class="bg-grain">
+  <div class="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 lg:grid-cols-2 lg:px-8">
+    <div class="grid aspect-[4/5] place-items-center overflow-hidden rounded-3xl bg-gradient-to-br from-brand-200 to-brand-600 font-display text-3xl text-white/60 shadow-soft">Our Farmers</div>
+    <div>
+      <span class="section-eyebrow">Our Story</span>
+      <h2 class="mt-2 font-display text-4xl font-semibold">Rooted in Tradition, <span class="text-brand-600">Grown with Love</span></h2>
+      <p class="mt-4 text-ink/60">Spicearog was born from a simple belief — that nature's ingredients, sourced with care and processed with integrity, can transform everyday cooking into a ritual of nourishment.</p>
+      <div class="mt-6 grid grid-cols-2 gap-4">
+        {% for n, l in story_stats %}
+          <div class="card p-4"><p class="font-display text-2xl font-bold text-brand-600">{{ n }}</p><p class="text-xs text-ink/50">{{ l }}</p></div>
+        {% endfor %}
+      </div>
+      <a href="/about-us" class="btn-primary mt-7">Discover Our Story →</a>
+    </div>
+  </div>
+</section>
+
+{# ── TESTIMONIALS ── #}
+<section class="mx-auto max-w-7xl px-4 py-16 lg:px-8">
+  <div class="mb-10 text-center"><span class="section-eyebrow justify-center">What customers say</span><h2 class="mt-2 font-display text-3xl font-semibold">Loved by Thousands Across India</h2></div>
+  <div class="grid gap-6 md:grid-cols-3">
+    {% for t in testimonials|slice:":3" %}
+      <div class="card p-6">
+        <div class="text-gold-500">{% for _ in "12345"|make_list %}{% if forloop.counter <= t.rating %}★{% else %}☆{% endif %}{% endfor %}</div>
+        <p class="mt-3 text-ink/70">“{{ t.comment }}”</p>
+        <div class="mt-4 flex items-center gap-3">
+          <span class="grid h-10 w-10 place-items-center rounded-full bg-brand-600 font-bold text-white">{{ t.name|initials }}</span>
+          <div><p class="font-semibold">{{ t.name }}</p>{% if t.city %}<p class="text-xs text-ink/50">{{ t.city }}</p>{% endif %}</div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
+{# ── BLOGS ── #}
+<section class="mx-auto max-w-7xl px-4 pb-8 lg:px-8">
+  <div class="mb-8 flex items-end justify-between">
+    <div><span class="section-eyebrow">From our journal</span><h2 class="mt-2 font-display text-3xl font-semibold">Stories of Nature &amp; Nourishment</h2></div>
+    <a href="/blogs" class="btn-ghost">Read All Articles →</a>
+  </div>
+  <div class="grid gap-6 md:grid-cols-3">
+    {% for b in blogs %}
+      <a href="/blogs/{{ b.slug }}" class="card group overflow-hidden">
+        <div class="grid aspect-[16/10] place-items-center bg-gradient-to-br from-brand-100 to-gold-400/30 font-display text-xl text-brand-600/40">
+          <img src="{{ b.image }}" onerror="this.style.display='none'" class="aspect-[16/10] w-full object-cover transition group-hover:scale-105" />
+        </div>
+        <div class="p-5">
+          {% if b.tag %}<span class="rounded-full bg-brand-100 px-2.5 py-1 text-[11px] font-semibold text-brand-700">{{ b.tag }}</span>{% endif %}
+          <h3 class="mt-3 font-display text-lg font-semibold leading-snug group-hover:text-brand-600">{{ b.title }}</h3>
+          <p class="mt-2 line-clamp-2 text-sm text-ink/60">{{ b.description }}</p>
+          <span class="btn-ghost mt-3">Read More →</span>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

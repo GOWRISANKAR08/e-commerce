@@ -1,0 +1,76 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Cart · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-7xl px-4 py-10 lg:px-8">
+  <h1 class="font-display text-3xl font-semibold text-ink">Your Cart</h1>
+
+  {% if items %}
+  <div class="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
+    <div class="space-y-4">
+      {% for it in items %}
+        <div id="cart-item-{{ it.id }}" class="card flex gap-4 p-4">
+          <a href="/product/{{ it.variant.product.slug }}" class="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-brand-50 to-cream">
+            <img src="{{ it.variant.product.image }}" alt="{{ it.variant.product.name }}"
+                 onerror="this.style.display='none'" class="h-full w-full object-cover" />
+          </a>
+          <div class="flex flex-1 flex-col">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <a href="/product/{{ it.variant.product.slug }}"><h3 class="font-display text-base font-semibold hover:text-brand-600">{{ it.variant.product.name }}</h3></a>
+                <p class="text-sm text-ink/50">{{ it.variant.variant }}</p>
+              </div>
+              <button onclick="removeItem({{ it.id }})" class="text-ink/30 hover:text-red-500" title="Remove">✕</button>
+            </div>
+            <div class="mt-auto flex items-end justify-between">
+              <form method="post" action="/api/cart/add" class="flex items-center gap-2">
+                {% csrf_token %}
+                <input type="hidden" name="variantId" value="{{ it.variant.id }}" />
+                <div class="flex items-center rounded-full border border-black/10">
+                  <button type="button" onclick="stepQty(this,-1)" class="grid h-8 w-8 place-items-center text-ink/60">−</button>
+                  <input name="qty" value="{{ it.qty }}" class="w-10 border-0 bg-transparent text-center text-sm focus:outline-none" />
+                  <button type="button" onclick="stepQty(this,1)" class="grid h-8 w-8 place-items-center text-ink/60">+</button>
+                </div>
+                <button class="btn-ghost text-xs">Update</button>
+              </form>
+              <p class="text-lg font-bold text-ink">{{ it.line_total|inr }}</p>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <aside class="card h-fit p-6">
+      <h2 class="font-display text-lg font-semibold">Order Summary</h2>
+      <dl class="mt-4 space-y-3 text-sm">
+        <div class="flex justify-between"><dt class="text-ink/60">Subtotal</dt><dd class="font-medium">{{ subtotal|inr }}</dd></div>
+        <div class="flex justify-between"><dt class="text-ink/60">Shipping</dt>
+          <dd class="font-medium">{% if shipping %}{{ shipping|inr }}{% else %}<span class="text-brand-600">FREE</span>{% endif %}</dd></div>
+        {% if shipping %}
+          <p class="rounded-lg bg-gold-400/15 px-3 py-2 text-xs text-ink/70">Add {{ FREE_DELIVERY_OVER|sub:subtotal|inr }} more for free delivery.</p>
+        {% endif %}
+        <div class="flex justify-between border-t border-black/5 pt-3 text-base"><dt class="font-semibold">Total</dt><dd class="font-bold text-brand-700">{{ grand_total|inr }}</dd></div>
+      </dl>
+      <a href="/checkout" class="btn-primary mt-5 w-full">Proceed to Checkout</a>
+      <a href="/products" class="btn-ghost mt-3 w-full justify-center">Continue shopping →</a>
+    </aside>
+  </div>
+  {% else %}
+    <div class="card mt-8 flex flex-col items-center gap-3 py-20 text-center">
+      <span class="text-5xl">🛒</span>
+      <p class="font-display text-xl font-semibold">Your cart is empty</p>
+      <p class="text-ink/50">Discover our organic spice collection.</p>
+      <a href="/products" class="btn-primary mt-2">Browse products</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  function stepQty(btn,d){ const inp=btn.parentElement.querySelector('input'); inp.value=Math.max(1,(parseInt(inp.value)||1)+d); }
+  async function removeItem(id){
+    const res = await postJSON('/api/cart/remove',{itemId:id});
+    if(res.ok){ const el=document.getElementById('cart-item-'+id); if(el) el.remove(); location.reload(); }
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "site/base.html" %}
+{% block title %}Help & Support · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-5xl px-4 py-12 lg:px-8">
+  <div class="grid gap-10 lg:grid-cols-2">
+    <div>
+      <span class="section-eyebrow">Get in touch</span>
+      <h1 class="mt-2 font-display text-4xl font-semibold text-ink">We'd love to hear from you</h1>
+      <p class="mt-3 text-ink/60">Questions about an order, our products or partnerships? Send us a note and we'll reply within one business day.</p>
+      <dl class="mt-8 space-y-4 text-sm">
+        <div class="flex items-center gap-3"><span class="grid h-10 w-10 place-items-center rounded-full bg-brand-50 text-brand-600">✉</span><span><dt class="text-ink/45">Email</dt><dd class="font-medium">support@spicearog.com</dd></span></div>
+        <div class="flex items-center gap-3"><span class="grid h-10 w-10 place-items-center rounded-full bg-brand-50 text-brand-600">☎</span><span><dt class="text-ink/45">Phone</dt><dd class="font-medium">+91 90000 00000</dd></span></div>
+        <div class="flex items-center gap-3"><span class="grid h-10 w-10 place-items-center rounded-full bg-brand-50 text-brand-600">⏱</span><span><dt class="text-ink/45">Hours</dt><dd class="font-medium">Mon–Sat, 9am–7pm IST</dd></span></div>
+      </dl>
+    </div>
+
+    <form method="post" action="/help-support" class="card p-6">
+      {% csrf_token %}
+      <h2 class="font-display text-lg font-semibold">Send a message</h2>
+      <div class="mt-4 grid grid-cols-2 gap-4">
+        <label class="text-sm"><span class="text-ink/60">Name</span>
+          <input name="name" required value="{{ user.full_name|default:'' }}" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="text-sm"><span class="text-ink/60">Mobile</span>
+          <input name="mobile" value="{{ user.mobile|default:'' }}" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="col-span-2 text-sm"><span class="text-ink/60">Email</span>
+          <input name="email" type="email" required value="{{ user.email|default:'' }}" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="col-span-2 text-sm"><span class="text-ink/60">Subject</span>
+          <input name="subject" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="col-span-2 text-sm"><span class="text-ink/60">Message</span>
+          <textarea name="message" required rows="4" class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea></label>
+      </div>
+      <button class="btn-primary mt-5 w-full">Send message</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

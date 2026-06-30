@@ -1,0 +1,52 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}My Orders · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-5xl px-4 py-10 lg:px-8">
+  <h1 class="font-display text-3xl font-semibold text-ink">My Orders</h1>
+
+  {% if orders %}
+    <div class="mt-8 space-y-5">
+      {% for o in orders %}
+        <div class="card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 pb-4">
+            <div>
+              <p class="font-display text-lg font-semibold">{{ o.order_id }}</p>
+              <p class="text-sm text-ink/50">Placed {{ o.created_at|date:"d M Y" }} · {{ o.no_of_product }} item{{ o.no_of_product|pluralize }}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              {% if o.status == 'DELIVERED' %}
+                <span class="rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700">{{ o.get_status_display }}</span>
+              {% elif o.status == 'CANCELLED' or o.status == 'REFUNDED' %}
+                <span class="rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-600">{{ o.get_status_display }}</span>
+              {% else %}
+                <span class="rounded-full bg-gold-400/20 px-3 py-1 text-xs font-bold text-ink">{{ o.get_status_display }}</span>
+              {% endif %}
+              <span class="rounded-full bg-ink/5 px-3 py-1 text-xs font-medium text-ink/60">{{ o.get_payment_mode_display }}</span>
+            </div>
+          </div>
+          <div class="mt-4 space-y-2">
+            {% for it in o.items.all %}
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-ink/80">{{ it.name }} <span class="text-ink/40">({{ it.variant_label }}) × {{ it.qty }}</span></span>
+                <span class="font-medium">{{ it.net_total|inr }}</span>
+              </div>
+            {% endfor %}
+          </div>
+          <div class="mt-4 flex items-center justify-between border-t border-black/5 pt-3">
+            <span class="text-sm text-ink/60">Payment: {{ o.get_payment_status_display }}</span>
+            <span class="font-display text-lg font-bold text-brand-700">{{ o.grand_total|inr }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card mt-8 flex flex-col items-center gap-3 py-20 text-center">
+      <span class="text-5xl">📦</span>
+      <p class="font-display text-xl font-semibold">No orders yet</p>
+      <p class="text-ink/50">When you place an order it will appear here.</p>
+      <a href="/products" class="btn-primary mt-2">Start shopping</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

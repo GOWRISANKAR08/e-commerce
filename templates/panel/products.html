@@ -1,0 +1,703 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Products · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Catalog · Products{% endblock %}
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink">
+        {% if show_archived %}Archived Products{% else %}Products{% endif %}
+      </h1>
+      <p class="mt-0.5 text-sm text-ink/50">
+        {% if show_archived %}Restore or permanently delete archived products.{% else %}Manage your full product catalog — masalas, pods, combos and more.{% endif %}
+      </p>
+    </div>
+    <div class="flex items-center gap-2">
+      {% if not show_archived %}
+      <button type="button" onclick="openImportModal()" class="btn-outline text-sm gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import
+      </button>
+      <a href="/admin-panel/products/new" class="btn-gold text-sm gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Product
+      </a>
+      {% else %}
+      <a href="/admin-panel/products" class="btn-outline text-sm gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to Products
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Tab switcher: Active / Archived -->
+  <div class="flex items-center gap-1 border-b border-black/8 pb-0">
+    <a href="/admin-panel/products"
+       class="flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium transition
+              {% if not show_archived %}bg-white border border-b-white border-black/8 -mb-px text-ink shadow-sm{% else %}text-ink/50 hover:text-ink{% endif %}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      Active Products
+      <span class="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] font-bold text-brand-700">{{ total }}</span>
+    </a>
+    <a href="/admin-panel/products?show=archived"
+       class="flex items-center gap-2 rounded-t-lg px-4 py-2 text-sm font-medium transition
+              {% if show_archived %}bg-white border border-b-white border-black/8 -mb-px text-ink shadow-sm{% else %}text-ink/50 hover:text-ink{% endif %}">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+      Archived
+      {% if archived_count %}<span class="rounded-full bg-ink/8 px-2 py-0.5 text-[10px] font-bold text-ink/50">{{ archived_count }}</span>{% endif %}
+    </a>
+  </div>
+
+  <!-- Stat cards — 6 cards -->
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    <div class="card p-4 flex items-start gap-3">
+      <span class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+      </span>
+      <div><p class="text-2xl font-bold text-ink leading-tight">{{ total }}</p><p class="text-xs text-ink/45 font-medium mt-0.5">Total SKUs</p></div>
+    </div>
+    <div class="card p-4 flex items-start gap-3">
+      <span class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f6b3a" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </span>
+      <div><p class="text-2xl font-bold text-brand-700 leading-tight">{{ in_stock }}</p><p class="text-xs text-ink/45 font-medium mt-0.5">In Stock</p></div>
+    </div>
+    <div class="card p-4 flex items-start gap-3">
+      <span class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      </span>
+      <div><p class="text-2xl font-bold text-amber-600 leading-tight">{{ low_stock }}</p><p class="text-xs text-ink/45 font-medium mt-0.5">Low Stock</p></div>
+    </div>
+    <div class="card p-4 flex items-start gap-3">
+      <span class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      </span>
+      <div><p class="text-2xl font-bold text-red-600 leading-tight">{{ out_stock }}</p><p class="text-xs text-ink/45 font-medium mt-0.5">Out of Stock</p></div>
+    </div>
+    <div class="card p-4 flex items-start gap-3">
+      <span class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-purple-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      </span>
+      <div><p class="text-2xl font-bold text-purple-700 leading-tight">{{ cat_count }}</p><p class="text-xs text-ink/45 font-medium mt-0.5">Categories</p></div>
+    </div>
+    <div class="card p-4 flex items-start gap-3">
+      <span class="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-400/15">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#f2c014" stroke="#d9a40a" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </span>
+      <div><p class="text-2xl font-bold text-gold-600 leading-tight">{{ avg_rating }}<span class="text-sm font-normal text-ink/40">★</span></p><p class="text-xs text-ink/45 font-medium mt-0.5">Avg Rating</p></div>
+    </div>
+  </div>
+
+  <!-- ─── Filter form (GET) — separate from bulk POST form ─── -->
+  <form method="get" id="filterForm" action="/admin-panel/products">
+    <input type="hidden" name="page" value="1">
+    {% if show_archived %}<input type="hidden" name="show" value="archived">{% endif %}
+  </form>
+
+  <!-- ─── Bulk POST form ─── -->
+  <form method="post" action="/admin-panel/products{% if show_archived %}?show=archived{% endif %}" id="bulkForm">
+    {% csrf_token %}
+    <input type="hidden" name="bulk_action" id="bulkActionInput" value="">
+
+    <div class="card overflow-hidden">
+
+      <!-- Toolbar -->
+      <div class="border-b border-black/5 bg-cream/20 px-4 py-3 space-y-2.5">
+
+        <!-- Row 1: filter inputs + right actions -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Search -->
+          <div class="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-1.5 min-w-44 flex-1 max-w-xs">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-ink/35"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input form="filterForm" type="text" name="q" value="{{ q }}"
+                   placeholder="{% if show_archived %}Search archived...{% else %}Search products...{% endif %}"
+                   class="flex-1 bg-transparent text-xs text-ink placeholder:text-ink/35 outline-none"
+                   onchange="document.getElementById('filterForm').submit()">
+          </div>
+
+          {% if not show_archived %}
+          <!-- Category -->
+          <select form="filterForm" name="cat" onchange="document.getElementById('filterForm').submit()"
+                  class="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+            <option value="">All Categories</option>
+            {% for c in categories %}
+              <option value="{{ c.slug }}" {% if cat_filter == c.slug %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <!-- Status (stock status for active/variant view) -->
+          <select form="filterForm" name="status" onchange="document.getElementById('filterForm').submit()"
+                  class="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+            <option value="">All Status</option>
+            {% for val, lab in stock_statuses %}
+              <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ lab }}</option>
+            {% endfor %}
+          </select>
+          <!-- Sort -->
+          <select form="filterForm" name="sort" onchange="document.getElementById('filterForm').submit()"
+                  class="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+            <option value="position" {% if sort == "position" %}selected{% endif %}>Date Added</option>
+            <option value="date_desc" {% if sort == "date_desc" %}selected{% endif %}>Newest First</option>
+            <option value="date_asc" {% if sort == "date_asc" %}selected{% endif %}>Oldest First</option>
+            <option value="name" {% if sort == "name" %}selected{% endif %}>Name A–Z</option>
+          </select>
+          {% endif %}
+
+          {% if q or cat_filter or status_filter %}
+            <a href="/admin-panel/products{% if show_archived %}?show=archived{% endif %}" class="text-xs text-ink/50 hover:text-ink">✕ Clear</a>
+          {% endif %}
+
+          <div class="ml-auto flex items-center gap-2 shrink-0">
+            {% if not show_archived %}
+            <!-- Import -->
+            <button type="button" onclick="openImportModal()" class="btn-outline text-xs px-3 py-1.5 gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Import
+            </button>
+            <!-- Export dropdown -->
+            <div class="relative" id="exportMenu">
+              <button type="button" onclick="toggleExportMenu()"
+                      class="btn-outline text-xs px-3 py-1.5 gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export
+                <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div id="exportDropdown" class="hidden absolute right-0 top-full mt-1 z-30 w-44 rounded-xl border border-black/8 bg-white shadow-lg py-1.5">
+                <button type="button" onclick="exportCSV()"
+                        class="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs text-ink hover:bg-cream transition text-left">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  Export as CSV
+                </button>
+                <button type="button" onclick="exportExcel()"
+                        class="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs text-ink hover:bg-cream transition text-left">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                  Export as Excel
+                </button>
+                <button type="button" onclick="exportPDF()"
+                        class="flex w-full items-center gap-2.5 px-3.5 py-2 text-xs text-ink hover:bg-cream transition text-left">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Export as PDF
+                </button>
+              </div>
+            </div>
+            <a href="/admin-panel/products/new" class="btn-gold text-xs px-3 py-1.5 gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add Product
+            </a>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Row 2: bulk actions -->
+        <div class="flex flex-wrap items-center gap-2">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="checkAll" class="rounded accent-brand-600 h-3.5 w-3.5">
+            <span class="text-xs text-ink/60 font-medium">Select All</span>
+          </label>
+          <span class="h-4 w-px bg-black/10"></span>
+
+          {% if show_archived %}
+          <!-- Archived mode bulk actions -->
+          <button type="button" id="btnRestore" onclick="doBulk('restore')" disabled
+                  class="bulk-btn flex items-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 transition opacity-40 cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Restore
+          </button>
+          <button type="button" id="btnDelete" onclick="doBulk('delete')" disabled
+                  class="bulk-btn flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 transition opacity-40 cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete Permanently
+          </button>
+          {% else %}
+          <!-- Active mode bulk actions -->
+          <button type="button" id="btnDelete" onclick="doBulk('delete')" disabled
+                  class="bulk-btn flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-600 transition opacity-40 cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete
+          </button>
+          <button type="button" id="btnArchive" onclick="doBulk('archive')" disabled
+                  class="bulk-btn flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 py-1 text-xs font-medium text-ink/65 transition opacity-40 cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+            Archive
+          </button>
+          <button type="button" id="btnDupe" onclick="doBulk('duplicate')" disabled
+                  class="bulk-btn flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 py-1 text-xs font-medium text-ink/65 transition opacity-40 cursor-not-allowed">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Duplicate
+          </button>
+          {% endif %}
+
+          <span id="selCount" class="text-xs font-semibold text-brand-700 hidden"></span>
+        </div>
+      </div>
+
+      <!-- Row-level action forms – must live outside <table> so the browser
+           doesn't foster-parent the <form> tag while leaving the csrf input
+           stranded inside <tbody>. The buttons reference them via form="id". -->
+      {% for p in products %}
+        {% if show_archived %}
+        <form id="rf{{ p.id }}" method="post" action="/admin-panel/products/{{ p.id }}/restore">{% csrf_token %}</form>
+        <form id="df{{ p.id }}" method="post" action="/admin-panel/products/{{ p.id }}/delete"
+              onsubmit="return confirm('Permanently delete {{ p.name|escapejs }}?')">{% csrf_token %}</form>
+        {% else %}
+        <form id="cf{{ p.id }}" method="post" action="/admin-panel/variants/{{ p.id }}/clone">{% csrf_token %}</form>
+        <form id="df{{ p.id }}" method="post" action="/admin-panel/variants/{{ p.id }}/delete?from=products"
+              onsubmit="return confirm('Delete {{ p.product.name|escapejs }} – {{ p.variant|escapejs }}?')">{% csrf_token %}</form>
+        {% endif %}
+      {% endfor %}
+
+      <!-- Table -->
+      <div class="overflow-x-auto" id="productTableWrap">
+        <table class="w-full text-sm" id="productTable">
+          <thead>
+            <tr class="border-b border-black/5 bg-cream/40 text-left text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+              <th class="px-4 py-3 w-8"></th>
+              <th class="px-4 py-3 min-w-[220px]">Product</th>
+              <th class="px-4 py-3">SKU</th>
+              <th class="px-4 py-3">Category</th>
+              <th class="px-4 py-3">MRP</th>
+              <th class="px-4 py-3">Price</th>
+              <th class="px-4 py-3">Stock</th>
+              <th class="px-4 py-3">Status</th>
+              <th class="px-4 py-3">Rating</th>
+              <th class="px-4 py-3 text-right w-24">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in products %}
+              {% if show_archived %}
+              {# ── ARCHIVED MODE: p = Product ────────────────────────────────── #}
+              {% with v=p.default_variant %}
+              <tr class="border-b border-black/5 last:border-0 hover:bg-cream/30 align-middle group cursor-pointer product-row"
+                  data-href="/admin-panel/products/{{ p.id }}/edit"
+                  data-pid="{{ p.id }}">
+                <td class="px-4 py-3" onclick="event.stopPropagation()">
+                  <input type="checkbox" name="product_ids" value="{{ p.id }}" form="bulkForm"
+                         class="row-check rounded accent-brand-600 h-3.5 w-3.5">
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-brand-50 to-cream border border-black/5">
+                      <img src="{{ p.image }}" alt="{{ p.name }}"
+                           onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"
+                           class="h-full w-full object-cover" loading="lazy"/>
+                      <span style="display:none" class="absolute inset-0 grid place-items-center text-sm font-bold text-brand-300">{{ p.name|initials }}</span>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-ink text-sm leading-tight truncate max-w-[180px]">{{ p.name }}</p>
+                      <p class="text-[10px] text-ink/40 mt-0.5">Updated {{ p.updated_at|timesince }} ago</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3"><span class="inline-block rounded-md bg-ink/5 px-2 py-0.5 font-mono text-[11px] text-ink/60 whitespace-nowrap">{{ p.code }}</span></td>
+                <td class="px-4 py-3 text-xs text-ink/65 whitespace-nowrap">{{ p.category.name }}</td>
+                <td class="px-4 py-3 text-xs text-ink/40 line-through whitespace-nowrap">{% if v %}{{ v.mrp_price|inr }}{% else %}—{% endif %}</td>
+                <td class="px-4 py-3 text-sm font-semibold text-brand-700 whitespace-nowrap">{% if v %}{{ v.selling_price|inr }}{% else %}—{% endif %}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  {% if v %}<span class="text-sm font-bold {% if v.stock_status == 'OUT_OF_STOCK' %}text-red-500{% elif v.stock_status == 'LOW_STOCK' %}text-amber-600{% else %}text-brand-700{% endif %}">{{ v.stock }}</span>{% else %}<span class="text-xs text-ink/30">—</span>{% endif %}
+                </td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-ink/5 text-ink/50">
+                    <span class="h-1.5 w-1.5 rounded-full bg-ink/30 shrink-0"></span>Archived
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  {% with r=p.avg_rating %}{% if r %}<div class="flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#f2c014" stroke="#d9a40a" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span class="text-xs font-semibold text-ink/75">{{ r }}</span></div>{% else %}<span class="text-xs text-ink/25">—</span>{% endif %}{% endwith %}
+                </td>
+                <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
+                  <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button form="rf{{ p.id }}" type="submit" onclick="event.stopPropagation()"
+                            class="flex items-center gap-1 rounded-md bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-100 transition" title="Restore">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      Restore
+                    </button>
+                    <button form="df{{ p.id }}" type="submit" onclick="event.stopPropagation()"
+                            class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-red-50 hover:text-red-600 transition" title="Delete permanently">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endwith %}
+
+              {% else %}
+              {# ── ACTIVE MODE: p = ProductVariant ──────────────────────────── #}
+              <tr class="border-b border-black/5 last:border-0 hover:bg-cream/30 align-middle group cursor-pointer product-row"
+                  data-href="/admin-panel/products/{{ p.product.id }}/edit"
+                  data-pid="{{ p.id }}">
+                <td class="px-4 py-3" onclick="event.stopPropagation()">
+                  <input type="checkbox" name="product_ids" value="{{ p.id }}" form="bulkForm"
+                         class="row-check rounded accent-brand-600 h-3.5 w-3.5">
+                </td>
+                <!-- Product name = "Product — Variant" -->
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-gradient-to-br from-brand-50 to-cream border border-black/5">
+                      <img src="{{ p.product.image }}" alt="{{ p.product.name }}"
+                           onerror="this.style.display='none';this.nextElementSibling.style.display='grid'"
+                           class="h-full w-full object-cover" loading="lazy"/>
+                      <span style="display:none" class="absolute inset-0 grid place-items-center text-sm font-bold text-brand-300">{{ p.product.name|initials }}</span>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-ink text-sm leading-tight truncate max-w-[180px]">{{ p.product.name }} — {{ p.variant }}</p>
+                      <p class="text-[10px] text-ink/40 mt-0.5">Updated {{ p.product.updated_at|timesince }} ago</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3"><span class="inline-block rounded-md bg-ink/5 px-2 py-0.5 font-mono text-[11px] text-ink/60 whitespace-nowrap">{{ p.va_code }}</span></td>
+                <td class="px-4 py-3 text-xs text-ink/65 whitespace-nowrap">{{ p.product.category.name }}</td>
+                <td class="px-4 py-3 text-xs text-ink/40 line-through whitespace-nowrap">{{ p.mrp_price|inr }}</td>
+                <td class="px-4 py-3 text-sm font-semibold text-brand-700 whitespace-nowrap">{{ p.selling_price|inr }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span class="text-sm font-bold
+                    {% if p.stock_status == 'OUT_OF_STOCK' %}text-red-500
+                    {% elif p.stock_status == 'LOW_STOCK' %}text-amber-600
+                    {% else %}text-brand-700{% endif %}">{{ p.stock }}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap
+                    {% if p.stock_status == 'IN_STOCK' %}bg-brand-50 text-brand-700
+                    {% elif p.stock_status == 'LOW_STOCK' %}bg-amber-50 text-amber-700
+                    {% else %}bg-red-50 text-red-700{% endif %}">
+                    <span class="h-1.5 w-1.5 rounded-full shrink-0
+                      {% if p.stock_status == 'IN_STOCK' %}bg-brand-500
+                      {% elif p.stock_status == 'LOW_STOCK' %}bg-amber-500
+                      {% else %}bg-red-500{% endif %}"></span>
+                    {{ p.get_stock_status_display }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  {% with r=p.product.avg_rating %}{% if r %}<div class="flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#f2c014" stroke="#d9a40a" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg><span class="text-xs font-semibold text-ink/75">{{ r }}</span></div>{% else %}<span class="text-xs text-ink/25">—</span>{% endif %}{% endwith %}
+                </td>
+                <td class="px-4 py-3 text-right" onclick="event.stopPropagation()">
+                  <div class="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <a href="/admin-panel/products/{{ p.product.id }}/edit"
+                       class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-brand-50 hover:text-brand-700 transition" title="Edit product">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </a>
+                    <button form="cf{{ p.id }}" type="submit"
+                            onclick="event.stopPropagation(); return confirm('Clone {{ p.variant|escapejs }} variant?')"
+                            class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-blue-50 hover:text-blue-600 transition" title="Clone variant">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button form="df{{ p.id }}" type="submit" onclick="event.stopPropagation()"
+                            class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-red-50 hover:text-red-600 transition" title="Delete variant">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endif %}
+            {% empty %}
+              <tr>
+                <td colspan="10" class="px-4 py-14 text-center">
+                  <div class="flex flex-col items-center gap-3">
+                    <div class="grid h-14 w-14 place-items-center rounded-2xl bg-cream">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-ink/25"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold text-ink/50">{% if show_archived %}No archived products{% else %}No SKUs found{% endif %}</p>
+                      <p class="text-xs text-ink/30 mt-0.5">{% if show_archived %}Nothing has been archived yet{% else %}Try adjusting your search or filters{% endif %}</p>
+                    </div>
+                    <div class="flex gap-2">
+                      {% if not show_archived %}
+                        {% if q or cat_filter or status_filter %}
+                          <a href="/admin-panel/products" class="btn-outline text-xs px-3 py-1.5">Clear filters</a>
+                        {% endif %}
+                        <a href="/admin-panel/products/new" class="btn-primary text-xs px-3 py-1.5">+ Add Product</a>
+                      {% endif %}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination footer -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-black/5 px-4 py-3 bg-cream/10">
+        <p class="text-xs text-ink/50">
+          Showing <strong class="text-ink">{{ page_obj.start_index }}</strong>–<strong class="text-ink">{{ page_obj.end_index }}</strong>
+          of <strong class="text-ink">{{ filtered_total }}</strong> {% if show_archived %}product{% else %}SKU{% endif %}{{ filtered_total|pluralize }}
+        </p>
+        {% if page_obj.paginator.num_pages > 1 %}
+          <nav class="flex items-center gap-1">
+            {% if page_obj.has_previous %}
+              <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&cat={{ cat_filter }}&status={{ status_filter }}&sort={{ sort }}"
+                 class="grid h-8 w-8 place-items-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-cream hover:text-ink transition text-xs">‹</a>
+            {% else %}
+              <span class="grid h-8 w-8 place-items-center rounded-lg bg-ink/3 text-ink/20 text-xs cursor-not-allowed">‹</span>
+            {% endif %}
+
+            {% for pnum in page_obj.paginator.page_range %}
+              {% if pnum == page_obj.number %}
+                <span class="grid h-8 min-w-[2rem] px-1 place-items-center rounded-lg bg-brand-700 text-white text-xs font-bold">{{ pnum }}</span>
+              {% elif pnum == 1 or pnum == page_obj.paginator.num_pages %}
+                <a href="?page={{ pnum }}&q={{ q }}&cat={{ cat_filter }}&status={{ status_filter }}&sort={{ sort }}"
+                   class="grid h-8 min-w-[2rem] px-1 place-items-center rounded-lg border border-black/10 bg-white text-xs text-ink/70 hover:bg-cream transition">{{ pnum }}</a>
+              {% elif pnum >= page_obj.number|add:"-2" and pnum <= page_obj.number|add:"2" %}
+                <a href="?page={{ pnum }}&q={{ q }}&cat={{ cat_filter }}&status={{ status_filter }}&sort={{ sort }}"
+                   class="grid h-8 min-w-[2rem] px-1 place-items-center rounded-lg border border-black/10 bg-white text-xs text-ink/70 hover:bg-cream transition">{{ pnum }}</a>
+              {% elif pnum == page_obj.number|add:"-3" or pnum == page_obj.number|add:"3" %}
+                <span class="grid h-8 w-8 place-items-center text-xs text-ink/30">…</span>
+              {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&cat={{ cat_filter }}&status={{ status_filter }}&sort={{ sort }}"
+                 class="grid h-8 w-8 place-items-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-cream hover:text-ink transition text-xs">›</a>
+            {% else %}
+              <span class="grid h-8 w-8 place-items-center rounded-lg bg-ink/3 text-ink/20 text-xs cursor-not-allowed">›</span>
+            {% endif %}
+          </nav>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script>
+  // ── Clickable rows ─────────────────────────────────────────────────────────
+  document.querySelectorAll('.product-row').forEach(row => {
+    row.addEventListener('click', () => window.location.href = row.dataset.href);
+  });
+
+  // ── Checkbox / bulk selection ──────────────────────────────────────────────
+  const checkAll   = document.getElementById('checkAll');
+  const selCountEl = document.getElementById('selCount');
+  // Use class selector so both active-mode and archived-mode buttons are found
+  // without needing to enumerate IDs that may not exist in the current mode.
+  const bulkBtns   = Array.from(document.querySelectorAll('.bulk-btn'));
+
+  checkAll.addEventListener('change', function () {
+    document.querySelectorAll('.row-check').forEach(cb => cb.checked = this.checked);
+    syncBulk();
+  });
+  document.querySelectorAll('.row-check').forEach(cb => cb.addEventListener('change', syncBulk));
+
+  function syncBulk() {
+    const n = document.querySelectorAll('.row-check:checked').length;
+    selCountEl.textContent = n ? n + ' selected' : '';
+    selCountEl.classList.toggle('hidden', !n);
+    bulkBtns.forEach(b => {
+      if (!b) return;
+      b.disabled = !n;
+      b.classList.toggle('opacity-40', !n);
+      b.classList.toggle('cursor-not-allowed', !n);
+      b.classList.toggle('cursor-pointer', !!n);
+    });
+  }
+
+  function doBulk(action) {
+    const n = document.querySelectorAll('.row-check:checked').length;
+    if (!n) return;
+    const verbMap = { delete: 'permanently delete', archive: 'archive', duplicate: 'duplicate', restore: 'restore' };
+    const verb = verbMap[action] || action;
+    if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} ${n} selected item(s)?`)) return;
+    document.getElementById('bulkActionInput').value = action;
+    document.getElementById('bulkForm').submit();
+  }
+
+  // ── Export dropdown ─────────────────────────────────────────────────────────
+  function toggleExportMenu() {
+    document.getElementById('exportDropdown').classList.toggle('hidden');
+  }
+  document.addEventListener('click', e => {
+    if (!document.getElementById('exportMenu').contains(e.target))
+      document.getElementById('exportDropdown').classList.add('hidden');
+  });
+
+  function filterQS() {
+    const p = new URLSearchParams();
+    const q  = document.querySelector('[name=q]');
+    const cat  = document.querySelector('[name=cat]');
+    const st   = document.querySelector('[name=status]');
+    const sort = document.querySelector('[name=sort]');
+    if (q && q.value)   p.set('q', q.value);
+    if (cat && cat.value)  p.set('cat', cat.value);
+    if (st && st.value)  p.set('status', st.value);
+    if (sort && sort.value) p.set('sort', sort.value);
+    document.querySelectorAll('.row-check:checked').forEach(cb =>
+      p.append('ids', cb.closest('tr').dataset.pid));
+    return p.toString();
+  }
+
+  function exportCSV() {
+    window.location.href = '/admin-panel/products/export?' + filterQS();
+    document.getElementById('exportDropdown').classList.add('hidden');
+  }
+
+  function exportExcel() {
+    document.getElementById('exportDropdown').classList.add('hidden');
+    const wb = XLSX.utils.table_to_book(
+      document.getElementById('productTable'), { sheet: 'Products' }
+    );
+    XLSX.writeFile(wb, 'products_export.xlsx');
+  }
+
+  function exportPDF() {
+    document.getElementById('exportDropdown').classList.add('hidden');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+    // Title
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('{{ SITE_NAME }} — Products Export', 40, 40);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Generated: ' + new Date().toLocaleString(), 40, 56);
+
+    // Collect rows from visible table rows
+    const rows = [];
+    document.querySelectorAll('#productTable tbody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length < 9) return;
+      rows.push([
+        cells[1].querySelector('p')?.textContent.trim() || cells[1].textContent.trim(),  // name
+        cells[2].textContent.trim(),  // SKU
+        cells[3].textContent.trim(),  // category
+        cells[4].textContent.trim(),  // MRP
+        cells[5].textContent.trim(),  // price
+        cells[6].textContent.trim(),  // stock
+        cells[7].textContent.trim(),  // status
+        cells[8].textContent.trim(),  // rating
+      ]);
+    });
+
+    doc.autoTable({
+      head: [['Product', 'SKU', 'Category', 'MRP', 'Price', 'Stock', 'Status', 'Rating']],
+      body: rows,
+      startY: 70,
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fillColor: [31, 107, 58], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [247, 244, 236] },
+      margin: { left: 40, right: 40 },
+    });
+
+    doc.save('products_export.pdf');
+  }
+
+  // ── Import modal ────────────────────────────────────────────────
+  function openImportModal() {
+    document.getElementById('importModal').classList.remove('hidden');
+    document.getElementById('importModal').classList.add('flex');
+  }
+  function closeImportModal() {
+    document.getElementById('importModal').classList.add('hidden');
+    document.getElementById('importModal').classList.remove('flex');
+  }
+
+  (function(){
+    const input  = document.getElementById('importFileInput');
+    const label  = document.getElementById('importFileLabel');
+    const info   = document.getElementById('importFileInfo');
+    const fname  = document.getElementById('importFileName');
+    const fsize  = document.getElementById('importFileSize');
+    const zone   = document.getElementById('importDropZone');
+    const btn    = document.getElementById('importSubmitBtn');
+
+    if (!input) return;
+
+    function setFile(file) {
+      if (!file) return;
+      fname.textContent = file.name;
+      fsize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+      label.textContent = file.name;
+      info.classList.remove('hidden');
+      btn.disabled = false;
+      btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    input.addEventListener('change', () => setFile(input.files[0]));
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('border-brand-400','bg-brand-50'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('border-brand-400','bg-brand-50'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('border-brand-400','bg-brand-50');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        setFile(file);
+      }
+    });
+
+    // Close on backdrop click
+    document.getElementById('importModal').addEventListener('click', function(e){
+      if (e.target === this) closeImportModal();
+    });
+  })();
+</script>
+
+<!-- ── Import Modal ─────────────────────────────────────────────── -->
+<div id="importModal" class="fixed inset-0 z-50 hidden items-end justify-center sm:items-center bg-ink/40 backdrop-blur-sm p-4">
+  <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between border-b border-black/5 px-6 py-4">
+      <div>
+        <h2 class="font-display text-base font-semibold text-ink">Import Products</h2>
+        <p class="text-xs text-ink/40 mt-0.5">Upload a CSV or Excel file to bulk-import products</p>
+      </div>
+      <button type="button" onclick="closeImportModal()"
+              class="grid h-8 w-8 place-items-center rounded-lg text-ink/40 hover:bg-cream hover:text-ink transition">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <form method="post" enctype="multipart/form-data" action="/admin-panel/products/import" class="p-6 space-y-4">
+      {% csrf_token %}
+
+      <!-- Drop zone -->
+      <label id="importDropZone"
+             class="flex flex-col items-center justify-center gap-3 cursor-pointer rounded-xl border-2 border-dashed border-brand-200 bg-cream/50 py-8 transition hover:bg-brand-50">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4f9663" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div class="text-center">
+          <p class="text-sm font-medium text-ink" id="importFileLabel">Click to choose file or drag & drop here</p>
+          <p class="text-xs text-ink/40 mt-0.5">CSV or XLSX · max 5 MB</p>
+        </div>
+        <input type="file" id="importFileInput" name="import_file" accept=".csv,.xlsx,.xls" class="sr-only" required />
+      </label>
+
+      <!-- Selected file info -->
+      <div id="importFileInfo" class="hidden items-center gap-3 rounded-lg bg-cream px-4 py-2.5 text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1f6b3a" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+        <span id="importFileName" class="font-medium text-ink truncate flex-1"></span>
+        <span id="importFileSize" class="text-ink/40 text-xs shrink-0"></span>
+      </div>
+
+      <!-- Column guide -->
+      <div class="rounded-lg border border-black/6 bg-cream/30 px-4 py-3 text-xs text-ink/60 space-y-1">
+        <p class="font-semibold text-ink/80 mb-1">Required columns</p>
+        <div class="grid grid-cols-3 gap-x-4 gap-y-0.5 font-mono">
+          <span class="text-brand-700">name</span><span class="col-span-2">Product name</span>
+          <span class="text-brand-700">category</span><span class="col-span-2">Must match existing category</span>
+          <span class="text-brand-700">variant</span><span class="col-span-2">e.g. 100g, 500ml</span>
+          <span class="text-brand-700">price</span><span class="col-span-2">Selling price</span>
+        </div>
+        <p class="mt-1.5 text-ink/40">Optional: sku, mrp, stock, badge, status</p>
+      </div>
+
+      <div class="flex gap-3 pt-1">
+        <button type="submit" id="importSubmitBtn" disabled
+                class="btn-primary flex-1 justify-center py-2.5 opacity-50 cursor-not-allowed">
+          Import Products
+        </button>
+        <button type="button" onclick="closeImportModal()" class="btn-outline px-5">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% endblock %}

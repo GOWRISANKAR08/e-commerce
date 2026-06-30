@@ -1,0 +1,78 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Checkout · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-6xl px-4 py-10 lg:px-8">
+  <h1 class="font-display text-3xl font-semibold text-ink">Checkout</h1>
+
+  <form method="post" action="/checkout" class="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
+    {% csrf_token %}
+    <div class="space-y-6">
+      <div class="card p-6">
+        <h2 class="font-display text-lg font-semibold">Shipping Address</h2>
+        <div class="mt-4 grid grid-cols-2 gap-4">
+          <label class="col-span-2 text-sm">
+            <span class="text-ink/60">Full name</span>
+            <input name="name" required value="{{ default_address.name|default:user.full_name }}"
+                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+          </label>
+          <label class="text-sm">
+            <span class="text-ink/60">Mobile</span>
+            <input name="mobile" required value="{{ default_address.mobile|default:user.mobile|default:'' }}"
+                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+          </label>
+          <label class="text-sm">
+            <span class="text-ink/60">PIN code</span>
+            <input name="pinCode" required value="{{ default_address.pin_code|default:'' }}"
+                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+          </label>
+          <label class="col-span-2 text-sm">
+            <span class="text-ink/60">Address</span>
+            <textarea name="address" required rows="2"
+                      class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200">{{ default_address.address|default:'' }}</textarea>
+          </label>
+          <label class="text-sm">
+            <span class="text-ink/60">City</span>
+            <input name="city" required value="{{ default_address.city|default:user.city|default:'' }}"
+                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+          </label>
+        </div>
+      </div>
+
+      <div class="card p-6">
+        <h2 class="font-display text-lg font-semibold">Payment Method</h2>
+        <div class="mt-4 space-y-3">
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 p-4 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50">
+            <input type="radio" name="paymentMode" value="COD" checked class="accent-brand-600" />
+            <span><span class="font-semibold">Cash on Delivery</span><br><span class="text-sm text-ink/50">Pay when your order arrives.</span></span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 p-4 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50">
+            <input type="radio" name="paymentMode" value="RAZORPAY" class="accent-brand-600" />
+            <span><span class="font-semibold">Pay Online (Razorpay)</span><br><span class="text-sm text-ink/50">UPI, cards, net banking & wallets.</span></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <aside class="card h-fit p-6">
+      <h2 class="font-display text-lg font-semibold">Order Summary</h2>
+      <div class="mt-4 space-y-3">
+        {% for it in items %}
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-ink/80">{{ it.variant.product.name }} <span class="text-ink/40">({{ it.variant.variant }}) × {{ it.qty }}</span></span>
+            <span class="font-medium">{{ it.line_total|inr }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <dl class="mt-4 space-y-2 border-t border-black/5 pt-4 text-sm">
+        <div class="flex justify-between"><dt class="text-ink/60">Subtotal</dt><dd class="font-medium">{{ subtotal|inr }}</dd></div>
+        <div class="flex justify-between"><dt class="text-ink/60">Shipping</dt>
+          <dd class="font-medium">{% if shipping %}{{ shipping|inr }}{% else %}<span class="text-brand-600">FREE</span>{% endif %}</dd></div>
+        <div class="flex justify-between border-t border-black/5 pt-2 text-base"><dt class="font-semibold">Total</dt><dd class="font-bold text-brand-700">{{ grand_total|inr }}</dd></div>
+      </dl>
+      <button class="btn-primary mt-5 w-full">Place Order</button>
+      <a href="/cart" class="btn-ghost mt-3 w-full justify-center">← Back to cart</a>
+    </aside>
+  </form>
+</section>
+{% endblock %}

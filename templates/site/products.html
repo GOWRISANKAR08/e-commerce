@@ -1,0 +1,33 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Shop — {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-7xl px-4 py-10 lg:px-8">
+  <div class="mb-6"><span class="section-eyebrow">Our Collection</span>
+    <h1 class="mt-2 font-display text-4xl font-semibold">All Products</h1>
+    <p class="mt-1 text-ink/60">{{ total }} product{{ total|pluralize }}{% if q %} for “{{ q }}”{% endif %}</p>
+  </div>
+
+  <div class="mb-8 flex flex-wrap gap-2">
+    <a href="/products" class="rounded-full px-4 py-2 text-sm font-medium {% if not active_category %}bg-brand-600 text-white{% else %}bg-white ring-1 ring-black/5 hover:ring-brand-200{% endif %}">All</a>
+    {% for c in categories %}
+      <a href="/products?category={{ c.slug }}" class="rounded-full px-4 py-2 text-sm font-medium {% if active_category == c.slug %}bg-brand-600 text-white{% else %}bg-white ring-1 ring-black/5 hover:ring-brand-200{% endif %}">{{ c.name }}</a>
+    {% endfor %}
+  </div>
+
+  {% if page_obj %}
+    <div class="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
+      {% for product in page_obj %}{% include "site/_product_card.html" %}{% endfor %}
+    </div>
+    {% if page_obj.has_other_pages %}
+      <div class="mt-10 flex justify-center gap-2">
+        {% if page_obj.has_previous %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if active_category %}category={{ active_category }}&{% endif %}page={{ page_obj.previous_page_number }}" class="rounded-lg bg-white px-4 py-2 text-sm ring-1 ring-black/5">Prev</a>{% endif %}
+        <span class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?{% if q %}q={{ q }}&{% endif %}{% if active_category %}category={{ active_category }}&{% endif %}page={{ page_obj.next_page_number }}" class="rounded-lg bg-white px-4 py-2 text-sm ring-1 ring-black/5">Next</a>{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <p class="rounded-2xl bg-white p-10 text-center text-ink/50 ring-1 ring-black/5">No products found.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Testimonials · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="bg-grain">
+  <div class="mx-auto max-w-7xl px-4 py-12 lg:px-8">
+    <div class="text-center">
+      <span class="section-eyebrow justify-center">Loved by home cooks</span>
+      <h1 class="mt-2 font-display text-4xl font-semibold text-ink">What our customers say</h1>
+    </div>
+
+    <div class="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {% for t in testimonials %}
+        <figure class="card p-6">
+          <div class="flex text-gold-500">
+            {% for _ in "12345"|make_list %}{% if forloop.counter <= t.rating %}★{% else %}<span class="text-ink/15">★</span>{% endif %}{% endfor %}
+          </div>
+          <blockquote class="mt-3 text-ink/75 leading-relaxed">“{{ t.comment }}”</blockquote>
+          <figcaption class="mt-4 flex items-center gap-3">
+            <span class="grid h-10 w-10 place-items-center rounded-full bg-brand-600 text-sm font-bold text-gold-500">{{ t.name|initials }}</span>
+            <span>
+              <span class="block font-semibold">{{ t.name }}</span>
+              {% if t.city %}<span class="block text-xs text-ink/45">{{ t.city }}</span>{% endif %}
+            </span>
+          </figcaption>
+        </figure>
+      {% empty %}
+        <p class="text-ink/50">No testimonials yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

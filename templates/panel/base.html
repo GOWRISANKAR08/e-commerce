@@ -1,0 +1,147 @@
+﻿{% load store_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Admin · {{ SITE_NAME }}{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = { theme: { extend: {
+      colors: { brand:{50:"#eef6ef",100:"#d6e9da",200:"#aed3b6",300:"#7fb78c",400:"#4f9663",500:"#2f7a47",600:"#1f6b3a",700:"#165230",800:"#103d24",900:"#0b2a19"},
+                gold:{400:"#f6cf3e",500:"#f2c014",600:"#d9a40a"}, cream:"#f7f4ec", ink:"#1b2420" },
+      fontFamily: { display:["Poppins","system-ui","sans-serif"], sans:["Poppins","system-ui","sans-serif"] },
+    } } }
+  </script>
+  <style>
+    *{ font-family: Poppins, system-ui, sans-serif; }
+    body{ color:#1b2420; background:#f4f6f4; }
+    .card{ border-radius:1rem; background:#fff; box-shadow:0 2px 14px -6px rgba(16,61,36,.10); outline:1px solid rgba(0,0,0,.04); }
+    .btn-primary{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; border-radius:.6rem; background:#1f6b3a; padding:.5rem 1rem; font-size:.875rem; font-weight:600; color:#fff; transition:background .15s; }
+    .btn-primary:hover{ background:#165230; }
+    .btn-gold{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; border-radius:.6rem; background:#f2c014; padding:.5rem 1rem; font-size:.875rem; font-weight:700; color:#103d24; transition:background .15s; }
+    .btn-gold:hover{ background:#d9a40a; }
+    .btn-outline{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; border-radius:.6rem; background:#fff; padding:.45rem 1rem; font-size:.875rem; font-weight:500; color:#1b2420; border:1px solid rgba(0,0,0,.12); transition:background .15s; }
+    .btn-outline:hover{ background:#f4f6f4; }
+    .nav-link{ display:flex; align-items:center; gap:.6rem; border-radius:.5rem; padding:.45rem .65rem; font-size:.8125rem; font-weight:500; color:rgba(255,255,255,.65); transition:all .15s; }
+    .nav-link:hover{ background:rgba(255,255,255,.08); color:#fff; }
+    .nav-link.active{ background:#f2c014; color:#103d24; font-weight:600; }
+    .nav-link .badge{ margin-left:auto; border-radius:9999px; background:rgba(255,255,255,.15); padding:.1rem .45rem; font-size:.7rem; font-weight:700; }
+    .nav-link.active .badge{ background:rgba(16,61,36,.15); }
+    .scrollbar-thin::-webkit-scrollbar{ width:4px; } .scrollbar-thin::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.12); border-radius:2px; }
+    .no-scrollbar::-webkit-scrollbar{ display:none; } .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+    table.dt td, table.dt th{ white-space:nowrap; }
+    input,select,textarea{ font-family: Poppins, system-ui, sans-serif; }
+    .product-row:hover td:first-child input{ accent-color:#1f6b3a; }
+    .status-delivered{ background:#dcfce7; color:#166534; }
+    .status-cancelled,.status-refunded{ background:#fee2e2; color:#991b1b; }
+    .status-processing,.status-pending{ background:#fef9c3; color:#854d0e; }
+    .status-packed,.status-dispatched{ background:#dbeafe; color:#1e40af; }
+    .status-confirmed{ background:#d1fae5; color:#065f46; }
+  </style>
+</head>
+<body>
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="sticky top-0 hidden h-screen w-56 shrink-0 flex-col overflow-y-auto bg-brand-800 px-2 py-4 text-white scrollbar-thin lg:flex">
+    <!-- Brand -->
+    <a href="/admin-panel" class="mb-5 flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-white/5">
+      <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gold-500 font-bold text-brand-900 text-base">{{ SITE_NAME|slice:":1" }}</span>
+      <div class="min-w-0">
+        <p class="truncate text-sm font-bold text-white leading-tight">{{ SITE_NAME }}</p>
+        <p class="text-[10px] text-white/40">Admin Panel</p>
+      </div>
+    </a>
+
+    <nav class="flex-1 space-y-4 overflow-y-auto scrollbar-thin">
+      {% for group in ADMIN_NAV %}
+        <div>
+          {% if group.heading %}
+            <p class="mb-1 px-2 text-[9px] font-bold uppercase tracking-widest text-white/30">{{ group.heading }}</p>
+          {% endif %}
+          <div class="space-y-0.5">
+            {% for item in group.items %}
+              <a href="{{ item.href }}" class="nav-link {% if item.href == active_path or active_path|stringformat:'s' == item.href %}active{% endif %}">
+                {% include "panel/_icon.html" with icon=item.icon %}
+                <span class="truncate">{{ item.label }}</span>
+                {% if item.count_key %}
+                  {% with cnt=order_counts|get_item:item.count_key %}
+                    {% if cnt %}<span class="badge">{{ cnt }}</span>{% endif %}
+                  {% endwith %}
+                {% endif %}
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+    </nav>
+
+    <!-- Bottom user -->
+    <div class="mt-3 border-t border-white/10 pt-3 px-1">
+      <div class="flex items-center gap-2">
+        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold-500 text-xs font-bold text-brand-900">{{ user.full_name|initials }}</span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs font-semibold text-white leading-tight">{{ user.full_name|default:"Admin" }}</p>
+          <p class="text-[10px] text-white/40">Super Admin</p>
+        </div>
+        <a href="/logout" title="Logout" class="shrink-0 text-white/40 hover:text-white transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex min-w-0 flex-1 flex-col">
+    <!-- Top header -->
+    <header class="sticky top-0 z-30 flex items-center justify-between border-b border-black/5 bg-white/95 px-5 py-2.5 backdrop-blur gap-4">
+      <div class="flex flex-1 items-center gap-3 min-w-0">
+        <!-- Breadcrumb -->
+        <div class="hidden items-center gap-1.5 text-sm text-ink/50 lg:flex">
+          <span class="font-medium text-ink">Dashboard</span>
+          <span>›</span>
+          <span>{% block crumb %}Overview{% endblock %}</span>
+        </div>
+        <span class="font-bold text-ink lg:hidden">{{ SITE_NAME }}</span>
+        <!-- Search -->
+        <div class="hidden xl:flex flex-1 max-w-sm items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-1.5 text-sm ml-4">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-ink/35"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <span class="flex-1 text-xs text-ink/35">Search products, orders, customers…</span>
+          <kbd class="rounded border border-black/8 px-1 py-0.5 text-[9px] text-ink/25">⌘K</kbd>
+        </div>
+      </div>
+
+      <div class="flex shrink-0 items-center gap-2">
+        <a href="/admin-panel/products/new" class="btn-gold hidden sm:inline-flex text-xs px-3 py-2">+ Quick Add</a>
+        <button class="relative grid h-8 w-8 place-items-center rounded-full text-ink/50 hover:bg-black/5 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </button>
+        <button class="relative grid h-8 w-8 place-items-center rounded-full text-ink/50 hover:bg-black/5 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <div class="flex items-center gap-2 cursor-pointer hover:bg-black/3 rounded-lg px-2 py-1 transition">
+          <span class="grid h-8 w-8 place-items-center rounded-full bg-gold-500 text-xs font-bold text-brand-900">{{ user.full_name|initials }}</span>
+          <div class="hidden sm:block leading-tight">
+            <p class="text-xs font-semibold text-ink">{{ user.full_name|default:"Admin" }}</p>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-ink/40 hidden sm:block"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+    </header>
+
+    {% if messages %}
+      <div class="px-5 pt-3">
+        {% for m in messages %}
+          <div class="mb-2 rounded-lg px-4 py-2.5 text-sm font-medium {% if m.tags == 'error' %}bg-red-50 text-red-700 ring-1 ring-red-200{% else %}bg-brand-50 text-brand-700 ring-1 ring-brand-200{% endif %}">{{ m }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <main class="flex-1 p-5">{% block content %}{% endblock %}</main>
+  </div>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

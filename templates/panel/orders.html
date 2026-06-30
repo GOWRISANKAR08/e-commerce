@@ -1,0 +1,361 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Orders · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Orders{% endblock %}
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink">All Orders</h1>
+      <p class="mt-0.5 text-sm text-ink/50">{{ tab_counts|get_item:"" }} total orders · workflow-enforced</p>
+    </div>
+    <button onclick="exportOrders()" class="btn-outline text-sm gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export CSV
+    </button>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    {% for c in stat_cards %}
+      <div class="card p-3.5">
+        <div class="mb-2 flex items-center justify-between">
+          <span class="rounded-lg p-1.5" style="background:{{ c.bg }}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{ c.color }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              {% if c.icon == "bag" %}<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>
+              {% elif c.icon == "clock" %}<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              {% elif c.icon == "loader" %}<line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+              {% elif c.icon == "truck" %}<path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3"/><rect width="9" height="11" x="11" y="11" rx="2"/><circle cx="7" cy="20" r="2"/><circle cx="19" cy="20" r="2"/>
+              {% elif c.icon == "check-circle" %}<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              {% elif c.icon == "x-circle" %}<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+              {% endif %}
+            </svg>
+          </span>
+          {% if c.up is not None %}
+            <span class="text-[10px] font-semibold {% if c.up %}text-green-600{% else %}text-red-500{% endif %}">{% if c.up %}↑{% else %}↓{% endif %}</span>
+          {% endif %}
+        </div>
+        <p class="text-lg font-bold text-ink leading-tight">{{ c.value }}</p>
+        <p class="text-[11px] text-ink/45 mt-0.5">{{ c.label }}</p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Status tabs -->
+  <div class="card overflow-hidden">
+    <div class="flex items-center gap-0 overflow-x-auto border-b border-black/5 px-4 pt-1 no-scrollbar">
+      {% for key, label in tab_labels.items %}
+        <a href="?tab={{ key }}{% if q %}&q={{ q }}{% endif %}{% if channel %}&channel={{ channel }}{% endif %}"
+           class="relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors
+                  {% if tab == key %}text-brand-700 border-b-2 border-brand-600{% else %}text-ink/50 hover:text-ink{% endif %}">
+          {{ label }}
+          {% with cnt=tab_counts|get_item:key %}
+            {% if cnt %}<span class="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold
+              {% if tab == key %}bg-brand-100 text-brand-700{% else %}bg-black/6 text-ink/50{% endif %}">{{ cnt }}</span>{% endif %}
+          {% endwith %}
+        </a>
+      {% endfor %}
+    </div>
+
+    <!-- Workflow legend -->
+    <div class="hidden sm:flex items-center gap-1.5 overflow-x-auto border-b border-black/5 px-4 py-2 bg-brand-50/40">
+      <span class="text-[10px] text-ink/40 font-semibold shrink-0">WORKFLOW:</span>
+      <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-white border border-black/8 text-ink/60">Processing</span>
+      <span class="text-ink/20 shrink-0">→</span>
+      <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-white border border-black/8 text-ink/60">Order Confirmed</span>
+      <span class="text-ink/20 shrink-0">→</span>
+      <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-white border border-black/8 text-ink/60">Packed</span>
+      <span class="text-ink/20 shrink-0">→</span>
+      <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-white border border-black/8 text-ink/60">Dispatched</span>
+      <span class="text-ink/20 shrink-0">→</span>
+      <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-white border border-black/8 text-ink/60">Delivered</span>
+      <span class="mx-2 text-ink/20 shrink-0">|</span>
+      <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-red-50 border border-red-100 text-red-600">Cancel (any stage)</span>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex flex-wrap items-center gap-2 border-b border-black/5 px-4 py-2.5 bg-cream/30">
+      <form method="get" class="flex flex-1 flex-wrap items-center gap-2">
+        {% if tab %}<input type="hidden" name="tab" value="{{ tab }}">{% endif %}
+        <div class="flex flex-1 min-w-44 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-ink/35"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" name="q" value="{{ q }}" placeholder="Search order ID, customer…"
+                 class="flex-1 bg-transparent text-xs text-ink placeholder:text-ink/35 outline-none">
+        </div>
+        <select name="channel" onchange="this.form.submit()"
+                class="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs text-ink focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <option value="">All channels</option>
+          {% for val, lab in channels %}
+            <option value="{{ val }}" {% if channel == val %}selected{% endif %}>{{ lab }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn-primary text-xs px-3 py-1.5">Filter</button>
+        {% if q or channel %}<a href="?tab={{ tab }}" class="text-xs text-ink/50 hover:text-ink">Clear</a>{% endif %}
+      </form>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-black/5 bg-cream/40 text-left text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+            <th class="px-4 py-3 w-8"><input type="checkbox" class="rounded accent-brand-600" id="checkAll"></th>
+            <th class="px-4 py-3">Order ID</th>
+            <th class="px-4 py-3">Customer</th>
+            <th class="px-4 py-3">Items</th>
+            <th class="px-4 py-3">Channel</th>
+            <th class="px-4 py-3">Date</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3">Payment</th>
+            <th class="px-4 py-3 text-right">Amount</th>
+            <th class="px-4 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for o in orders %}
+            <!-- Update form (status + payment) -->
+            <form id="ord{{ o.id }}" method="post" action="/admin-panel/orders/{{ o.id }}/update">
+              {% csrf_token %}
+            </form>
+            <!-- Cancel form -->
+            <form id="cancel{{ o.id }}" method="post" action="/admin-panel/orders/{{ o.id }}/cancel">
+              {% csrf_token %}
+            </form>
+
+            <tr class="border-b border-black/5 last:border-0 hover:bg-cream/40 align-middle">
+              <td class="px-4 py-3"><input type="checkbox" class="row-check rounded accent-brand-600"></td>
+              <td class="px-4 py-3">
+                <p class="font-semibold text-ink text-xs">{{ o.order_id }}</p>
+                {% if o.refunds.exists %}
+                  <span class="inline-flex items-center gap-0.5 rounded-full bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">
+                    ₹{{ o.refunds.first.amount }} refunded
+                  </span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">{{ o.user.full_name|initials }}</span>
+                  <div>
+                    <p class="font-medium text-ink text-xs">{{ o.user.full_name|default:o.user.email }}</p>
+                    <p class="text-[10px] text-ink/40">{{ o.user.email }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                {% with first_item=o.items.first %}
+                  <p class="text-xs text-ink">{% if first_item %}{{ first_item.product.name|truncatechars:26 }}{% else %}—{% endif %}</p>
+                  {% if o.no_of_product > 1 %}
+                    <p class="text-[10px] text-ink/40">+{{ o.no_of_product|add:"-1" }} more</p>
+                  {% endif %}
+                {% endwith %}
+              </td>
+              <td class="px-4 py-3">
+                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold
+                  {% if o.channel == 'INSTAGRAM' %}bg-pink-50 text-pink-700
+                  {% elif o.channel == 'WHATSAPP' %}bg-green-50 text-green-700
+                  {% elif o.channel == 'REFERRAL' %}bg-purple-50 text-purple-700
+                  {% else %}bg-blue-50 text-blue-700{% endif %}">
+                  {{ o.get_channel_display|default:"Website" }}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <p class="text-xs text-ink/70">{{ o.created_at|date:"d M Y" }}</p>
+                <p class="text-[10px] text-ink/40">{{ o.created_at|date:"H:i" }}</p>
+              </td>
+
+              <!-- Workflow-constrained status -->
+              <td class="px-4 py-3">
+                {% if o.status == 'CANCELLED' or o.status == 'REFUNDED' or o.status == 'DELIVERED' %}
+                  <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold
+                    {% if o.status == 'DELIVERED' %}bg-brand-50 text-brand-700
+                    {% elif o.status == 'REFUNDED' %}bg-purple-50 text-purple-700
+                    {% else %}bg-red-50 text-red-600{% endif %}">
+                    {{ o.get_status_display }}
+                  </span>
+                {% else %}
+                  <select form="ord{{ o.id }}" name="status"
+                          onchange="document.getElementById('ord{{ o.id }}').submit()"
+                          class="workflow-select rounded-lg border border-black/10 px-2 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer
+                            {% if o.status == 'ORDER_CONFIRMED' or o.status == 'PACKED' %}bg-blue-50 text-blue-700
+                            {% elif o.status == 'DISPATCHED' %}bg-indigo-50 text-indigo-700
+                            {% else %}bg-amber-50 text-amber-700{% endif %}"
+                          data-current="{{ o.status }}">
+                    {% for val, lab in order_statuses %}
+                      <option value="{{ val }}" {% if o.status == val %}selected{% endif %}>{{ lab }}</option>
+                    {% endfor %}
+                  </select>
+                {% endif %}
+              </td>
+
+              <!-- Payment status -->
+              <td class="px-4 py-3">
+                <select form="ord{{ o.id }}" name="payment_status"
+                        onchange="document.getElementById('ord{{ o.id }}').submit()"
+                        class="rounded-lg border border-black/10 px-2 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+                  {% for val, lab in payment_statuses %}
+                    <option value="{{ val }}" {% if o.payment_status == val %}selected{% endif %}>{{ lab }}</option>
+                  {% endfor %}
+                </select>
+                <p class="mt-0.5 text-[10px] text-ink/40">{{ o.get_payment_mode_display }}</p>
+              </td>
+
+              <td class="px-4 py-3 text-right">
+                <p class="font-bold text-ink text-sm">{{ o.grand_total|inr }}</p>
+              </td>
+
+              <!-- Actions -->
+              <td class="px-4 py-3 text-right">
+                <div class="flex items-center justify-end gap-1">
+                  <!-- Cancel (only if not terminal) -->
+                  {% if o.status != 'CANCELLED' and o.status != 'REFUNDED' and o.status != 'DELIVERED' %}
+                    <button form="cancel{{ o.id }}"
+                            onclick="return confirm('Cancel order {{ o.order_id }}? {% if o.status == 'ORDER_CONFIRMED' or o.status == 'PACKED' or o.status == 'DISPATCHED' %}Stock will be restored automatically.{% endif %}')"
+                            class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-red-50 hover:text-red-600 transition" title="Cancel Order">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    </button>
+                  {% endif %}
+                  <!-- Refund (cancelled or delivered) -->
+                  {% if o.status == 'CANCELLED' or o.status == 'DELIVERED' %}
+                    <button onclick="openRefundModal({{ o.id }},'{{ o.order_id }}',{{ o.grand_total }})"
+                            class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-purple-50 hover:text-purple-600 transition" title="Issue Refund">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.27"/></svg>
+                    </button>
+                  {% endif %}
+                  <!-- Save -->
+                  <button form="ord{{ o.id }}" title="Save changes"
+                          class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-brand-50 hover:text-brand-700 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="10" class="px-4 py-12 text-center">
+                <div class="flex flex-col items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-ink/20"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                  <p class="text-sm text-ink/40">No orders found</p>
+                  {% if q or channel or tab %}<a href="/admin-panel/orders" class="text-xs text-brand-600 hover:underline">Clear filters</a>{% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if orders %}
+      <div class="flex items-center justify-between border-t border-black/5 px-4 py-2.5 bg-cream/20">
+        <p class="text-xs text-ink/40">Showing {{ orders|length }} order{{ orders|length|pluralize }}</p>
+        <div class="flex items-center gap-2 text-xs text-ink/40">
+          <span>Stock deducted on <strong class="text-brand-700">Order Confirmed</strong></span>
+          <span>·</span>
+          <span>Cancellation restores stock automatically</span>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Refund Modal -->
+<div id="refundModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div class="w-full max-w-md card p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="font-display text-lg font-semibold">Issue Refund</h2>
+        <p class="text-xs text-ink/50">Order: <span id="refundOrderDisplay" class="font-mono font-semibold text-ink"></span></p>
+      </div>
+      <button onclick="document.getElementById('refundModal').classList.add('hidden')" class="text-ink/40 hover:text-ink">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="refundForm" method="post" action="" class="space-y-3">
+      {% csrf_token %}
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Refund Type</span>
+          <select name="refund_type" id="refundType" onchange="updateRefundAmount()"
+                  class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="FULL">Full Refund</option>
+            <option value="PARTIAL">Partial Refund</option>
+          </select>
+        </label>
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Amount (₹)</span>
+          <input id="refundAmount" name="amount" type="number" step="0.01" min="0"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
+      </div>
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-ink/60">Reason</span>
+        <textarea name="reason" rows="2" placeholder="Optional reason for refund…"
+                  class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none"></textarea>
+      </label>
+      <div class="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2">
+        <p class="text-[11px] text-amber-700">
+          Full refund marks the order as <strong>Refunded</strong> and updates payment status.
+          Partial refund updates payment status only.
+        </p>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="button" onclick="document.getElementById('refundModal').classList.add('hidden')" class="btn-outline flex-1">Cancel</button>
+        <button type="submit" class="btn-primary flex-1">Process Refund</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+  // Workflow map from server
+  const WORKFLOW = {{ workflow_json|safe }};
+
+  // Filter status dropdowns to show only valid next statuses
+  document.querySelectorAll('.workflow-select').forEach(sel => {
+    const current = sel.dataset.current;
+    const valid = WORKFLOW[current] || [];
+    sel.querySelectorAll('option').forEach(opt => {
+      if (opt.value !== current && !valid.includes(opt.value)) {
+        opt.disabled = true;
+        opt.style.display = 'none';
+      }
+    });
+  });
+
+  // Refund modal
+  let refundMax = 0;
+  function openRefundModal(orderId, orderIdStr, maxAmount) {
+    refundMax = maxAmount;
+    document.getElementById('refundForm').action = `/admin-panel/orders/${orderId}/refund`;
+    document.getElementById('refundOrderDisplay').textContent = orderIdStr;
+    document.getElementById('refundAmount').value = maxAmount.toFixed(2);
+    document.getElementById('refundAmount').max = maxAmount;
+    document.getElementById('refundType').value = 'FULL';
+    document.getElementById('refundAmount').readOnly = true;
+    document.getElementById('refundModal').classList.remove('hidden');
+  }
+  function updateRefundAmount() {
+    const type = document.getElementById('refundType').value;
+    const input = document.getElementById('refundAmount');
+    if (type === 'FULL') {
+      input.value = refundMax.toFixed(2);
+      input.readOnly = true;
+    } else {
+      input.readOnly = false;
+      input.focus();
+    }
+  }
+
+  // Checkbox select all
+  document.getElementById('checkAll').addEventListener('change', function(){
+    document.querySelectorAll('.row-check').forEach(cb => cb.checked = this.checked);
+  });
+
+  function exportOrders(){
+    alert('Export feature coming soon.');
+  }
+</script>
+{% endblock %}
+{% endblock %}

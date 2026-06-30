@@ -1,0 +1,799 @@
+{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}{% if combo %}Edit {{ combo.name }}{% else %}New Combo Pack{% endif %} · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Catalog · <a href="/admin-panel/combos" class="hover:text-brand-700">Combo Packs</a> · {% if combo %}Edit{% else %}New{% endif %}{% endblock %}
+{% block content %}
+
+<form method="post" id="comboForm">
+{% csrf_token %}
+
+<!-- Header -->
+<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h1 class="font-display text-2xl font-bold text-ink">
+      {% if combo %}Edit Combo Pack{% else %}New Combo Pack{% endif %}
+    </h1>
+    {% if combo %}<p class="text-xs text-ink/40 font-mono mt-0.5">{{ combo.code }}</p>{% endif %}
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="/admin-panel/combos"
+       class="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink/70 hover:bg-cream transition">
+      Discard
+    </a>
+    <button type="button" onclick="previewCombo()"
+            class="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink/70 hover:bg-cream transition flex items-center gap-1.5">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      Preview
+    </button>
+    <button type="submit" name="save_action" value="publish"
+            onclick="document.getElementById('statusInput').value='ACTIVE'"
+            class="rounded-xl bg-brand-700 px-5 py-2 text-sm font-semibold text-white hover:bg-brand-800 transition shadow-sm">
+      Publish Combo
+    </button>
+  </div>
+</div>
+
+<input type="hidden" name="status" id="statusInput" value="{{ combo.status|default:'DRAFT' }}">
+
+<div class="grid gap-5 lg:grid-cols-[1fr_320px]">
+
+  <!-- ── LEFT COLUMN ──────────────────────────────────────────────── -->
+  <div class="space-y-5">
+
+    <!-- Combo Details -->
+    <div class="card p-6 space-y-5">
+      <div>
+        <h2 class="font-semibold text-ink">Combo Details</h2>
+        <p class="text-xs text-ink/45 mt-0.5">Name, description and categorisation for this bundle</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-ink/70 mb-1">
+          Combo Name <span class="text-red-500">*</span>
+        </label>
+        <input name="name" required value="{{ combo.name|default:'' }}" placeholder="e.g. Festival Special Combo"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-ink/70 mb-1">Short Description</label>
+        <input name="short_description" value="{{ combo.short_description|default:'' }}"
+               placeholder="One-line summary shown in listings and cart..."
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-ink/70 mb-1">Full Description</label>
+        <textarea name="description" rows="4" placeholder="What makes this combo great, and who it's for..."
+                  class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none">{{ combo.description|default:'' }}</textarea>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-ink/70 mb-1">Badge Label</label>
+          <input name="badge_label" value="{{ combo.badge_label|default:'' }}" placeholder="Best Seller"
+                 class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-ink/70 mb-1">Badge Style</label>
+          <select name="badge_style"
+                  class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="">— None —</option>
+            {% for val, label in badge_styles %}
+            <option value="{{ val }}" {% if combo.badge_style == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div>
+        <label class="block text-sm font-medium text-ink/70 mb-1">Tags</label>
+        <input type="hidden" name="tags" id="tagsInput" value="{{ combo.tags|default:'' }}">
+        <div id="tagContainer"
+             class="flex flex-wrap items-center gap-1.5 min-h-[42px] w-full rounded-xl border border-black/10 px-3 py-2 cursor-text"
+             onclick="document.getElementById('tagTyper').focus()">
+          <!-- chips rendered by JS -->
+          <input id="tagTyper" type="text" placeholder="Add tag..."
+                 class="flex-1 min-w-[80px] bg-transparent text-sm outline-none"
+                 onkeydown="handleTagKey(event)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Included Products -->
+    <div class="card p-6 space-y-4">
+      <div>
+        <h2 class="font-semibold text-ink">Included Products</h2>
+        <p class="text-xs text-ink/45 mt-0.5">Search and add products that make up this combo</p>
+      </div>
+
+      <!-- Search -->
+      <div class="relative">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink/35"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="variantSearch" type="text" placeholder="Search products by name or SKU..."
+               autocomplete="off"
+               class="w-full rounded-xl border border-black/10 pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <!-- Search results dropdown -->
+        <div id="searchResults"
+             class="hidden absolute top-full left-0 right-0 z-30 mt-1 rounded-xl border border-black/10 bg-white shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+        </div>
+      </div>
+
+      <!-- Selected items -->
+      <div id="selectedItems" class="space-y-2">
+        <p id="noItemsMsg" class="text-sm text-ink/35 text-center py-4 {% if combo_items %}hidden{% endif %}">
+          No products added yet. Search above to add items.
+        </p>
+        {% for item in combo_items %}
+        <div class="combo-item flex items-center gap-3 rounded-xl border border-black/8 bg-cream/30 px-3 py-2.5"
+             data-id="{{ item.variant.pk }}"
+             data-price="{{ item.variant.selling_price }}"
+             data-qty="{{ item.quantity }}">
+          <input type="hidden" name="item_variant_id" value="{{ item.variant.pk }}">
+          <input type="hidden" name="item_qty" class="qty-input" value="{{ item.quantity }}">
+          <div class="h-9 w-9 shrink-0 rounded-lg overflow-hidden bg-brand-50 border border-black/5">
+            <img src="{{ item.variant.product.image }}" alt=""
+                 onerror="this.style.display='none'" class="h-full w-full object-cover">
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-ink truncate">{{ item.variant.product.name }}</p>
+            <p class="text-[11px] text-ink/45">{{ item.variant.variant }} · {{ item.variant.va_code }} · {{ item.variant.selling_price|inr }}</p>
+          </div>
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="changeQty(this, -1)"
+                    class="grid h-7 w-7 place-items-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-cream text-sm font-bold transition">−</button>
+            <span class="qty-display w-7 text-center text-sm font-semibold text-ink">{{ item.quantity }}</span>
+            <button type="button" onclick="changeQty(this, 1)"
+                    class="grid h-7 w-7 place-items-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-cream text-sm font-bold transition">+</button>
+          </div>
+          <p class="line-price text-sm font-semibold text-brand-700 w-16 text-right">
+            {{ item.variant.selling_price|inr }}
+          </p>
+          <button type="button" onclick="removeItem(this)"
+                  class="grid h-7 w-7 place-items-center rounded-lg text-ink/30 hover:bg-red-50 hover:text-red-500 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Suggested products (shown when no search, items < 6) -->
+      <div id="suggestedSection" class="{% if combo_items|length >= 6 %}hidden{% endif %}">
+        <p class="text-xs font-semibold text-ink/40 uppercase tracking-wide mb-2">Suggested Products</p>
+        <div id="suggestedList" class="space-y-1.5"></div>
+      </div>
+    </div>
+
+    <!-- Combo Pricing -->
+    <div class="card p-6 space-y-4">
+      <div>
+        <h2 class="font-semibold text-ink">Combo Pricing</h2>
+        <p class="text-xs text-ink/45 mt-0.5">Set the final selling price and savings for the bundle</p>
+      </div>
+
+      <!-- Price breakdown -->
+      <div class="rounded-xl bg-cream/60 border border-black/5 px-4 py-3 space-y-1.5">
+        <div class="flex justify-between text-sm text-ink/60">
+          <span>Sum of individual prices</span>
+          <span id="priceOrigTotal" class="font-mono">—</span>
+        </div>
+        <div class="flex justify-between text-sm text-green-700">
+          <span>You save customers</span>
+          <span id="priceSavings" class="font-semibold">—</span>
+        </div>
+        <div class="flex justify-between text-sm font-bold text-ink border-t border-black/8 pt-1.5 mt-1.5">
+          <span>Combo Selling Price</span>
+          <span id="priceComboFinal">—</span>
+        </div>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div>
+          <label class="block text-sm font-medium text-ink/70 mb-1">
+            Selling Price (₹) <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-ink/40">₹</span>
+            <input name="selling_price" id="sellingPriceInput" type="number" min="0" step="0.01"
+                   value="{{ combo.selling_price|default:'0' }}"
+                   oninput="updatePriceSummary()"
+                   class="w-full rounded-xl border border-black/10 pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-ink/70 mb-1">MRP / Crossed Price (₹)</label>
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-ink/40">₹</span>
+            <input name="mrp_price" type="number" min="0" step="0.01"
+                   value="{{ combo.mrp_price|default:'' }}"
+                   class="w-full rounded-xl border border-black/10 pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-ink/70 mb-1">GST Rate</label>
+          <select name="gst_rate"
+                  class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+            {% for val, label in gst_rates %}
+            <option value="{{ val }}" {% if combo.gst_rate|stringformat:"g" == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Combo Images -->
+    <div class="card p-6 space-y-4">
+      <div>
+        <h2 class="font-semibold text-ink">Combo Images</h2>
+        <p class="text-xs text-ink/45 mt-0.5">Upload a custom banner or product arrangement shot</p>
+      </div>
+
+      <input type="hidden" name="image_main_idx" id="imageMainIdx" value="0">
+
+      <div class="grid grid-cols-[1fr_auto] gap-3">
+        <!-- Drop zone -->
+        <label id="imgDropZone"
+               class="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-black/15 bg-cream/30 p-6 cursor-pointer hover:border-brand-300 hover:bg-brand-50/30 transition min-h-[120px]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-ink/30" id="imgUploadIcon"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          <p class="text-sm text-ink/45 text-center" id="imgUploadText">Drag & drop or click to upload<br><span class="text-xs text-ink/30">PNG, JPG, WEBP up to 5MB</span></p>
+          <input type="file" id="imgFileInput" class="sr-only" accept="image/*">
+        </label>
+
+        <!-- Image grid -->
+        <div id="imageGrid" class="grid grid-cols-2 gap-2 content-start min-w-[200px]">
+          {% for img in combo_images %}
+          <div class="img-thumb relative rounded-xl overflow-hidden border-2 {% if img.is_main %}border-brand-500{% else %}border-transparent hover:border-black/15{% endif %} transition group cursor-pointer"
+               onclick="setMainImage(this, {{ forloop.counter0 }})" data-idx="{{ forloop.counter0 }}">
+            <img src="{{ img.url }}" class="h-20 w-full object-cover">
+            <input type="hidden" name="image_url" value="{{ img.url }}">
+            {% if img.is_main %}
+            <span class="absolute bottom-0 left-0 right-0 bg-brand-600 text-white text-[9px] font-bold text-center py-0.5">Main</span>
+            {% endif %}
+            <button type="button" onclick="removeImage(event, this)"
+                    class="absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-full bg-ink/60 text-white opacity-0 group-hover:opacity-100 transition text-[10px]">×</button>
+          </div>
+          {% endfor %}
+          <!-- Add more placeholder -->
+          <label class="flex h-20 w-full items-center justify-center rounded-xl border-2 border-dashed border-black/10 bg-cream/30 cursor-pointer hover:border-brand-300 transition" for="imgFileInput">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-ink/30"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </label>
+        </div>
+      </div>
+
+      <!-- Upload progress -->
+      <div id="imgProgress" class="hidden">
+        <div class="h-1.5 rounded-full bg-black/5 overflow-hidden">
+          <div id="imgProgressBar" class="h-full bg-brand-600 rounded-full transition-all" style="width:0%"></div>
+        </div>
+        <p class="text-xs text-ink/40 mt-1">Uploading…</p>
+      </div>
+    </div>
+
+  </div><!-- /left -->
+
+  <!-- ── RIGHT COLUMN ─────────────────────────────────────────────── -->
+  <div class="space-y-4">
+
+    <!-- Publish -->
+    <div class="card p-5 space-y-4">
+      <h2 class="font-semibold text-ink">Publish</h2>
+
+      <div>
+        <label class="block text-xs font-medium text-ink/50 mb-1.5 uppercase tracking-wide">Status</label>
+        <select id="statusSelect"
+                onchange="document.getElementById('statusInput').value = this.value"
+                class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          {% for val, label in status_choices %}
+          <option value="{{ val }}" {% if combo.status == val or not combo and val == 'ACTIVE' %}selected{% endif %}>
+            {% if val == 'ACTIVE' %}Active — Visible on store{% else %}Draft — Hidden from store{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Toggles -->
+      <div class="space-y-3 border-t border-black/5 pt-3">
+        <label class="flex items-start justify-between gap-3 cursor-pointer">
+          <div>
+            <p class="text-sm font-medium text-ink">Featured on Homepage</p>
+            <p class="text-xs text-ink/40">Show in spotlight section</p>
+          </div>
+          <div class="relative mt-0.5">
+            <input type="checkbox" id="featuredToggle" class="sr-only peer"
+                   {% if combo.is_featured %}checked{% endif %}>
+            <input type="hidden" name="is_featured" id="featuredInput" value="{% if combo.is_featured %}1{% else %}0{% endif %}">
+            <div onclick="toggleField('featuredToggle','featuredInput')"
+                 class="w-10 h-5.5 rounded-full transition cursor-pointer
+                        peer-checked:bg-brand-600 bg-black/15 relative">
+              <span class="absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow transition peer-checked:translate-x-[18px] block"></span>
+            </div>
+          </div>
+        </label>
+
+        <label class="flex items-start justify-between gap-3 cursor-pointer">
+          <div>
+            <p class="text-sm font-medium text-ink">Limited Time Offer</p>
+            <p class="text-xs text-ink/40">Show countdown timer in cart</p>
+          </div>
+          <div class="relative mt-0.5">
+            <input type="checkbox" id="ltoToggle" class="sr-only peer"
+                   {% if combo.is_limited_time %}checked{% endif %}>
+            <input type="hidden" name="is_limited_time" id="ltoInput" value="{% if combo.is_limited_time %}1{% else %}0{% endif %}">
+            <div onclick="toggleField('ltoToggle','ltoInput')"
+                 class="w-10 h-5.5 rounded-full transition cursor-pointer
+                        peer-checked:bg-brand-600 bg-black/15 relative">
+              <span class="absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow transition peer-checked:translate-x-[18px] block"></span>
+            </div>
+          </div>
+        </label>
+
+        <label class="flex items-start justify-between gap-3 cursor-pointer">
+          <div>
+            <p class="text-sm font-medium text-ink">COD Available</p>
+            <p class="text-xs text-ink/40">Allow cash on delivery orders</p>
+          </div>
+          <div class="relative mt-0.5">
+            <input type="checkbox" id="codToggle" class="sr-only peer"
+                   {% if combo.is_cod_available or not combo %}checked{% endif %}>
+            <input type="hidden" name="is_cod_available" id="codInput" value="{% if combo.is_cod_available or not combo %}1{% else %}0{% endif %}">
+            <div onclick="toggleField('codToggle','codInput')"
+                 class="w-10 h-5.5 rounded-full transition cursor-pointer
+                        peer-checked:bg-brand-600 bg-black/15 relative">
+              <span class="absolute left-0.5 top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow transition peer-checked:translate-x-[18px] block"></span>
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="space-y-2 border-t border-black/5 pt-3">
+        <button type="submit" name="save_action" value="publish"
+                onclick="document.getElementById('statusInput').value='ACTIVE'"
+                class="w-full rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800 transition shadow-sm">
+          Publish Combo
+        </button>
+        <button type="submit" name="save_action" value="draft"
+                onclick="document.getElementById('statusInput').value='DRAFT'"
+                class="w-full rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink/60 hover:bg-cream transition">
+          Save as Draft
+        </button>
+      </div>
+    </div>
+
+    <!-- Combo Summary -->
+    <div class="card p-5 space-y-3">
+      <h2 class="font-semibold text-ink">Combo Summary</h2>
+      <div id="summaryItems" class="space-y-2 text-sm">
+        {% for item in combo_items %}
+        <div class="summary-row flex items-center justify-between gap-2"
+             data-id="{{ item.variant.pk }}" data-price="{{ item.variant.selling_price }}" data-qty="{{ item.quantity }}">
+          <div class="flex items-center gap-2 min-w-0">
+            <div class="h-7 w-7 shrink-0 rounded-lg overflow-hidden bg-brand-50 border border-black/5">
+              <img src="{{ item.variant.product.image }}" class="h-full w-full object-cover"
+                   onerror="this.style.display='none'">
+            </div>
+            <span class="text-ink/70 truncate text-xs">{{ item.variant.product.name }} {{ item.variant.variant }}</span>
+          </div>
+          <span class="shrink-0 text-xs font-semibold text-ink">{{ item.variant.selling_price|inr }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="space-y-1.5 border-t border-black/8 pt-3 text-sm">
+        <div class="flex justify-between text-ink/55">
+          <span>Original total</span>
+          <span id="summaryOrig" class="line-through">—</span>
+        </div>
+        <div class="flex justify-between font-bold text-ink">
+          <span>Combo price</span>
+          <span id="summaryCombo">—</span>
+        </div>
+        <div class="flex justify-between text-green-700 text-xs font-semibold">
+          <span>Customer saves</span>
+          <span id="summarySave">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Availability -->
+    <div class="card p-5 space-y-4">
+      <h2 class="font-semibold text-ink">Availability</h2>
+
+      <div>
+        <label class="block text-xs font-medium text-ink/50 mb-1.5">Available From</label>
+        <input name="available_from" type="date"
+               value="{{ combo.available_from|date:'Y-m-d'|default:'' }}"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-ink/50 mb-1.5">Available Until</label>
+        <input name="available_until" type="date"
+               value="{{ combo.available_until|date:'Y-m-d'|default:'' }}"
+               placeholder="No end date (always on)"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-ink/50 mb-1.5">Max Quantity Per Order</label>
+        <input name="max_qty_per_order" type="number" min="1" max="99"
+               value="{{ combo.max_qty_per_order|default:'10' }}"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+    </div>
+
+  </div><!-- /right -->
+</div>
+</form>
+
+<script>
+// ── Item state ────────────────────────────────────────────────────────────────
+const items = new Map(); // id → {name, variant, price, qty, image}
+
+// Populate from existing server-rendered items
+document.querySelectorAll('.combo-item').forEach(el => {
+  const id = el.dataset.id;
+  const price = parseFloat(el.dataset.price);
+  const qty = parseInt(el.dataset.qty);
+  const name = el.querySelector('p.font-semibold').textContent.trim();
+  const variantTxt = el.querySelector('p.text-\\[11px\\]').textContent.split('·')[0].trim();
+  const img = el.querySelector('img')?.src || '';
+  items.set(id, {name, variant: variantTxt, price, qty, image: img, el});
+});
+updatePriceSummary();
+
+// ── Tags ──────────────────────────────────────────────────────────────────────
+const tags = new Set(
+  ('{{ combo.tags|default:""|escapejs }}'.split(',').map(t => t.trim()).filter(Boolean))
+);
+
+function renderTags() {
+  const typer = document.getElementById('tagTyper');
+  const container = document.getElementById('tagContainer');
+  container.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  tags.forEach(tag => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip flex items-center gap-1 rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-800';
+    chip.innerHTML = `${tag} <button type="button" onclick="removeTag('${tag}')" class="text-brand-500 hover:text-brand-900 leading-none">×</button>`;
+    container.insertBefore(chip, typer);
+  });
+  document.getElementById('tagsInput').value = Array.from(tags).join(',');
+}
+renderTags();
+
+function handleTagKey(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.trim().replace(/,/g,'');
+    if (val) { tags.add(val); renderTags(); e.target.value = ''; }
+  } else if (e.key === 'Backspace' && !e.target.value && tags.size) {
+    const last = Array.from(tags).pop();
+    tags.delete(last); renderTags();
+  }
+}
+function removeTag(tag) { tags.delete(tag); renderTags(); }
+
+// ── Toggle helper ─────────────────────────────────────────────────────────────
+function toggleField(cbId, hiddenId) {
+  const cb = document.getElementById(cbId);
+  cb.checked = !cb.checked;
+  document.getElementById(hiddenId).value = cb.checked ? '1' : '0';
+  // Update the visual indicator
+  const track = cb.nextElementSibling.nextElementSibling;
+  if (track) {
+    if (cb.checked) track.classList.add('bg-brand-600');
+    else track.classList.remove('bg-brand-600');
+  }
+}
+
+// ── Variant search ────────────────────────────────────────────────────────────
+let searchTimer;
+document.getElementById('variantSearch').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    // Only hide the dropdown — never clear the input, or the user can never
+    // accumulate 2 characters to trigger the fetch.
+    document.getElementById('searchResults').classList.add('hidden');
+    return;
+  }
+  searchTimer = setTimeout(() => fetchVariants(q), 300);
+});
+
+// Hide results when clicking outside BOTH the input AND the results box.
+// Without the results-box check the document handler would fire while the user
+// clicks a result item, which hides the box before addItem can run.
+document.addEventListener('click', e => {
+  const inp = document.getElementById('variantSearch');
+  const box = document.getElementById('searchResults');
+  if (!inp.contains(e.target) && !box.contains(e.target))
+    hideResults();
+});
+
+async function fetchVariants(q) {
+  try {
+    const r = await fetch(`/admin-panel/combos/variants/search?q=${encodeURIComponent(q)}`);
+    const data = await r.json();
+    showResults(data.results, q);
+  } catch(e) {}
+}
+
+function showResults(results, q) {
+  const box = document.getElementById('searchResults');
+  if (!results.length) {
+    box.innerHTML = '<p class="px-4 py-3 text-sm text-ink/40">No products found for "' + q + '"</p>';
+  } else {
+    box.innerHTML = results.map(v => `
+      <div class="flex items-center gap-3 px-3 py-2.5 hover:bg-cream/60 cursor-pointer transition"
+           onclick='addItem(${v.id},"${v.name.replace(/"/g,'&quot;')}","${v.variant.replace(/"/g,'&quot;')}","${v.sku}",${v.price},"${v.image}")'>
+        <div class="h-9 w-9 shrink-0 rounded-lg overflow-hidden bg-brand-50">
+          <img src="${v.image}" class="h-full w-full object-cover" onerror="this.style.display='none'">
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-ink truncate">${v.name}</p>
+          <p class="text-[11px] text-ink/45">${v.variant} · ${v.sku}</p>
+        </div>
+        <span class="text-sm font-semibold text-brand-700">₹${v.price.toLocaleString('en-IN')}</span>
+      </div>
+    `).join('');
+  }
+  box.classList.remove('hidden');
+}
+
+function hideResults() {
+  document.getElementById('searchResults').classList.add('hidden');
+}
+
+function addItem(id, name, variant, sku, price, image) {
+  hideResults();
+  document.getElementById('variantSearch').value = '';
+  const sid = String(id);
+  if (items.has(sid)) {
+    const item = items.get(sid);
+    item.qty++;
+    item.el.querySelector('.qty-display').textContent = item.qty;
+    item.el.querySelector('.qty-input').value = item.qty;
+    updateLinePrice(item.el, price, item.qty);
+    updatePriceSummary();
+    return;
+  }
+  const el = document.createElement('div');
+  el.className = 'combo-item flex items-center gap-3 rounded-xl border border-black/8 bg-cream/30 px-3 py-2.5';
+  el.dataset.id = sid;
+  el.dataset.price = price;
+  el.dataset.qty = 1;
+  el.innerHTML = `
+    <input type="hidden" name="item_variant_id" value="${id}">
+    <input type="hidden" name="item_qty" class="qty-input" value="1">
+    <div class="h-9 w-9 shrink-0 rounded-lg overflow-hidden bg-brand-50 border border-black/5">
+      <img src="${image}" class="h-full w-full object-cover" onerror="this.style.display='none'">
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-semibold text-ink truncate">${name}</p>
+      <p class="text-[11px] text-ink/45">${variant} · ${sku} · ₹${price.toLocaleString('en-IN')}</p>
+    </div>
+    <div class="flex items-center gap-1">
+      <button type="button" onclick="changeQty(this,-1)" class="grid h-7 w-7 place-items-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-cream text-sm font-bold transition">−</button>
+      <span class="qty-display w-7 text-center text-sm font-semibold text-ink">1</span>
+      <button type="button" onclick="changeQty(this,1)" class="grid h-7 w-7 place-items-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-cream text-sm font-bold transition">+</button>
+    </div>
+    <p class="line-price text-sm font-semibold text-brand-700 w-16 text-right">₹${price.toLocaleString('en-IN')}</p>
+    <button type="button" onclick="removeItem(this)" class="grid h-7 w-7 place-items-center rounded-lg text-ink/30 hover:bg-red-50 hover:text-red-500 transition">
+      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    </button>
+  `;
+  document.getElementById('selectedItems').appendChild(el);
+  document.getElementById('noItemsMsg').classList.add('hidden');
+  items.set(sid, {name, variant, price, qty: 1, image, el});
+  addSummaryRow(sid, name, variant, price, image);
+  updatePriceSummary();
+}
+
+function changeQty(btn, delta) {
+  const row = btn.closest('.combo-item');
+  const id = row.dataset.id;
+  const item = items.get(id);
+  if (!item) return;
+  item.qty = Math.max(1, item.qty + delta);
+  row.querySelector('.qty-display').textContent = item.qty;
+  row.querySelector('.qty-input').value = item.qty;
+  row.dataset.qty = item.qty;
+  updateLinePrice(row, item.price, item.qty);
+  // Update summary row qty
+  const srow = document.querySelector(`#summaryItems .summary-row[data-id="${id}"]`);
+  if (srow) srow.dataset.qty = item.qty;
+  updatePriceSummary();
+}
+
+function updateLinePrice(row, price, qty) {
+  const total = price * qty;
+  row.querySelector('.line-price').textContent = '₹' + total.toLocaleString('en-IN', {maximumFractionDigits: 0});
+}
+
+function removeItem(btn) {
+  const row = btn.closest('.combo-item');
+  const id = row.dataset.id;
+  items.delete(id);
+  row.remove();
+  document.querySelector(`#summaryItems .summary-row[data-id="${id}"]`)?.remove();
+  if (!items.size) document.getElementById('noItemsMsg').classList.remove('hidden');
+  updatePriceSummary();
+}
+
+function addSummaryRow(id, name, variant, price, image) {
+  const srow = document.createElement('div');
+  srow.className = 'summary-row flex items-center justify-between gap-2';
+  srow.dataset.id = id;
+  srow.dataset.price = price;
+  srow.dataset.qty = 1;
+  srow.innerHTML = `
+    <div class="flex items-center gap-2 min-w-0">
+      <div class="h-7 w-7 shrink-0 rounded-lg overflow-hidden bg-brand-50 border border-black/5">
+        <img src="${image}" class="h-full w-full object-cover" onerror="this.style.display='none'">
+      </div>
+      <span class="text-ink/70 truncate text-xs">${name} ${variant}</span>
+    </div>
+    <span class="shrink-0 text-xs font-semibold text-ink">₹${price.toLocaleString('en-IN')}</span>
+  `;
+  document.getElementById('summaryItems').appendChild(srow);
+}
+
+// ── Price summary ─────────────────────────────────────────────────────────────
+function inr(n) {
+  return '₹' + Math.round(n).toLocaleString('en-IN');
+}
+
+function updatePriceSummary() {
+  let origTotal = 0;
+  document.querySelectorAll('#selectedItems .combo-item').forEach(row => {
+    const price = parseFloat(row.dataset.price || 0);
+    const qty   = parseInt(row.dataset.qty   || 1);
+    origTotal += price * qty;
+  });
+
+  const comboPrice = parseFloat(document.getElementById('sellingPriceInput').value || 0);
+  const savings    = Math.max(0, origTotal - comboPrice);
+  const savingsPct = origTotal > 0 ? Math.round((savings / origTotal) * 100) : 0;
+
+  document.getElementById('priceOrigTotal').textContent = origTotal > 0 ? inr(origTotal) : '—';
+  document.getElementById('priceSavings').textContent   = savings > 0 ? `-${inr(savings)} (${savingsPct}% off)` : '—';
+  document.getElementById('priceComboFinal').textContent = comboPrice > 0 ? inr(comboPrice) : '—';
+
+  document.getElementById('summaryOrig').textContent  = origTotal > 0 ? inr(origTotal) : '—';
+  document.getElementById('summaryCombo').textContent = comboPrice > 0 ? inr(comboPrice) : '—';
+  document.getElementById('summarySave').textContent  = savings > 0 ? `${inr(savings)} (${savingsPct}%)` : '—';
+}
+updatePriceSummary();
+
+// ── Image upload ──────────────────────────────────────────────────────────────
+let imgMainIdx = parseInt(document.getElementById('imageMainIdx').value || '0');
+
+document.getElementById('imgFileInput').addEventListener('change', async function() {
+  const file = this.files[0];
+  if (!file) return;
+  await uploadImage(file);
+  this.value = '';
+});
+
+const dropZone = document.getElementById('imgDropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-brand-400'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-brand-400'));
+dropZone.addEventListener('drop', async e => {
+  e.preventDefault();
+  dropZone.classList.remove('border-brand-400');
+  const file = e.dataTransfer.files[0];
+  if (file) await uploadImage(file);
+});
+
+async function uploadImage(file) {
+  const progress = document.getElementById('imgProgress');
+  const bar = document.getElementById('imgProgressBar');
+  progress.classList.remove('hidden');
+  bar.style.width = '20%';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+  try {
+    bar.style.width = '60%';
+    const r = await fetch('/admin-panel/media/upload', {method:'POST', body: fd});
+    bar.style.width = '90%';
+    const data = await r.json();
+    bar.style.width = '100%';
+    setTimeout(() => progress.classList.add('hidden'), 600);
+    if (data.url) addImageThumb(data.url);
+    else alert(data.error || 'Upload failed');
+  } catch(e) {
+    progress.classList.add('hidden');
+    alert('Upload failed. Check your Cloudinary settings.');
+  }
+}
+
+function addImageThumb(url) {
+  const grid = document.getElementById('imageGrid');
+  const addBtn = grid.lastElementChild;
+  const thumbs = grid.querySelectorAll('.img-thumb');
+  const idx = thumbs.length;
+
+  const div = document.createElement('div');
+  div.className = 'img-thumb relative rounded-xl overflow-hidden border-2 border-transparent hover:border-black/15 transition group cursor-pointer';
+  div.dataset.idx = idx;
+  div.onclick = () => setMainImage(div, idx);
+  div.innerHTML = `
+    <img src="${url}" class="h-20 w-full object-cover">
+    <input type="hidden" name="image_url" value="${url}">
+    <button type="button" onclick="removeImage(event, this)"
+            class="absolute top-1 right-1 grid h-5 w-5 place-items-center rounded-full bg-ink/60 text-white opacity-0 group-hover:opacity-100 transition text-[10px]">×</button>
+  `;
+  grid.insertBefore(div, addBtn);
+
+  if (idx === 0) setMainImage(div, 0);
+  updatePriceSummary();
+}
+
+function setMainImage(el, idx) {
+  document.querySelectorAll('.img-thumb').forEach(t => {
+    t.classList.remove('border-brand-500');
+    t.classList.add('border-transparent');
+    const lbl = t.querySelector('.main-lbl');
+    if (lbl) lbl.remove();
+  });
+  el.classList.remove('border-transparent');
+  el.classList.add('border-brand-500');
+  const lbl = document.createElement('span');
+  lbl.className = 'main-lbl absolute bottom-0 left-0 right-0 bg-brand-600 text-white text-[9px] font-bold text-center py-0.5';
+  lbl.textContent = 'Main';
+  el.appendChild(lbl);
+  imgMainIdx = idx;
+  document.getElementById('imageMainIdx').value = idx;
+}
+
+function removeImage(e, btn) {
+  e.stopPropagation();
+  btn.closest('.img-thumb').remove();
+  // Re-index remaining
+  document.querySelectorAll('.img-thumb').forEach((t, i) => t.dataset.idx = i);
+  if (!document.querySelectorAll('.img-thumb').length) {
+    imgMainIdx = 0;
+    document.getElementById('imageMainIdx').value = '0';
+  }
+}
+
+// ── Suggested products (load on init) ────────────────────────────────────────
+async function loadSuggested() {
+  if (items.size >= 6) return;
+  try {
+    const r = await fetch('/admin-panel/combos/variants/search?q=');
+    const data = await r.json();
+    if (!data.results?.length) return;
+    const list = document.getElementById('suggestedList');
+    list.innerHTML = '';
+    data.results.slice(0, 5).forEach(v => {
+      if (items.has(String(v.id))) return;
+      const el = document.createElement('div');
+      el.className = 'flex items-center gap-3 rounded-xl border border-black/8 bg-white px-3 py-2';
+      el.innerHTML = `
+        <div class="h-8 w-8 shrink-0 rounded-lg overflow-hidden bg-brand-50">
+          <img src="${v.image}" class="h-full w-full object-cover" onerror="this.style.display='none'">
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-semibold text-ink truncate">${v.name} ${v.variant}</p>
+          <p class="text-[10px] text-ink/40">${v.sku} · ${v.stock} in stock</p>
+        </div>
+        <span class="text-xs font-semibold text-brand-700">₹${v.price.toLocaleString('en-IN')}</span>
+        <button type="button" onclick='addItem(${v.id},"${v.name.replace(/"/g,'&quot;')}","${v.variant.replace(/"/g,'&quot;')}","${v.sku}",${v.price},"${v.image}")'
+                class="shrink-0 flex items-center gap-1 rounded-lg bg-brand-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand-700 transition">
+          + Add
+        </button>
+      `;
+      list.appendChild(el);
+    });
+  } catch(e) {}
+}
+loadSuggested();
+
+function previewCombo() {
+  const name = document.querySelector('[name=name]').value.trim();
+  if (!name) { alert('Please enter a combo name first.'); return; }
+  alert('Preview: ' + name + '\n(Preview available once combo is published)');
+}
+</script>
+{% endblock %}

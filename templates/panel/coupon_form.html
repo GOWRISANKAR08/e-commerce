@@ -1,0 +1,232 @@
+{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}{% if coupon %}Edit Coupon{% else %}New Coupon{% endif %} · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Marketing · <a href="/admin-panel/coupons" class="hover:text-ink">Coupons</a> · {% if coupon %}Edit{% else %}New{% endif %}{% endblock %}
+{% block content %}
+
+<div class="mx-auto max-w-2xl space-y-5">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="font-display text-2xl font-semibold text-ink">
+        {% if coupon %}Edit Coupon{% else %}New Coupon{% endif %}
+      </h1>
+      <p class="mt-0.5 text-sm text-ink/50">{% if coupon %}Update coupon settings and validity.{% else %}Create a new discount code for customers.{% endif %}</p>
+    </div>
+    <a href="/admin-panel/coupons"
+       class="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-ink/5 transition-colors">
+      ← Back
+    </a>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2">
+    {% for msg in messages %}
+    <div class="flex items-center gap-2 rounded-xl border {% if msg.tags == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-green-200 bg-green-50 text-green-700{% endif %} px-4 py-3 text-sm">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="">
+    {% csrf_token %}
+    <div class="space-y-4">
+
+      {# Code + Description #}
+      <div class="card p-6 space-y-4">
+        <h2 class="font-semibold text-ink">Coupon Details</h2>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-ink mb-1.5">Coupon Code <span class="text-red-500">*</span></label>
+            <div class="relative">
+              <input id="codeInput" name="code" value="{{ coupon.code|default:'' }}" required
+                     placeholder="e.g. SAVE20" maxlength="30"
+                     class="w-full rounded-xl border border-black/10 px-4 py-2.5 pr-10 text-sm font-mono font-bold uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-brand-200"
+                     oninput="this.value = this.value.toUpperCase()">
+              <button type="button" onclick="generateCode()"
+                      title="Auto-generate code"
+                      class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink/30 hover:text-brand-600 hover:bg-brand-50 transition-colors">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-ink/40">Customers enter this code at checkout</p>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-ink mb-1.5">Coupon Type</label>
+            <select name="coupon_type" id="couponType" onchange="updateFields()"
+                    class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-200">
+              {% for val, label in type_choices %}
+              <option value="{{ val }}" {% if coupon.coupon_type == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold text-ink mb-1.5">Description</label>
+          <input name="description" value="{{ coupon.description|default:'' }}"
+                 placeholder="e.g. Get 20% off on orders above ₹500"
+                 class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+      </div>
+
+      {# Discount settings #}
+      <div class="card p-6 space-y-4">
+        <h2 class="font-semibold text-ink">Discount Settings</h2>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div id="discountValueGroup">
+            <label class="block text-sm font-semibold text-ink mb-1.5">
+              <span id="discountLabel">Discount %</span>
+            </label>
+            <div class="relative">
+              <span id="discountPrefix" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink/40"></span>
+              <input name="discount_value" id="discountValue" type="number" min="0" step="0.01"
+                     value="{{ coupon.discount_value|default:0 }}"
+                     class="w-full rounded-xl border border-black/10 px-4 py-2.5 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <span id="discountSuffix" class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink/40">%</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-ink mb-1.5">Min Order Value</label>
+            <div class="relative">
+              <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink/40">₹</span>
+              <input name="min_order_value" type="number" min="0" step="0.01"
+                     value="{{ coupon.min_order_value|default:0 }}"
+                     placeholder="0 = no minimum"
+                     class="w-full rounded-xl border border-black/10 px-4 py-2.5 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </div>
+          </div>
+        </div>
+
+        <div id="maxDiscountGroup">
+          <label class="block text-sm font-semibold text-ink mb-1.5">
+            Max Discount Cap
+            <span class="ml-1 text-xs font-normal text-ink/40">(optional, for % type)</span>
+          </label>
+          <div class="relative">
+            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink/40">₹</span>
+            <input name="max_discount" type="number" min="0" step="0.01"
+                   value="{{ coupon.max_discount|default:'' }}"
+                   placeholder="e.g. 200 — cap the discount at ₹200"
+                   class="w-full rounded-xl border border-black/10 px-4 py-2.5 pl-8 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+        </div>
+      </div>
+
+      {# Validity & Usage ─}
+      <div class="card p-6 space-y-4">
+        <h2 class="font-semibold text-ink">Validity & Usage</h2>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-ink mb-1.5">Valid From</label>
+            <input name="valid_from" type="datetime-local"
+                   value="{% if coupon.valid_from %}{{ coupon.valid_from|date:'Y-m-d' }}T{{ coupon.valid_from|date:'H:i' }}{% endif %}"
+                   class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-ink mb-1.5">Valid Until</label>
+            <input name="valid_until" type="datetime-local"
+                   value="{% if coupon.valid_until %}{{ coupon.valid_until|date:'Y-m-d' }}T{{ coupon.valid_until|date:'H:i' }}{% endif %}"
+                   class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-ink mb-1.5">Max Uses
+              <span class="ml-1 text-xs font-normal text-ink/40">(0 = unlimited)</span>
+            </label>
+            <input name="max_uses" type="number" min="0"
+                   value="{{ coupon.max_uses|default:0 }}"
+                   class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+          {% if coupon %}
+          <div>
+            <label class="block text-sm font-semibold text-ink mb-1.5">Times Used</label>
+            <div class="rounded-xl border border-black/10 bg-cream/30 px-4 py-2.5 text-sm text-ink/50">
+              {{ coupon.used_count }}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="flex items-center justify-between rounded-xl border border-black/10 bg-cream/20 px-4 py-3">
+          <div>
+            <p class="text-sm font-semibold text-ink">Active</p>
+            <p class="text-xs text-ink/45 mt-0.5">Customers can apply this code at checkout</p>
+          </div>
+          <label class="relative cursor-pointer">
+            <input type="hidden" name="is_active" value="0">
+            <input type="checkbox" name="is_active" value="1"
+                   {% if coupon.is_active or not coupon %}checked{% endif %}
+                   class="sr-only peer">
+            <div class="peer h-6 w-11 rounded-full bg-black/15 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:bg-brand-500 peer-checked:after:translate-x-5"></div>
+          </label>
+        </div>
+      </div>
+
+      {# Actions #}
+      <div class="flex items-center gap-3">
+        <button type="submit"
+                class="rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors">
+          {% if coupon %}Save Changes{% else %}Create Coupon{% endif %}
+        </button>
+        <a href="/admin-panel/coupons"
+           class="rounded-xl border border-black/10 bg-white px-6 py-2.5 text-sm font-medium text-ink/70 hover:bg-ink/5 transition-colors">
+          Cancel
+        </a>
+        {% if coupon %}
+        <form method="post" action="/admin-panel/coupons/{{ coupon.pk }}/delete" class="ml-auto"
+              onsubmit="return confirm('Permanently delete coupon \'{{ coupon.code }}\'?')">
+          {% csrf_token %}
+          <button type="submit" class="text-sm text-red-500 hover:text-red-700 hover:underline">Delete coupon</button>
+        </form>
+        {% endif %}
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script>
+function updateFields() {
+  const type = document.getElementById('couponType').value;
+  const lbl  = document.getElementById('discountLabel');
+  const pfx  = document.getElementById('discountPrefix');
+  const sfx  = document.getElementById('discountSuffix');
+  const maxG = document.getElementById('maxDiscountGroup');
+  const dGrp = document.getElementById('discountValueGroup');
+
+  if (type === 'PERCENT') {
+    lbl.textContent = 'Discount %'; pfx.textContent = ''; sfx.textContent = '%';
+    maxG.classList.remove('hidden'); dGrp.classList.remove('hidden');
+  } else if (type === 'FLAT') {
+    lbl.textContent = 'Flat Discount'; pfx.textContent = '₹'; sfx.textContent = '';
+    maxG.classList.add('hidden'); dGrp.classList.remove('hidden');
+  } else {
+    lbl.textContent = 'Free Shipping'; dGrp.classList.add('hidden');
+    maxG.classList.add('hidden');
+  }
+}
+
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  document.getElementById('codeInput').value = code;
+}
+
+// Dual-checkbox workaround for is_active toggle
+document.querySelector('input[type="checkbox"][name="is_active"]')?.addEventListener('change', function() {
+  // The hidden input always sends 0; checked sends 1 which overrides it
+});
+
+updateFields();
+</script>
+{% endblock %}

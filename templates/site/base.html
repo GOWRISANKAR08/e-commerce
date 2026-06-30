@@ -1,0 +1,102 @@
+{% load store_extras %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: {
+          brand: { 50:"#eef6ef",100:"#d6e9da",200:"#aed3b6",300:"#7fb78c",400:"#4f9663",
+                   500:"#2f7a47",600:"#1f6b3a",700:"#165230",800:"#103d24",900:"#0b2a19" },
+          gold: { 400:"#f6cf3e",500:"#f2c014",600:"#d9a40a" },
+          cream:"#f7f4ec", ink:"#1b2420",
+        },
+        fontFamily: { display:["Poppins","system-ui","sans-serif"], sans:["Poppins","system-ui","sans-serif"] },
+        boxShadow: { soft:"0 8px 30px -12px rgba(16,61,36,0.18)", card:"0 2px 14px -4px rgba(16,61,36,0.12)" },
+        borderRadius: { xl2:"1.25rem" },
+        keyframes: { "fade-up": { "0%":{opacity:"0",transform:"translateY(16px)"}, "100%":{opacity:"1",transform:"translateY(0)"} } },
+        animation: { "fade-up":"fade-up 0.6s cubic-bezier(0.22,1,0.36,1) both" },
+      } }
+    }
+  </script>
+  <style>
+    html { scroll-behavior:smooth; }
+    body { background:#f7f4ec; color:#1b2420; font-family:Poppins,system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+    .font-display{ font-family:Poppins,system-ui,sans-serif; font-weight:700; }
+    .bg-grain{ background-image:
+        radial-gradient(1200px 600px at 90% -10%, rgba(242,192,20,0.10), transparent 60%),
+        radial-gradient(900px 500px at -10% 110%, rgba(31,107,58,0.08), transparent 55%); }
+    .section-eyebrow{ display:inline-flex; align-items:center; gap:.5rem; font-size:.75rem; font-weight:600;
+        text-transform:uppercase; letter-spacing:.2em; color:#2f7a47; }
+    .section-eyebrow::before{ content:""; height:1px; width:1.5rem; background:#f2c014; }
+    .section-eyebrow.justify-center{ justify-content:center; }
+    .btn-primary{ display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border-radius:9999px;
+        background:#1f6b3a; padding:.75rem 1.5rem; font-size:.875rem; font-weight:600; color:#fff; transition:.15s; }
+    .btn-primary:hover{ background:#165230; }
+    .btn-primary:active{ transform:scale(.98); }
+    .btn-ghost{ display:inline-flex; align-items:center; gap:.25rem; font-size:.875rem; font-weight:600; color:#165230; transition:gap .15s; }
+    .btn-ghost:hover{ gap:.5rem; }
+    .card{ border-radius:1rem; background:#fff; box-shadow:0 2px 14px -4px rgba(16,61,36,.12); outline:1px solid rgba(0,0,0,.04); }
+    .no-scrollbar::-webkit-scrollbar{ display:none; }
+    .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
+    .line-clamp-2{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .line-clamp-3{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  </style>
+</head>
+<body>
+{% include "site/_header.html" %}
+
+{% if messages %}
+  <div class="mx-auto max-w-7xl px-4 lg:px-8 pt-4">
+    {% for m in messages %}
+      <div class="mb-2 rounded-xl px-4 py-3 text-sm font-medium
+        {% if m.tags == 'error' %}bg-red-50 text-red-700 ring-1 ring-red-200{% else %}bg-brand-50 text-brand-700 ring-1 ring-brand-200{% endif %}">
+        {{ m }}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<main>{% block content %}{% endblock %}</main>
+
+{% include "site/_footer.html" %}
+
+<script>
+  // CSRF helper for fetch-based actions
+  function getCookie(name){
+    const v = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+    return v ? v.pop() : '';
+  }
+  async function postJSON(url, body){
+    const r = await fetch(url, { method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},
+      body: JSON.stringify(body||{}) });
+    return r.json();
+  }
+  // Add to cart
+  document.addEventListener('click', async (e)=>{
+    const b = e.target.closest('[data-add-cart]');
+    if(b){ e.preventDefault();
+      {% if not user.is_authenticated %} window.location='/login?next='+location.pathname; return; {% endif %}
+      const res = await postJSON('/api/cart/add',{variantId:Number(b.dataset.variant),qty:Number(b.dataset.qty||1)});
+      if(res.ok){ const c=document.getElementById('cart-count'); if(c){c.textContent=res.count;c.classList.remove('hidden');}
+        b.textContent='Added ✓'; setTimeout(()=>b.textContent=b.dataset.label||'Add to Cart',1200); }
+    }
+    const f = e.target.closest('[data-fav]');
+    if(f){ e.preventDefault();
+      {% if not user.is_authenticated %} window.location='/login?next='+location.pathname; return; {% endif %}
+      const res = await postJSON('/api/favourites/toggle',{productId:Number(f.dataset.fav)});
+      f.classList.toggle('text-red-500', res.favourited);
+      f.classList.toggle('text-ink/30', !res.favourited);
+    }
+  });
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

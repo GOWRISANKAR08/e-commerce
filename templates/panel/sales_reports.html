@@ -1,0 +1,136 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Sales Reports · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Analytics · Sales Reports{% endblock %}
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink">Sales Reports</h1>
+      <p class="mt-0.5 text-sm text-ink/50">Last 12 months performance overview</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="btn-outline text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Report
+      </button>
+    </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    {% for c in stat_cards %}
+      <div class="card p-4">
+        <p class="text-xs text-ink/45 font-medium">{{ c.label }}</p>
+        <p class="mt-1.5 text-xl font-bold text-ink">
+          {% if c.kind == "money" %}{{ c.value|inr }}{% else %}{{ c.value }}{% endif %}
+        </p>
+        <p class="mt-1 text-[11px] {% if c.up %}text-brand-600{% else %}text-red-500{% endif %}">
+          {% if c.up %}↑{% else %}↓{% endif %} {{ c.growth }}
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Revenue + Orders chart -->
+  <div class="card p-5">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h2 class="font-display text-lg font-semibold">Revenue & Orders Trend</h2>
+        <p class="text-xs text-ink/50">Monthly breakdown for the past 12 months</p>
+      </div>
+      <div class="flex items-center gap-3 text-xs text-ink/50">
+        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-brand-500"></span>Revenue</span>
+        <span class="rounded-lg border border-black/10 px-2 py-1 font-medium">Yearly ▾</span>
+      </div>
+    </div>
+    <div class="flex h-52 items-end gap-1.5">
+      {% for m in monthly %}
+        <div class="group flex flex-1 flex-col items-center gap-1">
+          <div class="relative w-full flex-1 flex items-end">
+            <div class="relative w-full rounded-t-md transition-all"
+                 style="height:{{ m.pct }}%; background: linear-gradient(to top,#1f6b3a,#4f9663);"
+                 title="{{ m.month_full }}: {{ m.revenue|inr }} · {{ m.orders }} orders">
+              {% if best_month and m.revenue == best_month.revenue and best_month.revenue > 0 %}
+                <span class="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gold-500 px-1.5 py-0.5 text-[10px] font-bold text-ink shadow">{{ m.revenue|inr }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <span class="text-[10px] text-ink/40">{{ m.month }}</span>
+          {% if m.orders %}<span class="text-[9px] text-ink/30">{{ m.orders }}</span>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    <!-- Footer stats -->
+    <div class="mt-4 flex flex-wrap gap-6 border-t border-black/5 pt-4 text-sm">
+      <div><p class="text-xs text-ink/40">Total Revenue</p><p class="font-bold text-ink">{{ total_revenue|inr }}</p></div>
+      <div><p class="text-xs text-ink/40">Avg Monthly</p><p class="font-bold text-ink">{{ avg_monthly|inr }}</p></div>
+      <div><p class="text-xs text-ink/40">Total Orders</p><p class="font-bold text-ink">{{ total_orders }}</p></div>
+      {% if best_month and best_month.revenue > 0 %}
+        <div><p class="text-xs text-ink/40">Best Month</p><p class="font-bold text-gold-600">{{ best_month.month_full }} ({{ best_month.revenue|inr }})</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Bottom row: Category revenue + Channel breakdown -->
+  <div class="grid gap-5 lg:grid-cols-2">
+
+    <!-- Revenue by category -->
+    <div class="card p-5">
+      <h2 class="font-display text-lg font-semibold mb-4">Revenue by Category</h2>
+      {% if cat_revenue %}
+        <div class="space-y-3">
+          {% for c in cat_revenue %}
+            <div>
+              <div class="flex items-center justify-between mb-1 text-sm">
+                <span class="font-medium text-ink">{{ c.product__category__name|default:"Uncategorized" }}</span>
+                <span class="font-semibold text-ink">{{ c.rev|inr }}</span>
+              </div>
+              <div class="flex h-2 overflow-hidden rounded-full bg-ink/5">
+                <div class="rounded-full bg-brand-500 transition-all" style="width:{{ c.pct }}%"></div>
+              </div>
+              <p class="mt-0.5 text-[11px] text-ink/40">{{ c.pct }}% of total · {{ c.cnt }} item{{ c.cnt|pluralize }}</p>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-ink/40 py-6 text-center">No category sales data yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Sales channel breakdown -->
+    <div class="card p-5">
+      <h2 class="font-display text-lg font-semibold mb-4">Sales by Channel</h2>
+      {% if channels_display %}
+        <div class="space-y-4">
+          {% for ch in channels_display %}
+            <div class="flex items-center gap-3">
+              <span class="w-20 shrink-0 text-sm font-medium text-ink">{{ ch.label }}</span>
+              <div class="flex-1 h-2.5 overflow-hidden rounded-full bg-ink/5">
+                <div class="h-full rounded-full transition-all" style="width:{{ ch.pct }}%;background:{{ ch.color }}"></div>
+              </div>
+              <div class="shrink-0 text-right">
+                <span class="text-sm font-bold text-ink">{{ ch.pct }}%</span>
+                <p class="text-[10px] text-ink/40">{{ ch.orders }} order{{ ch.orders|pluralize }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="mt-4 flex flex-wrap gap-3 border-t border-black/5 pt-4">
+          {% for ch in channels_display %}
+            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-ink/5 text-ink/70">
+              <span class="h-2 w-2 rounded-full" style="background:{{ ch.color }}"></span>
+              {{ ch.label }} {{ ch.pct }}%
+            </span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-ink/40 py-6 text-center">No channel data yet.</p>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

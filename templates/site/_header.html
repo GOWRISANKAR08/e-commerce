@@ -1,0 +1,47 @@
+{% load store_extras %}
+<header class="sticky top-0 z-40 border-b border-black/5 bg-cream/90 backdrop-blur">
+  <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 lg:px-8">
+    <a href="/" class="flex items-center gap-2">
+      <span class="grid h-9 w-9 place-items-center rounded-full bg-brand-600 font-display text-lg font-bold text-gold-500">S</span>
+      <span class="font-display text-xl font-semibold text-ink">{{ SITE_NAME }}</span>
+    </a>
+
+    <nav class="hidden items-center gap-7 text-sm font-medium text-ink/70 lg:flex">
+      <a href="/" class="hover:text-brand-600">Home</a>
+      <a href="/products" class="hover:text-brand-600">Shop</a>
+      <a href="/categories" class="hover:text-brand-600">Categories</a>
+      <a href="/blogs" class="hover:text-brand-600">Journal</a>
+      <a href="/about-us" class="hover:text-brand-600">About</a>
+      <a href="/help-support" class="hover:text-brand-600">Contact</a>
+    </nav>
+
+    <div class="flex items-center gap-3">
+      <form action="/products" method="get" class="hidden md:block">
+        <input name="q" placeholder="Search spices…"
+               class="w-44 rounded-full border border-black/10 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+      </form>
+      <a href="/favourites" class="relative grid h-9 w-9 place-items-center rounded-full hover:bg-white" title="Favourites">
+        ♥
+        {% if fav_count %}<span class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand-600 px-1 text-[10px] font-bold text-white">{{ fav_count }}</span>{% endif %}
+      </a>
+      <a href="/cart" class="relative grid h-9 w-9 place-items-center rounded-full hover:bg-white" title="Cart">
+        🛒
+        <span id="cart-count" class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-gold-500 px-1 text-[10px] font-bold text-ink {% if not cart_count %}hidden{% endif %}">{{ cart_count }}</span>
+      </a>
+      {% if user.is_authenticated %}
+        <div class="group relative">
+          <button class="grid h-9 w-9 place-items-center rounded-full bg-brand-600 text-sm font-bold text-white">{{ user.full_name|initials }}</button>
+          <div class="invisible absolute right-0 top-11 z-50 w-44 rounded-xl bg-white p-1 shadow-soft ring-1 ring-black/5 opacity-0 transition group-hover:visible group-hover:opacity-100">
+            <a href="/account" class="block rounded-lg px-3 py-2 text-sm hover:bg-cream">My Account</a>
+            <a href="/orders" class="block rounded-lg px-3 py-2 text-sm hover:bg-cream">My Orders</a>
+            <a href="/notifications" class="block rounded-lg px-3 py-2 text-sm hover:bg-cream">Notifications</a>
+            {% if user.user_type == 'ADMIN' %}<a href="/admin-panel" class="block rounded-lg px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-cream">Admin Panel</a>{% endif %}
+            <a href="/logout" class="block rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-cream">Logout</a>
+          </div>
+        </div>
+      {% else %}
+        <a href="/login" class="btn-primary !px-4 !py-2">Login</a>
+      {% endif %}
+    </div>
+  </div>
+</header>

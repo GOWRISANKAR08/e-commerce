@@ -1,0 +1,315 @@
+{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Combo Packs · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Catalog · Combo Packs{% endblock %}
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink">Combo Packs</h1>
+      <p class="mt-0.5 text-sm text-ink/50">Build and manage bundled product combinations for higher cart value.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/admin-panel/combos/new"
+         class="flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-800 transition">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Combo
+      </a>
+    </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div class="card flex items-center gap-3 px-4 py-3.5">
+      <span class="text-2xl">📦</span>
+      <div><p class="text-xl font-bold text-ink leading-none">{{ total_combos }}</p><p class="text-xs text-ink/45 mt-0.5">Total Combos</p></div>
+    </div>
+    <div class="card flex items-center gap-3 px-4 py-3.5">
+      <span class="text-2xl">✅</span>
+      <div><p class="text-xl font-bold text-brand-700 leading-none">{{ active_combos }}</p><p class="text-xs text-ink/45 mt-0.5">Active</p></div>
+    </div>
+    <div class="card flex items-center gap-3 px-4 py-3.5">
+      <span class="text-2xl">⭐</span>
+      <div><p class="text-xl font-bold text-gold-500 leading-none">{{ featured_combos }}</p><p class="text-xs text-ink/45 mt-0.5">Featured</p></div>
+    </div>
+    <div class="card flex items-center gap-3 px-4 py-3.5">
+      <span class="text-2xl">💰</span>
+      <div><p class="text-xl font-bold text-ink leading-none">{{ combo_revenue|inr }}</p><p class="text-xs text-ink/45 mt-0.5">Combo Revenue</p></div>
+    </div>
+    <div class="card flex items-center gap-3 px-4 py-3.5">
+      <span class="text-2xl">🛒</span>
+      <div><p class="text-xl font-bold text-ink leading-none">{{ total_orders }}</p><p class="text-xs text-ink/45 mt-0.5">Orders</p></div>
+    </div>
+    <div class="card flex items-center gap-3 px-4 py-3.5">
+      <span class="text-2xl">🏷️</span>
+      <div><p class="text-xl font-bold text-brand-700 leading-none">{{ avg_savings }}%</p><p class="text-xs text-ink/45 mt-0.5">Avg Savings</p></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="card px-4 py-3">
+    <form method="get" class="flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[200px]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-3 top-1/2 -translate-y-1/2 text-ink/35"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input name="q" value="{{ q }}" placeholder="Search combos..."
+               class="w-full rounded-lg border border-black/10 bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+      <select name="status" onchange="this.form.submit()"
+              class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <option value="">All Status</option>
+        {% for val, label in status_choices %}
+        <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="sort" onchange="this.form.submit()"
+              class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <option value="">Sort: Best Selling</option>
+        <option value="name"       {% if sort == "name" %}selected{% endif %}>Name A–Z</option>
+        <option value="price_asc"  {% if sort == "price_asc" %}selected{% endif %}>Price: Low–High</option>
+        <option value="price_desc" {% if sort == "price_desc" %}selected{% endif %}>Price: High–Low</option>
+        <option value="orders"     {% if sort == "orders" %}selected{% endif %}>Most Orders</option>
+        <option value="newest"     {% if sort == "newest" %}selected{% endif %}>Newest First</option>
+      </select>
+      <button type="submit"
+              class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink/70 hover:bg-cream transition">
+        Search
+      </button>
+      {% if q or status_filter or sort %}
+      <a href="/admin-panel/combos" class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink/50 hover:bg-cream transition">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Bulk form -->
+  <form method="post" id="bulkForm">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="bulkAction">
+
+    {% if combos %}
+    <!-- Grid -->
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="comboGrid">
+      {% for c in combos %}
+      {% with orig=c.original_total savings=c.savings savings_pct=c.savings_pct %}
+      <div class="card group relative flex flex-col overflow-hidden transition hover:shadow-md">
+        <!-- Checkbox -->
+        <input type="checkbox" name="ids" value="{{ c.pk }}" form="bulkForm"
+               class="combo-check absolute top-2.5 left-2.5 z-10 h-3.5 w-3.5 rounded accent-brand-600 opacity-0 group-hover:opacity-100 transition">
+
+        <!-- Badge top-left -->
+        {% if c.badge_label %}
+        <span class="absolute top-2.5 left-7 z-10 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm
+          {% if c.badge_style == 'brand-green' %}bg-brand-600 text-white
+          {% elif c.badge_style == 'gold' %}bg-gold-500 text-white
+          {% elif c.badge_style == 'dark' %}bg-ink text-white
+          {% else %}bg-red-500 text-white{% endif %}">
+          {{ c.badge_label }}
+        </span>
+        {% endif %}
+
+        <!-- Actions top-right -->
+        <div class="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition">
+          <a href="/admin-panel/combos/{{ c.pk }}/edit"
+             class="grid h-7 w-7 place-items-center rounded-lg bg-white/90 shadow text-ink/60 hover:text-brand-700 hover:bg-white transition" title="Edit">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </a>
+          <form method="post" action="/admin-panel/combos/{{ c.pk }}/delete"
+                onsubmit="return confirm('Delete &quot;{{ c.name|escapejs }}&quot;? This cannot be undone.')">
+            {% csrf_token %}
+            <button type="submit" class="grid h-7 w-7 place-items-center rounded-lg bg-white/90 shadow text-ink/60 hover:text-red-600 hover:bg-white transition" title="Delete">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- Image -->
+        <div class="relative h-44 w-full bg-gradient-to-br from-brand-50 to-cream overflow-hidden">
+          {% if c.main_image %}
+          <img src="{{ c.main_image }}" alt="{{ c.name }}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+               class="h-full w-full object-cover">
+          {% endif %}
+          <div class="{% if c.main_image %}hidden{% endif %} h-full w-full flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="text-brand-200"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="flex flex-1 flex-col gap-2 p-3.5">
+          <div>
+            <span class="font-mono text-[10px] text-ink/35">{{ c.code }}</span>
+            <h3 class="font-semibold text-ink text-sm leading-snug mt-0.5 line-clamp-1">{{ c.name }}</h3>
+            {% if c.short_description %}
+            <p class="text-[11px] text-ink/45 mt-0.5 line-clamp-1">{{ c.short_description }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Included products -->
+          <ul class="space-y-0.5">
+            {% for item in c.items.all|slice:":3" %}
+            <li class="flex items-center gap-1.5 text-[11px] text-ink/60">
+              <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="text-brand-600 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+              {{ item.variant.product.name }} {{ item.variant.variant }}
+              {% if item.quantity > 1 %}<span class="text-ink/35">×{{ item.quantity }}</span>{% endif %}
+            </li>
+            {% endfor %}
+            {% with cnt=c.items.count %}
+            {% if cnt > 3 %}
+            <li class="text-[10px] text-ink/35 pl-3.5">+{{ cnt|add:"-3" }} more items</li>
+            {% endif %}
+            {% endwith %}
+          </ul>
+
+          <!-- Price row -->
+          <div class="flex items-baseline gap-2 mt-auto">
+            <span class="text-base font-bold text-brand-700">{{ c.selling_price|inr }}</span>
+            {% if orig > c.selling_price %}
+            <span class="text-xs text-ink/40 line-through">{{ orig|inr }}</span>
+            <span class="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">{{ savings_pct }}% off</span>
+            {% endif %}
+          </div>
+
+          <!-- Mini stats -->
+          <div class="flex items-center gap-3 border-t border-black/5 pt-2">
+            <span class="flex items-center gap-1 text-[11px] text-ink/50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              {{ c.orders_count }}
+            </span>
+            <span class="flex items-center gap-1 text-[11px] text-ink/50">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              {{ c.items.count }} items
+            </span>
+            {% if savings %}
+            <span class="flex items-center gap-1 text-[11px] text-green-700">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Save {{ savings|inr }}
+            </span>
+            {% endif %}
+          </div>
+
+          <!-- Status badges + action -->
+          <div class="flex items-center justify-between gap-2 pt-1">
+            <div class="flex flex-wrap gap-1">
+              <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold
+                {% if c.status == 'ACTIVE' %}bg-green-100 text-green-700{% else %}bg-ink/8 text-ink/45{% endif %}">
+                {{ c.get_status_display }}
+              </span>
+              {% if c.is_featured %}
+              <span class="rounded-full bg-gold-100 px-2 py-0.5 text-[10px] font-semibold text-gold-700">Featured</span>
+              {% endif %}
+              {% if c.is_cod_available %}
+              <span class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">COD</span>
+              {% endif %}
+            </div>
+            <a href="/admin-panel/combos/{{ c.pk }}/edit"
+               class="shrink-0 rounded-lg bg-brand-50 border border-brand-200 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-100 transition whitespace-nowrap">
+              Manage Combo
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endwith %}
+      {% endfor %}
+    </div>
+
+    <!-- Bulk action bar (appears when checked) -->
+    <div id="bulkBar" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50
+         flex items-center gap-3 rounded-2xl bg-ink px-5 py-3 shadow-2xl text-white">
+      <span id="bulkCount" class="text-sm font-semibold"></span>
+      <span class="h-4 w-px bg-white/20"></span>
+      <button type="button" onclick="doBulk('publish')"
+              class="rounded-lg bg-brand-600 hover:bg-brand-700 px-3 py-1.5 text-xs font-semibold transition">
+        Publish
+      </button>
+      <button type="button" onclick="doBulk('draft')"
+              class="rounded-lg bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-semibold transition">
+        Move to Draft
+      </button>
+      <button type="button" onclick="doBulk('delete')"
+              class="rounded-lg bg-red-500 hover:bg-red-600 px-3 py-1.5 text-xs font-semibold transition">
+        Delete
+      </button>
+      <button type="button" onclick="clearSelection()"
+              class="grid h-7 w-7 place-items-center rounded-lg bg-white/10 hover:bg-white/20 transition text-white/70">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    {% else %}
+    <div class="card flex flex-col items-center justify-center gap-4 py-20">
+      <div class="grid h-16 w-16 place-items-center rounded-2xl bg-cream">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-ink/25"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      </div>
+      <div class="text-center">
+        <p class="font-semibold text-ink/50">No combo packs found</p>
+        <p class="text-sm text-ink/30 mt-1">{% if q or status_filter %}Try adjusting your search{% else %}Create your first combo pack to get started{% endif %}</p>
+      </div>
+      {% if not q and not status_filter %}
+      <a href="/admin-panel/combos/new" class="btn-primary px-5">+ New Combo</a>
+      {% else %}
+      <a href="/admin-panel/combos" class="btn-outline">Clear filters</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </form>
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="flex items-center justify-between gap-3 border-t border-black/5 pt-3">
+    <p class="text-xs text-ink/50">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ filtered_total }} combos</p>
+    <nav class="flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_filter }}&sort={{ sort }}"
+         class="grid h-8 w-8 place-items-center rounded-lg border border-black/10 bg-white text-xs text-ink/60 hover:bg-cream transition">‹</a>
+      {% endif %}
+      {% for pnum in page_obj.paginator.page_range %}
+        {% if pnum == page_obj.number %}
+        <span class="grid h-8 min-w-[2rem] px-1 place-items-center rounded-lg bg-brand-700 text-white text-xs font-bold">{{ pnum }}</span>
+        {% elif pnum == 1 or pnum == page_obj.paginator.num_pages or pnum >= page_obj.number|add:"-2" and pnum <= page_obj.number|add:"2" %}
+        <a href="?page={{ pnum }}&q={{ q }}&status={{ status_filter }}&sort={{ sort }}"
+           class="grid h-8 min-w-[2rem] px-1 place-items-center rounded-lg border border-black/10 bg-white text-xs text-ink/70 hover:bg-cream transition">{{ pnum }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_filter }}&sort={{ sort }}"
+         class="grid h-8 w-8 place-items-center rounded-lg border border-black/10 bg-white text-xs text-ink/60 hover:bg-cream transition">›</a>
+      {% endif %}
+    </nav>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  const checkboxes = () => Array.from(document.querySelectorAll('.combo-check'));
+
+  function syncBulkBar() {
+    const checked = checkboxes().filter(c => c.checked);
+    const bar = document.getElementById('bulkBar');
+    if (checked.length) {
+      document.getElementById('bulkCount').textContent = checked.length + ' selected';
+      bar.classList.remove('hidden');
+      bar.classList.add('flex');
+    } else {
+      bar.classList.add('hidden');
+      bar.classList.remove('flex');
+    }
+  }
+
+  checkboxes().forEach(cb => cb.addEventListener('change', syncBulkBar));
+
+  function doBulk(action) {
+    const n = checkboxes().filter(c => c.checked).length;
+    if (!n) return;
+    const verbs = { delete: 'permanently delete', publish: 'publish', draft: 'move to draft' };
+    if (!confirm(`${(verbs[action] || action).replace(/^./, s => s.toUpperCase())} ${n} combo(s)?`)) return;
+    document.getElementById('bulkAction').value = action;
+    document.getElementById('bulkForm').submit();
+  }
+
+  function clearSelection() {
+    checkboxes().forEach(c => c.checked = false);
+    syncBulkBar();
+  }
+</script>
+{% endblock %}

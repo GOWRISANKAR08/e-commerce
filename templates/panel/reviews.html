@@ -1,0 +1,567 @@
+{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Customer Reviews · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Reviews{% endblock %}
+{% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+<div class="mx-auto max-w-6xl space-y-5">
+
+  {# ── Page header ── #}
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-semibold text-ink">Customer Reviews</h1>
+      <p class="mt-0.5 text-sm text-ink/50">Monitor, respond to, and manage reviews across all products.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      {# Period selector #}
+      <form method="get" id="periodForm">
+        <input type="hidden" name="q" value="{{ q }}">
+        <input type="hidden" name="product" value="{{ product_filter }}">
+        <input type="hidden" name="rating" value="{{ rating_filter }}">
+        <input type="hidden" name="replied" value="{{ reply_filter }}">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <select name="period" onchange="document.getElementById('periodForm').submit()"
+                class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+          <option value="30" {% if period == 30 %}selected{% endif %}>Last 30 days</option>
+          <option value="90" {% if period == 90 %}selected{% endif %}>Last 90 days</option>
+          <option value="365" {% if period == 365 %}selected{% endif %}>This Year</option>
+          <option value="0" {% if period == 0 %}selected{% endif %}>All Time</option>
+        </select>
+      </form>
+      <a href="/admin-panel/reviews/export?period={{ period }}"
+         class="flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm font-medium text-ink hover:bg-ink/5 transition-colors">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 3v12"/>
+        </svg>
+        Export
+      </a>
+    </div>
+  </div>
+
+  {# ── Django messages ── #}
+  {% if messages %}
+  <div class="space-y-2">
+    {% for msg in messages %}
+    <div class="flex items-center gap-2 rounded-xl border {% if msg.tags == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-green-200 bg-green-50 text-green-700{% endif %} px-4 py-3 text-sm">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        {% if msg.tags == 'error' %}<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        {% else %}<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>{% endif %}
+      </svg>
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Stats row ── #}
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+
+    {# Overall Rating #}
+    <div class="card p-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-sm font-medium text-ink/50">Overall Rating</p>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="font-display text-5xl font-bold text-ink">{{ avg_rating }}</span>
+            <span class="text-sm text-ink/40">/ 5.0</span>
+          </div>
+          {# Star display #}
+          <div class="mt-2 flex items-center gap-0.5">
+            {% for s in "12345" %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24">
+              {% if forloop.counter <= avg_rating %}
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="#f2c014" stroke="#d9a40a" stroke-width="1"/>
+              {% else %}
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+              {% endif %}
+            </svg>
+            {% endfor %}
+          </div>
+          <p class="mt-2 text-sm text-ink/50">{{ total_count }} verified review{{ total_count|pluralize }}</p>
+          {% if avg_diff != 0 %}
+          <p class="mt-1 text-xs font-medium {% if avg_diff > 0 %}text-green-600{% else %}text-red-500{% endif %}">
+            {% if avg_diff > 0 %}+{% endif %}{{ avg_diff }} vs last period
+          </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Rating Breakdown #}
+    <div class="card p-6">
+      <p class="text-sm font-medium text-ink/50">Rating Breakdown</p>
+      <div class="mt-3 space-y-2">
+        {% for b in breakdown_list %}
+        <div class="flex items-center gap-3">
+          <div class="flex w-8 items-center justify-end gap-0.5">
+            <span class="text-xs font-medium text-ink/60">{{ b.star }}</span>
+            <svg class="h-3 w-3" viewBox="0 0 24 24">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="#f2c014" stroke="none"/>
+            </svg>
+          </div>
+          <div class="h-2 flex-1 overflow-hidden rounded-full bg-black/8">
+            <div class="h-full rounded-full transition-all
+              {% if b.star >= 4 %}bg-brand-500{% elif b.star == 3 %}bg-gold-500{% else %}bg-red-400{% endif %}"
+              style="width: {{ b.pct }}%"></div>
+          </div>
+          <span class="w-7 text-right text-xs text-ink/50">{{ b.count }}</span>
+        </div>
+        {% empty %}
+        <p class="text-sm text-ink/40">No reviews yet</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Review Health #}
+    <div class="card p-6">
+      <p class="text-sm font-medium text-ink/50">Review Health</p>
+      <div class="mt-3 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-ink/60">Response Rate</span>
+          <span class="text-sm font-semibold text-ink">{{ response_rate }}%</span>
+        </div>
+        <div class="h-1.5 overflow-hidden rounded-full bg-black/8">
+          <div class="h-full rounded-full bg-brand-500" style="width: {{ response_rate }}%"></div>
+        </div>
+        <div class="flex items-center justify-between border-t border-black/5 pt-3">
+          <span class="text-sm text-ink/60">Avg Response Time</span>
+          <span class="text-sm font-semibold text-ink">{{ avg_response_hrs }} hrs</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-ink/60">Pending Replies</span>
+          <span class="rounded-full px-2 py-0.5 text-xs font-semibold
+            {% if pending_replies > 0 %}bg-orange-100 text-orange-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {{ pending_replies }}
+          </span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-sm text-ink/60">Flagged Reviews</span>
+          <span class="rounded-full px-2 py-0.5 text-xs font-semibold
+            {% if flagged_count > 0 %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+            {{ flagged_count }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  {# ── Filter toolbar ── #}
+  <form method="get" id="filterForm" class="flex flex-wrap items-center gap-2">
+    <input type="hidden" name="period" value="{{ period }}">
+    <div class="relative flex-1 min-w-48">
+      <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
+           fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input name="q" value="{{ q }}" placeholder="Search reviews…"
+             class="w-full rounded-lg border border-black/10 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+    </div>
+    <select name="product" class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+      <option value="">All Products</option>
+      {% for p in products_with_reviews %}
+      <option value="{{ p.pk }}" {% if product_filter == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.name|truncatechars:35 }}</option>
+      {% endfor %}
+    </select>
+    <select name="rating" class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+      <option value="">All Ratings</option>
+      {% for s in "54321" %}
+      <option value="{{ s }}" {% if rating_filter == s %}selected{% endif %}>{{ s }} ★</option>
+      {% endfor %}
+    </select>
+    <select name="replied" class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+      <option value="">All Reviews</option>
+      <option value="unreplied" {% if reply_filter == "unreplied" %}selected{% endif %}>Unreplied</option>
+      <option value="replied" {% if reply_filter == "replied" %}selected{% endif %}>Replied</option>
+      <option value="flagged" {% if reply_filter == "flagged" %}selected{% endif %}>Flagged</option>
+    </select>
+    <select name="sort" class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-200 cursor-pointer">
+      <option value="-created_at" {% if sort == "-created_at" %}selected{% endif %}>Newest first</option>
+      <option value="created_at" {% if sort == "created_at" %}selected{% endif %}>Oldest first</option>
+      <option value="-rating" {% if sort == "-rating" %}selected{% endif %}>Highest rating</option>
+      <option value="rating" {% if sort == "rating" %}selected{% endif %}>Lowest rating</option>
+      <option value="-helpful_count" {% if sort == "-helpful_count" %}selected{% endif %}>Most helpful</option>
+    </select>
+    <button type="submit" class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors">
+      Filter
+    </button>
+    {% if q or product_filter or rating_filter or reply_filter %}
+    <a href="/admin-panel/reviews?period={{ period }}" class="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink/50 hover:text-ink hover:bg-ink/5 transition-colors">
+      Clear
+    </a>
+    {% endif %}
+  </form>
+
+  {# ── Bulk action bar (hidden until checkboxes selected) ── #}
+  <div id="bulkBar" class="hidden items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
+    <span class="text-sm font-medium text-brand-800"><span id="bulkCount">0</span> selected</span>
+    <form method="post" action="/admin-panel/reviews" id="bulkForm" class="flex items-center gap-2">
+      {% csrf_token %}
+      <div id="bulkIdInputs"></div>
+      <button name="action" value="approve" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">Approve</button>
+      <button name="action" value="reject" class="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600">Reject</button>
+      <button name="action" value="unflag" class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600">Unflag</button>
+      <button name="action" value="delete" onclick="return confirm('Permanently delete selected reviews?')"
+              class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Delete</button>
+    </form>
+    <button onclick="clearSelection()" class="ml-auto text-xs text-ink/50 hover:text-ink">✕ Clear</button>
+  </div>
+
+  {# ── Review cards ── #}
+  <div class="space-y-3">
+    {% for review in reviews %}
+    <div id="review-{{ review.pk }}" class="card p-5 transition-all {% if review.is_flagged %}border-l-4 border-l-red-400{% endif %}">
+      <div class="flex items-start gap-4">
+
+        {# Select checkbox #}
+        <label class="mt-1 flex cursor-pointer items-center">
+          <input type="checkbox" value="{{ review.pk }}" onchange="toggleBulk(this)"
+                 class="h-4 w-4 rounded border-black/20 text-brand-600 focus:ring-brand-200 accent-brand-600">
+        </label>
+
+        {# Avatar #}
+        <div class="h-10 w-10 shrink-0 rounded-full {{ review.avatar_style }} flex items-center justify-center text-sm font-bold">
+          {{ review.initials }}
+        </div>
+
+        {# Content #}
+        <div class="flex-1 min-w-0">
+
+          {# Row 1: name / badges / date / actions #}
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold text-ink text-sm">{{ review.user.full_name|default:review.user.email }}</span>
+              {% if review.is_verified %}
+              <span class="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700 border border-green-200">
+                <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+                Verified Purchase
+              </span>
+              {% endif %}
+              {% if review.is_flagged %}
+              <span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600 border border-red-200">
+                <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h10l-2 5 2 5H4V4z"/><line x1="4" y1="4" x2="4" y2="21" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                Flagged
+              </span>
+              {% endif %}
+              {% if review.status == "REJECTED" %}
+              <span class="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700 border border-orange-200">Rejected</span>
+              {% endif %}
+              <span class="text-xs text-ink/40">{{ review.created_at|date:"M d, Y" }}</span>
+            </div>
+            {# Action buttons #}
+            <div class="flex items-center gap-1">
+              <button onclick="toggleFlag({{ review.pk }}, this)" title="{% if review.is_flagged %}Unflag{% else %}Flag{% endif %}"
+                      class="rounded-lg p-1.5 text-ink/30 hover:bg-ink/5 hover:text-orange-500 transition-colors">
+                <svg class="h-4 w-4" fill="{% if review.is_flagged %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h10l-2 5 2 5H4V4z"/>
+                  <line x1="4" y1="4" x2="4" y2="21" stroke-linecap="round"/>
+                </svg>
+              </button>
+              <form method="post" action="/admin-panel/reviews/{{ review.pk }}/delete" class="inline" id="delf{{ review.pk }}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              </form>
+              <button type="button"
+                      onclick="if(confirm('Delete this review permanently?')) document.getElementById('delf{{ review.pk }}').submit()"
+                      title="Delete review"
+                      class="rounded-lg p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {# Row 2: stars + product #}
+          <div class="mt-1 flex flex-wrap items-center gap-2">
+            <div class="flex items-center gap-0.5">
+              {% for s in "12345" %}
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24">
+                {% if forloop.counter <= review.rating %}
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="#f2c014" stroke="none"/>
+                {% else %}
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="#d1d5db" stroke-width="1.5"/>
+                {% endif %}
+              </svg>
+              {% endfor %}
+            </div>
+            <span class="text-xs text-ink/40">on</span>
+            {% if review.product.image %}
+            <img src="{{ review.product.image }}" alt="" class="h-5 w-5 rounded-full object-cover border border-black/10">
+            {% else %}
+            <span class="h-5 w-5 rounded-full bg-brand-100 flex items-center justify-center">
+              <svg class="h-3 w-3 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+            </span>
+            {% endif %}
+            <span class="text-xs text-ink/60 font-medium">{{ review.product.name }}</span>
+          </div>
+
+          {# Title + Comment #}
+          {% if review.title %}
+          <h4 class="mt-2 text-sm font-semibold text-ink">{{ review.title }}</h4>
+          {% endif %}
+          <p class="mt-1 text-sm text-ink/65 leading-relaxed">{{ review.comment }}</p>
+
+          {# Footer: helpful + reply status #}
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            <span class="text-xs text-ink/40">
+              👍 {{ review.helpful_count }} found helpful
+            </span>
+            {% if review.reply %}
+            <span class="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+              </svg>
+              Replied
+            </span>
+            <button onclick="toggleReplyForm({{ review.pk }}, true)"
+                    class="text-xs text-ink/40 hover:text-brand-600 underline underline-offset-2">Edit reply</button>
+            {% else %}
+            <button onclick="toggleReplyForm({{ review.pk }}, false)"
+                    class="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition-colors">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6"/>
+              </svg>
+              Reply
+            </button>
+            {% endif %}
+          </div>
+
+          {# Admin reply block #}
+          {% if review.reply %}
+          <div id="replyBlock{{ review.pk }}" class="mt-3 rounded-xl border border-gold-200 bg-amber-50 p-4">
+            <div class="flex items-center gap-1.5 mb-2">
+              <span class="text-sm">🏪</span>
+              <span class="text-sm font-semibold text-ink">{{ SITE_NAME }}</span>
+            </div>
+            <p class="text-sm text-ink/70 leading-relaxed">{{ review.reply }}</p>
+          </div>
+          {% else %}
+          <div id="replyBlock{{ review.pk }}" class="hidden mt-3 rounded-xl border border-gold-200 bg-amber-50 p-4">
+            <div class="flex items-center gap-1.5 mb-2">
+              <span class="text-sm">🏪</span>
+              <span class="text-sm font-semibold text-ink">{{ SITE_NAME }}</span>
+            </div>
+            <p class="text-sm text-ink/70 leading-relaxed" id="replyText{{ review.pk }}"></p>
+          </div>
+          {% endif %}
+
+          {# Reply form (hidden) #}
+          <div id="replyForm{{ review.pk }}" class="hidden mt-3">
+            <div class="relative">
+              <textarea id="replyInput{{ review.pk }}" rows="3"
+                        placeholder="Write a reply as {{ SITE_NAME }}…"
+                        class="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm text-ink placeholder:text-ink/35 focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none">{{ review.reply }}</textarea>
+            </div>
+            <div class="mt-2 flex items-center gap-2">
+              <button onclick="submitReply({{ review.pk }})"
+                      class="rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-700 transition-colors">
+                Post Reply
+              </button>
+              <button onclick="cancelReply({{ review.pk }})"
+                      class="rounded-lg border border-black/10 px-4 py-2 text-xs font-medium text-ink/60 hover:bg-ink/5 transition-colors">
+                Cancel
+              </button>
+              <span id="replyErr{{ review.pk }}" class="hidden text-xs text-red-500"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="card py-16 text-center">
+      <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
+        <svg class="h-8 w-8 text-brand-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/>
+        </svg>
+      </div>
+      <p class="font-medium text-ink">No reviews found</p>
+      <p class="mt-1 text-sm text-ink/50">
+        {% if q or product_filter or rating_filter or reply_filter %}
+          Try adjusting your filters or <a href="/admin-panel/reviews?period={{ period }}" class="text-brand-600 hover:underline">clear all filters</a>.
+        {% else %}
+          Customer reviews will appear here once orders are placed.
+        {% endif %}
+      </p>
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Pagination ── #}
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="flex items-center justify-between py-2">
+    <p class="text-sm text-ink/50">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ filtered_total }} review{{ filtered_total|pluralize }}
+    </p>
+    <nav class="flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&period={{ period }}&q={{ q }}&product={{ product_filter }}&rating={{ rating_filter }}&replied={{ reply_filter }}&sort={{ sort }}"
+         class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-ink/5 transition-colors">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      {% else %}
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 text-ink/25">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </span>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-xs font-semibold text-white">{{ num }}</span>
+        {% elif num == 1 or num == page_obj.paginator.num_pages or num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+        <a href="?page={{ num }}&period={{ period }}&q={{ q }}&product={{ product_filter }}&rating={{ rating_filter }}&replied={{ reply_filter }}&sort={{ sort }}"
+           class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-xs text-ink/60 hover:bg-ink/5 transition-colors">{{ num }}</a>
+        {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+        <span class="flex h-8 w-8 items-center justify-center text-xs text-ink/40">…</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&period={{ period }}&q={{ q }}&product={{ product_filter }}&rating={{ rating_filter }}&replied={{ reply_filter }}&sort={{ sort }}"
+         class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-ink/5 transition-colors">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+      {% else %}
+      <span class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/5 text-ink/25">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </span>
+      {% endif %}
+    </nav>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+// ── Bulk selection ──────────────────────────────────────────────────────────
+let selected = new Set();
+
+function toggleBulk(checkbox) {
+  const pk = checkbox.value;
+  if (checkbox.checked) selected.add(pk);
+  else selected.delete(pk);
+  renderBulkBar();
+}
+
+function renderBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const countEl = document.getElementById('bulkCount');
+  const inputsEl = document.getElementById('bulkIdInputs');
+  if (selected.size > 0) {
+    bar.classList.remove('hidden');
+    bar.classList.add('flex');
+    countEl.textContent = selected.size;
+    inputsEl.innerHTML = Array.from(selected)
+      .map(pk => `<input type="hidden" name="ids" value="${pk}">`)
+      .join('');
+  } else {
+    bar.classList.add('hidden');
+    bar.classList.remove('flex');
+  }
+}
+
+function clearSelection() {
+  selected.clear();
+  document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+  renderBulkBar();
+}
+
+// ── Reply ───────────────────────────────────────────────────────────────────
+function toggleReplyForm(pk, isEdit) {
+  const form = document.getElementById('replyForm' + pk);
+  const block = document.getElementById('replyBlock' + pk);
+  form.classList.remove('hidden');
+  if (isEdit && block) block.classList.add('hidden');
+  document.getElementById('replyInput' + pk).focus();
+}
+
+function cancelReply(pk) {
+  document.getElementById('replyForm' + pk).classList.add('hidden');
+  const block = document.getElementById('replyBlock' + pk);
+  if (block) block.classList.remove('hidden');
+}
+
+async function submitReply(pk) {
+  const input = document.getElementById('replyInput' + pk);
+  const errEl = document.getElementById('replyErr' + pk);
+  const text = input.value.trim();
+  if (!text) {
+    errEl.textContent = 'Reply cannot be empty.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+  errEl.classList.add('hidden');
+
+  const fd = new FormData();
+  fd.append('reply', text);
+  fd.append('csrfmiddlewaretoken', CSRF);
+
+  try {
+    const res = await fetch(`/admin-panel/reviews/${pk}/reply`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.ok) {
+      const block = document.getElementById('replyBlock' + pk);
+      const textEl = document.getElementById('replyText' + pk);
+      if (textEl) textEl.textContent = text;
+      block.classList.remove('hidden');
+      document.getElementById('replyForm' + pk).classList.add('hidden');
+      // Update the footer badge
+      const card = document.getElementById('review-' + pk);
+      const replyBtn = card.querySelector('button[onclick*="toggleReplyForm"][onclick*="false"]');
+      if (replyBtn) {
+        replyBtn.outerHTML = `
+          <span class="inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+            Replied
+          </span>
+          <button onclick="toggleReplyForm(${pk}, true)" class="text-xs text-ink/40 hover:text-brand-600 underline underline-offset-2">Edit reply</button>`;
+      }
+    } else {
+      errEl.textContent = data.error || 'Failed to post reply.';
+      errEl.classList.remove('hidden');
+    }
+  } catch {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+// ── Flag / unflag ───────────────────────────────────────────────────────────
+async function toggleFlag(pk, btn) {
+  const fd = new FormData();
+  fd.append('csrfmiddlewaretoken', CSRF);
+  try {
+    const res = await fetch(`/admin-panel/reviews/${pk}/flag`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.ok) {
+      const svg = btn.querySelector('svg');
+      const card = document.getElementById('review-' + pk);
+      if (data.flagged) {
+        svg.setAttribute('fill', 'currentColor');
+        btn.classList.add('text-orange-500');
+        btn.setAttribute('title', 'Unflag');
+        card.classList.add('border-l-4', 'border-l-red-400');
+      } else {
+        svg.setAttribute('fill', 'none');
+        btn.classList.remove('text-orange-500');
+        btn.setAttribute('title', 'Flag');
+        card.classList.remove('border-l-4', 'border-l-red-400');
+      }
+    }
+  } catch {}
+}
+
+// Auto-submit filter form on select change
+document.querySelectorAll('#filterForm select').forEach(sel => {
+  sel.addEventListener('change', () => document.getElementById('filterForm').submit());
+});
+</script>
+{% endblock %}

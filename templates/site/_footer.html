@@ -1,0 +1,41 @@
+{% load store_extras %}
+<footer class="mt-20 bg-brand-800 text-cream/80">
+  <div class="mx-auto grid max-w-7xl gap-10 px-4 py-14 lg:grid-cols-4 lg:px-8">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="grid h-9 w-9 place-items-center rounded-full bg-gold-500 font-display text-lg font-bold text-brand-800">S</span>
+        <span class="font-display text-xl font-semibold text-white">{{ SITE_NAME }}</span>
+      </div>
+      <p class="mt-4 max-w-xs text-sm text-cream/60">Handpicked spices, herbs & wellness products sourced directly from organic farms across India. Rooted in Ayurvedic tradition.</p>
+    </div>
+    <div>
+      <h4 class="font-display text-lg font-semibold text-white">Shop</h4>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a href="/products" class="hover:text-gold-500">All Products</a></li>
+        <li><a href="/categories" class="hover:text-gold-500">Categories</a></li>
+        <li><a href="/favourites" class="hover:text-gold-500">Favourites</a></li>
+        <li><a href="/orders" class="hover:text-gold-500">My Orders</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="font-display text-lg font-semibold text-white">Company</h4>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a href="/about-us" class="hover:text-gold-500">About Us</a></li>
+        <li><a href="/blogs" class="hover:text-gold-500">Journal</a></li>
+        <li><a href="/testimonials" class="hover:text-gold-500">Testimonials</a></li>
+        <li><a href="/faq" class="hover:text-gold-500">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4 class="font-display text-lg font-semibold text-white">Support</h4>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li><a href="/help-support" class="hover:text-gold-500">Help & Support</a></li>
+        <li><a href="/terms" class="hover:text-gold-500">Terms & Conditions</a></li>
+        <li><a href="/privacy-policy" class="hover:text-gold-500">Privacy Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="border-t border-white/10 py-5 text-center text-xs text-cream/50">
+    © {% now "Y" %} {{ SITE_NAME }}. All rights reserved. · Free delivery on orders over {{ FREE_DELIVERY_OVER|inr }}
+  </div>
+</footer>

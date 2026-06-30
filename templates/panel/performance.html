@@ -1,0 +1,119 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Performance · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Analytics · Performance{% endblock %}
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink">Performance</h1>
+      <p class="mt-0.5 text-sm text-ink/50">Key metrics and business performance indicators</p>
+    </div>
+    <a href="/admin-panel/reports" class="btn-outline text-sm">Full Sales Report →</a>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    <div class="card p-4">
+      <p class="text-xs text-ink/45 font-medium">Total Revenue</p>
+      <p class="mt-1 text-xl font-bold text-ink">{{ total_revenue|inr }}</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-xs text-ink/45 font-medium">Total Orders</p>
+      <p class="mt-1 text-xl font-bold text-ink">{{ total_orders }}</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-xs text-ink/45 font-medium">Avg Order Value</p>
+      <p class="mt-1 text-xl font-bold text-ink">{{ avg_order|inr }}</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-xs text-ink/45 font-medium">Delivered</p>
+      <p class="mt-1 text-xl font-bold text-brand-600">{{ delivered }}</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-xs text-ink/45 font-medium">Conversion Rate</p>
+      <p class="mt-1 text-xl font-bold text-brand-600">{{ conversion }}%</p>
+    </div>
+    <div class="card p-4">
+      <p class="text-xs text-ink/45 font-medium">Cancellation Rate</p>
+      <p class="mt-1 text-xl font-bold {% if cancellation > 10 %}text-red-500{% else %}text-ink{% endif %}">{{ cancellation }}%</p>
+    </div>
+  </div>
+
+  <!-- Two-column -->
+  <div class="grid gap-5 lg:grid-cols-2">
+
+    <!-- Order funnel -->
+    <div class="card p-5">
+      <h2 class="font-display text-lg font-semibold mb-5">Order Fulfillment Funnel</h2>
+      <div class="space-y-3">
+        {% with stages_data="Total Orders,Delivered,Cancelled" %}
+          <div>
+            <div class="flex items-center justify-between mb-1 text-sm">
+              <span class="text-ink/70">Total Orders</span>
+              <span class="font-semibold text-ink">{{ total_orders }}</span>
+            </div>
+            <div class="h-3 overflow-hidden rounded-full bg-ink/5">
+              <div class="h-full rounded-full bg-brand-200" style="width:100%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1 text-sm">
+              <span class="text-ink/70">Delivered</span>
+              <span class="font-semibold text-brand-700">{{ delivered }} ({{ conversion }}%)</span>
+            </div>
+            <div class="h-3 overflow-hidden rounded-full bg-ink/5">
+              <div class="h-full rounded-full bg-brand-500" style="width:{{ conversion }}%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1 text-sm">
+              <span class="text-ink/70">Cancelled / Refunded</span>
+              <span class="font-semibold text-red-600">{{ cancelled }} ({{ cancellation }}%)</span>
+            </div>
+            <div class="h-3 overflow-hidden rounded-full bg-ink/5">
+              <div class="h-full rounded-full bg-red-400" style="width:{{ cancellation }}%"></div>
+            </div>
+          </div>
+        {% endwith %}
+      </div>
+      <div class="mt-6 rounded-xl bg-cream p-4 text-sm">
+        <p class="font-semibold text-ink">Fulfillment Score</p>
+        <p class="mt-1 text-3xl font-bold {% if conversion >= 70 %}text-brand-600{% elif conversion >= 40 %}text-gold-600{% else %}text-red-500{% endif %}">{{ conversion }}%</p>
+        <p class="mt-1 text-xs text-ink/50">
+          {% if conversion >= 70 %}Excellent fulfilment rate — keep it up!
+          {% elif conversion >= 40 %}Average — aim for 70%+ delivery success.
+          {% else %}Below target. Review order processing and logistics.{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <!-- Top products by revenue -->
+    <div class="card p-5">
+      <h2 class="font-display text-lg font-semibold mb-4">Top Products by Revenue</h2>
+      <div class="space-y-3">
+        {% for p in top_products %}
+          <div class="flex items-center gap-3">
+            <span class="shrink-0 w-5 text-center text-sm font-bold text-ink/30">{{ forloop.counter }}</span>
+            {% if p.product__image %}
+              <img src="{{ p.product__image }}" alt="" class="h-10 w-10 shrink-0 rounded-xl object-cover bg-ink/5">
+            {% else %}
+              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-sm font-bold text-brand-400">{{ forloop.counter }}</span>
+            {% endif %}
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-semibold text-ink">{{ p.product__name }}</p>
+              <p class="text-[11px] text-ink/45">{{ p.qty }} unit{{ p.qty|pluralize }} sold</p>
+            </div>
+            <p class="shrink-0 font-bold text-sm text-brand-700">{{ p.revenue|inr }}</p>
+          </div>
+        {% empty %}
+          <p class="text-sm text-ink/40 text-center py-6">No sales data yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

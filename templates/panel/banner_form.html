@@ -1,0 +1,228 @@
+{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}{% if banner %}Edit Banner{% else %}New Banner{% endif %} · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Marketing · <a href="/admin-panel/banners" class="hover:text-ink">Banners</a> · {% if banner %}Edit{% else %}New{% endif %}{% endblock %}
+{% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+<div class="mx-auto max-w-2xl space-y-5">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="font-display text-2xl font-semibold text-ink">
+        {% if banner %}Edit Banner{% else %}New Banner{% endif %}
+      </h1>
+      <p class="mt-0.5 text-sm text-ink/50">{% if banner %}Update banner details and image.{% else %}Add a new banner to the storefront.{% endif %}</p>
+    </div>
+    <a href="/admin-panel/banners"
+       class="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-ink/5 transition-colors">
+      ← Back
+    </a>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2">
+    {% for msg in messages %}
+    <div class="flex items-center gap-2 rounded-xl border {% if msg.tags == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-green-200 bg-green-50 text-green-700{% endif %} px-4 py-3 text-sm">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="">
+    {% csrf_token %}
+    <div class="card space-y-5 p-6">
+
+      {# Name #}
+      <div>
+        <label class="block text-sm font-semibold text-ink mb-1.5">Banner Name <span class="text-red-500">*</span></label>
+        <input name="name" value="{{ banner.name|default:'' }}" required
+               placeholder="e.g. Summer Sale Hero"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+
+      {# Description #}
+      <div>
+        <label class="block text-sm font-semibold text-ink mb-1.5">Description</label>
+        <textarea name="description" rows="2" placeholder="Optional description or alt text…"
+                  class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-200">{{ banner.description|default:'' }}</textarea>
+      </div>
+
+      {# Image upload #}
+      <div>
+        <label class="block text-sm font-semibold text-ink mb-1.5">Banner Image</label>
+        <input type="hidden" name="image" id="imageUrl" value="{{ banner.image|default:'' }}">
+
+        {% if banner.image %}
+        <div class="mb-3 relative inline-block">
+          <img id="imagePreview" src="{{ banner.image }}" alt="Preview"
+               class="h-40 w-full max-w-sm rounded-xl object-cover border border-black/10">
+          <button type="button" onclick="removeImage()"
+                  class="absolute top-2 right-2 rounded-full bg-white/90 p-1 text-ink/60 hover:text-red-500 shadow">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        {% else %}
+        <div id="imagePlaceholder" class="mb-3 hidden">
+          <div class="relative inline-block">
+            <img id="imagePreview" src="" alt="Preview"
+                 class="h-40 w-full max-w-sm rounded-xl object-cover border border-black/10">
+            <button type="button" onclick="removeImage()"
+                    class="absolute top-2 right-2 rounded-full bg-white/90 p-1 text-ink/60 hover:text-red-500 shadow">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        {% endif %}
+
+        <div id="uploadZone"
+             class="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-black/15 bg-cream/30 px-6 py-8 cursor-pointer hover:border-brand-300 hover:bg-brand-50/30 transition-colors">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50">
+            <svg class="h-5 w-5 text-brand-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5 5 5M12 5v12"/>
+            </svg>
+          </div>
+          <div class="text-center">
+            <p class="text-sm font-medium text-ink">Click to upload image</p>
+            <p class="text-xs text-ink/45 mt-0.5">PNG, JPG, WebP up to 5 MB</p>
+          </div>
+          <input type="file" id="imageFile" accept="image/*" class="hidden" onchange="uploadImage(this)">
+          <button type="button" onclick="document.getElementById('imageFile').click()"
+                  class="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-ink/5 transition-colors">
+            Choose File
+          </button>
+        </div>
+
+        <div id="uploadProgress" class="hidden mt-2">
+          <div class="flex items-center gap-2 text-sm text-ink/60">
+            <svg class="h-4 w-4 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+            Uploading…
+          </div>
+        </div>
+        <p id="uploadError" class="hidden mt-1 text-xs text-red-500"></p>
+      </div>
+
+      {# Video URL #}
+      <div>
+        <label class="block text-sm font-semibold text-ink mb-1.5">Video URL
+          <span class="ml-1 text-xs font-normal text-ink/40">(optional, for brand video banners)</span>
+        </label>
+        <input name="video_url" value="{{ banner.video_url|default:'' }}"
+               placeholder="https://youtube.com/…"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+
+      {# Type + Position row #}
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-semibold text-ink mb-1.5">Banner Type</label>
+          <select name="type" class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-200">
+            {% for val, label in type_choices %}
+            <option value="{{ val }}" {% if banner.type == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-ink mb-1.5">Position</label>
+          <input name="position" type="number" min="1" value="{{ banner.position|default:1 }}"
+                 class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+      </div>
+
+      {# Status #}
+      <div>
+        <label class="block text-sm font-semibold text-ink mb-1.5">Status</label>
+        <div class="flex gap-3">
+          {% for val, label in status_choices %}
+          <label class="flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2.5 text-sm transition-colors
+              {% if banner.status == val or not banner and val == 'ACTIVE' %}border-brand-300 bg-brand-50{% else %}border-black/10 bg-white hover:border-brand-200{% endif %}">
+            <input type="radio" name="status" value="{{ val }}"
+                   {% if banner.status == val or not banner and val == 'ACTIVE' %}checked{% endif %}
+                   class="accent-brand-600">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Actions #}
+      <div class="flex items-center gap-3 border-t border-black/5 pt-4">
+        <button type="submit"
+                class="rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors">
+          {% if banner %}Save Changes{% else %}Create Banner{% endif %}
+        </button>
+        <a href="/admin-panel/banners"
+           class="rounded-xl border border-black/10 bg-white px-6 py-2.5 text-sm font-medium text-ink/70 hover:bg-ink/5 transition-colors">
+          Cancel
+        </a>
+        {% if banner %}
+        <form method="post" action="/admin-panel/banners/{{ banner.pk }}/delete" class="ml-auto"
+              onsubmit="return confirm('Permanently delete this banner?')">
+          {% csrf_token %}
+          <button type="submit" class="text-sm text-red-500 hover:text-red-700 hover:underline">Delete banner</button>
+        </form>
+        {% endif %}
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+async function uploadImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('uploadProgress').classList.remove('hidden');
+  document.getElementById('uploadError').classList.add('hidden');
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('csrfmiddlewaretoken', CSRF);
+
+  try {
+    const res = await fetch('/admin-panel/media/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    document.getElementById('uploadProgress').classList.add('hidden');
+    if (data.url) {
+      document.getElementById('imageUrl').value = data.url;
+      const preview = document.getElementById('imagePreview');
+      preview.src = data.url;
+      const placeholder = document.getElementById('imagePlaceholder');
+      if (placeholder) {
+        placeholder.classList.remove('hidden');
+      }
+      document.getElementById('uploadZone').classList.add('hidden');
+    } else {
+      showErr(data.error || 'Upload failed');
+    }
+  } catch {
+    document.getElementById('uploadProgress').classList.add('hidden');
+    showErr('Network error during upload');
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('uploadError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function removeImage() {
+  document.getElementById('imageUrl').value = '';
+  document.getElementById('imagePreview').src = '';
+  const placeholder = document.getElementById('imagePlaceholder');
+  if (placeholder) placeholder.classList.add('hidden');
+  document.getElementById('uploadZone').classList.remove('hidden');
+}
+</script>
+{% endblock %}

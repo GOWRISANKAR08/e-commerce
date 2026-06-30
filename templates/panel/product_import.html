@@ -1,0 +1,140 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Import Products · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Catalog · Import Products{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl space-y-5">
+  <div class="flex items-center justify-between">
+    <h1 class="font-display text-2xl font-semibold text-ink">Import Products</h1>
+    <a href="/admin-panel/products" class="text-sm font-medium text-ink/55 hover:text-ink">← Back</a>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2">
+    {% for m in messages %}
+    <div class="rounded-lg px-4 py-3 text-sm font-medium
+      {% if m.tags == 'error' %}bg-red-50 text-red-700
+      {% elif m.tags == 'warning' %}bg-amber-50 text-amber-800
+      {% else %}bg-green-50 text-green-800{% endif %}">
+      {{ m }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Upload card -->
+  <div class="card p-6 space-y-5">
+    <div>
+      <h2 class="font-semibold text-ink">Upload CSV or Excel file</h2>
+      <p class="mt-1 text-sm text-ink/50">Supported formats: <strong>.csv</strong> and <strong>.xlsx</strong>. Maximum 5 MB.</p>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
+      {% csrf_token %}
+      <label class="flex flex-col items-center justify-center gap-3 cursor-pointer rounded-xl border-2 border-dashed border-brand-200 bg-cream/50 py-10 transition hover:bg-brand-50"
+             id="dropZone">
+        <span class="text-brand-400">{% include "panel/_icon.html" with icon="upload" %}</span>
+        <div class="text-center">
+          <p class="text-sm font-medium text-ink" id="dropLabel">Click to choose file or drag & drop</p>
+          <p class="text-xs text-ink/40 mt-0.5">CSV / XLSX up to 5 MB</p>
+        </div>
+        <input type="file" name="import_file" id="importFile" accept=".csv,.xlsx,.xls" class="sr-only" required />
+      </label>
+
+      <div id="fileInfo" class="hidden rounded-lg bg-cream px-4 py-3 flex items-center gap-3 text-sm">
+        <span class="text-brand-600">{% include "panel/_icon.html" with icon="file" %}</span>
+        <span id="fileName" class="font-medium text-ink"></span>
+        <span id="fileSize" class="text-ink/40 ml-auto"></span>
+      </div>
+
+      <button type="submit" class="btn-primary w-full justify-center py-2.5">
+        {% include "panel/_icon.html" with icon="upload" %}
+        Import Products
+      </button>
+    </form>
+  </div>
+
+  <!-- Template download -->
+  <div class="card p-6 space-y-4">
+    <h2 class="font-semibold text-ink">Download template</h2>
+    <p class="text-sm text-ink/50">Use the template to ensure your file has the correct column headers.</p>
+    <div class="overflow-x-auto rounded-lg border border-black/8">
+      <table class="w-full text-xs">
+        <thead class="bg-cream/70">
+          <tr>
+            {% for col in "name,category,sku,variant,mrp,price,stock,badge,status"|split:"," %}
+            <th class="px-3 py-2 text-left font-semibold text-ink/60 uppercase tracking-wide whitespace-nowrap">{{ col }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-black/5">
+          <tr class="text-ink/50">
+            <td class="px-3 py-2 whitespace-nowrap">Turmeric Powder</td>
+            <td class="px-3 py-2 whitespace-nowrap">Spices</td>
+            <td class="px-3 py-2 whitespace-nowrap">TUR-001</td>
+            <td class="px-3 py-2 whitespace-nowrap">100g</td>
+            <td class="px-3 py-2 whitespace-nowrap">120</td>
+            <td class="px-3 py-2 whitespace-nowrap">99</td>
+            <td class="px-3 py-2 whitespace-nowrap">50</td>
+            <td class="px-3 py-2 whitespace-nowrap">Bestseller</td>
+            <td class="px-3 py-2 whitespace-nowrap">ACTIVE</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <a href="/admin-panel/products/export?fmt=csv" class="btn-outline text-sm">
+      {% include "panel/_icon.html" with icon="download" %}
+      Export current products as CSV template
+    </a>
+  </div>
+
+  <!-- Field reference -->
+  <div class="card p-6 space-y-3">
+    <h2 class="font-semibold text-ink">Field reference</h2>
+    <div class="divide-y divide-black/5 text-sm">
+      {% for row in field_ref %}
+      <div class="grid grid-cols-3 gap-2 py-2">
+        <span class="font-mono text-brand-700 font-medium">{{ row.0 }}</span>
+        <span class="text-ink/40 text-xs">{{ row.1 }}</span>
+        <span class="text-ink/60">{{ row.2 }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const input = document.getElementById('importFile');
+  const label = document.getElementById('dropLabel');
+  const info  = document.getElementById('fileInfo');
+  const fname = document.getElementById('fileName');
+  const fsize = document.getElementById('fileSize');
+  const zone  = document.getElementById('dropZone');
+
+  function handleFile(file) {
+    if (!file) return;
+    fname.textContent = file.name;
+    fsize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+    label.textContent = file.name;
+    info.classList.remove('hidden');
+  }
+
+  input.addEventListener('change', () => handleFile(input.files[0]));
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('border-brand-400','bg-brand-50'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('border-brand-400','bg-brand-50'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('border-brand-400','bg-brand-50');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      handleFile(file);
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,98 @@
+﻿{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Loyalty Members · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Customers · Loyalty Members{% endblock %}
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Header -->
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink">Loyalty Members</h1>
+      <p class="mt-0.5 text-sm text-ink/50">{{ members|length }} member{{ members|length|pluralize }} ranked by lifetime spend</p>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-black/5 bg-cream/40 text-left text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+            <th class="px-4 py-3">Rank</th>
+            <th class="px-4 py-3">Member</th>
+            <th class="px-4 py-3">Joined</th>
+            <th class="px-4 py-3 text-right">Orders</th>
+            <th class="px-4 py-3 text-right">Lifetime Spend</th>
+            <th class="px-4 py-3 text-right">Tier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in members %}
+            <tr class="border-b border-black/5 last:border-0 hover:bg-cream/40 align-middle">
+              <td class="px-4 py-3">
+                {% if forloop.counter <= 3 %}
+                  <span class="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold
+                    {% if forloop.counter == 1 %}bg-gold-500 text-ink
+                    {% elif forloop.counter == 2 %}bg-ink/15 text-ink
+                    {% else %}bg-amber-600/20 text-amber-700{% endif %}">
+                    {{ forloop.counter }}
+                  </span>
+                {% else %}
+                  <span class="text-xs text-ink/40 pl-1.5">{{ forloop.counter }}</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full
+                    {% if forloop.counter == 1 %}bg-gold-500 text-ink
+                    {% else %}bg-brand-100 text-brand-700{% endif %}
+                    text-sm font-bold">
+                    {{ m.full_name|initials }}
+                  </span>
+                  <div>
+                    <p class="font-semibold text-ink">{{ m.full_name|default:"—" }}</p>
+                    <p class="text-[11px] text-ink/40">{{ m.email }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-xs text-ink/55">{{ m.created_at|date:"d M Y" }}</td>
+              <td class="px-4 py-3 text-right font-semibold text-ink">{{ m.order_count|default:"0" }}</td>
+              <td class="px-4 py-3 text-right font-bold text-brand-700">{{ m.total_spend|inr|default:"₹0" }}</td>
+              <td class="px-4 py-3 text-right">
+                {% with spend=m.total_spend|default:0 %}
+                  <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold
+                    {% if spend >= 10000 %}bg-gold-400/20 text-gold-700
+                    {% elif spend >= 3000 %}bg-brand-100 text-brand-700
+                    {% else %}bg-ink/5 text-ink/50{% endif %}">
+                    {% if spend >= 10000 %}Gold
+                    {% elif spend >= 3000 %}Silver
+                    {% else %}Bronze{% endif %}
+                  </span>
+                {% endwith %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="px-4 py-12 text-center">
+                <div class="flex flex-col items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-ink/20"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
+                  <p class="text-sm text-ink/40">No members yet</p>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Tier legend -->
+    <div class="flex flex-wrap items-center gap-4 border-t border-black/5 px-4 py-3 bg-cream/20">
+      <span class="text-[11px] text-ink/40 font-medium">Tiers:</span>
+      <span class="flex items-center gap-1.5 text-[11px] text-ink/60"><span class="h-2 w-2 rounded-full bg-ink/15"></span>Bronze: ₹0–₹3,000</span>
+      <span class="flex items-center gap-1.5 text-[11px] text-ink/60"><span class="h-2 w-2 rounded-full bg-brand-400"></span>Silver: ₹3,000–₹10,000</span>
+      <span class="flex items-center gap-1.5 text-[11px] text-ink/60"><span class="h-2 w-2 rounded-full bg-gold-500"></span>Gold: ₹10,000+</span>
+    </div>
+  </div>
+</div>
+{% endblock %}

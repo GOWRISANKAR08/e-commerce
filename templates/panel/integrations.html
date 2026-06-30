@@ -1,0 +1,228 @@
+{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Integrations · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Settings · Integrations{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-6">
+  <div>
+    <h1 class="font-display text-2xl font-semibold text-ink">Integrations</h1>
+    <p class="mt-1 text-sm text-ink/50">Manage third-party payment and storage credentials. Changes take effect immediately — no restart required.</p>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2">
+    {% for m in messages %}
+    <div class="rounded-lg px-4 py-3 text-sm font-medium
+      {% if m.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-800{% endif %}">
+      {{ m }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── Razorpay ─────────────────────────────────────────────────── -->
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-black/5 px-6 py-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#2d6be4] text-white font-bold text-lg">R</div>
+        <div>
+          <p class="font-semibold text-ink">Razorpay</p>
+          <p class="text-xs text-ink/40">Payment gateway</p>
+        </div>
+      </div>
+      <span class="rounded-full px-3 py-1 text-xs font-semibold
+            {% if rz.enabled %}bg-green-100 text-green-700{% else %}bg-ink/8 text-ink/40{% endif %}">
+        {% if rz.enabled %}Enabled{% else %}Disabled{% endif %}
+      </span>
+    </div>
+
+    <form method="post" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="integration" value="RAZORPAY" />
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="text-sm">
+          <span class="text-ink/60">Key ID</span>
+          <input name="key_id" value="{{ rz.key_id }}" placeholder="rzp_test_…"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Key Secret</span>
+          <div class="relative mt-1">
+            <input name="key_secret" type="password" value="{{ rz.key_secret }}" placeholder="••••••••••••••••"
+                   id="rzSecret"
+                   class="w-full rounded-lg border border-black/10 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+            <button type="button" onclick="toggleSecret('rzSecret')"
+                    class="absolute inset-y-0 right-2 flex items-center text-ink/30 hover:text-ink">
+              {% include "panel/_icon.html" with icon="eye" %}
+            </button>
+          </div>
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Webhook Secret <span class="text-ink/30">(optional)</span></span>
+          <div class="relative mt-1">
+            <input name="webhook_secret" type="password" value="{{ rz.webhook_secret }}"
+                   id="rzWebhook"
+                   class="w-full rounded-lg border border-black/10 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+            <button type="button" onclick="toggleSecret('rzWebhook')"
+                    class="absolute inset-y-0 right-2 flex items-center text-ink/30 hover:text-ink">
+              {% include "panel/_icon.html" with icon="eye" %}
+            </button>
+          </div>
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Environment</span>
+          <select name="environment"
+                  class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="test" {% if rz.environment == 'test' %}selected{% endif %}>Test (Sandbox)</option>
+            <option value="live" {% if rz.environment == 'live' %}selected{% endif %}>Live (Production)</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="flex items-center gap-2.5 text-sm font-medium cursor-pointer">
+        <input type="checkbox" name="enabled" value="true" {% if rz.enabled %}checked{% endif %}
+               class="h-4 w-4 rounded accent-brand-600" />
+        Enable Razorpay payments
+      </label>
+
+      <div class="flex flex-wrap items-center gap-3 border-t border-black/5 pt-4">
+        <button class="btn-primary">Save Razorpay settings</button>
+        <button type="button" onclick="testIntegration('RAZORPAY','rzTestResult')"
+                class="btn-outline">Test connection</button>
+        <span id="rzTestResult" class="text-sm"></span>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Cloudinary ───────────────────────────────────────────────── -->
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-black/5 px-6 py-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#3448c5]">
+          <svg width="22" height="16" viewBox="0 0 110 80" fill="white">
+            <path d="M85.6 26.9a26.1 26.1 0 0 0-51-.4A20 20 0 0 0 20 66h65.5a18.5 18.5 0 0 0 .1-39.1z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="font-semibold text-ink">Cloudinary</p>
+          <p class="text-xs text-ink/40">Cloud image storage · Free 25 GB · No credit card</p>
+        </div>
+      </div>
+      <span class="rounded-full px-3 py-1 text-xs font-semibold
+            {% if cl.enabled %}bg-green-100 text-green-700{% else %}bg-ink/8 text-ink/40{% endif %}">
+        {% if cl.enabled %}Enabled{% else %}Disabled{% endif %}
+      </span>
+    </div>
+
+    <form method="post" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="integration" value="CLOUDINARY" />
+
+      <!-- Quick setup guide -->
+      <div class="rounded-xl bg-brand-50 border border-brand-100 px-4 py-3 text-xs text-brand-800 space-y-0.5">
+        <p class="font-semibold text-brand-900 text-sm mb-1">Where to find these credentials</p>
+        <p>1. Go to <strong>cloudinary.com</strong> → Sign up free (no credit card needed)</p>
+        <p>2. After login, open the <strong>Dashboard</strong></p>
+        <p>3. Copy <strong>Cloud name</strong>, <strong>API Key</strong>, and <strong>API Secret</strong> from the top of the dashboard</p>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="text-sm">
+          <span class="text-ink/60">Cloud Name</span>
+          <input name="cloud_name" value="{{ cl.cloud_name }}" placeholder="your-cloud-name"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Upload Folder</span>
+          <input name="folder" value="{{ cl.folder }}" placeholder="products"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">API Key</span>
+          <input name="api_key" value="{{ cl.api_key }}" placeholder="123456789012345"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">API Secret</span>
+          <div class="relative mt-1">
+            <input name="api_secret" type="password" value="{{ cl.api_secret }}" placeholder="••••••••••••••••••••"
+                   id="clSecret"
+                   class="w-full rounded-lg border border-black/10 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+            <button type="button" onclick="toggleSecret('clSecret')"
+                    class="absolute inset-y-0 right-2 flex items-center text-ink/30 hover:text-ink">
+              {% include "panel/_icon.html" with icon="eye" %}
+            </button>
+          </div>
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Upload Preset <span class="text-ink/30">(optional)</span></span>
+          <input name="upload_preset" value="{{ cl.upload_preset }}" placeholder="my_unsigned_preset"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+          <p class="mt-1 text-[10px] text-ink/35">Leave blank to use signed uploads with API credentials</p>
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Max File Size (MB)</span>
+          <input name="max_size_mb" type="number" min="1" max="100" step="1"
+                 value="{{ cl.max_size_mb }}" placeholder="5"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm sm:col-span-2">
+          <span class="text-ink/60">Allowed File Types <span class="text-ink/30">(comma-separated)</span></span>
+          <input name="allowed_types" value="{{ cl.allowed_types }}" placeholder="jpg,jpeg,png,webp,gif"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+          <p class="mt-1 text-[10px] text-ink/35">Applies to product images, category images, and all file uploads.</p>
+        </label>
+      </div>
+
+      <label class="flex items-center gap-2.5 text-sm font-medium cursor-pointer">
+        <input type="checkbox" name="enabled" value="true" {% if cl.enabled %}checked{% endif %}
+               class="h-4 w-4 rounded accent-brand-600" />
+        Enable Cloudinary for all uploads (products, categories, documents)
+      </label>
+
+      <div class="flex flex-wrap items-center gap-3 border-t border-black/5 pt-4">
+        <button class="btn-primary">Save Cloudinary settings</button>
+        <button type="button" onclick="testIntegration('CLOUDINARY','clTestResult')"
+                class="btn-outline">Test connection</button>
+        <span id="clTestResult" class="text-sm"></span>
+      </div>
+    </form>
+  </div>
+
+  <!-- How it works -->
+  <div class="rounded-xl bg-brand-50 border border-brand-100 px-5 py-4 text-sm text-brand-800 space-y-1.5">
+    <p class="font-semibold text-brand-900">How image storage works</p>
+    <ul class="list-disc list-inside space-y-1 text-brand-700">
+      <li>When Cloudinary is <strong>enabled</strong>, product images are uploaded to your Cloudinary account and only the URL is stored in the database.</li>
+      <li>When Cloudinary is <strong>disabled</strong>, images fall back to local <code class="bg-white/60 px-1 rounded">MEDIA_ROOT</code> storage on this server.</li>
+      <li>Free plan includes <strong>25 GB storage + 25 GB bandwidth/month</strong> — no credit card required ever.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+async function testIntegration(name, resultId) {
+  const el = document.getElementById(resultId);
+  el.textContent = 'Testing…';
+  el.className = 'text-sm text-ink/40';
+  try {
+    const r = await fetch(`/admin-panel/integrations/test/${name}`, {
+      method: 'POST',
+      headers: {'X-CSRFToken': '{{ csrf_token }}'},
+    });
+    const data = await r.json();
+    el.textContent = (data.ok ? '✓ ' : '✗ ') + data.message;
+    el.className = `text-sm font-medium ${data.ok ? 'text-green-700' : 'text-red-600'}`;
+  } catch(e) {
+    el.textContent = '✗ Network error';
+    el.className = 'text-sm font-medium text-red-600';
+  }
+}
+
+function toggleSecret(id) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+</script>
+{% endblock %}

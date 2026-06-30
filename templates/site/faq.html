@@ -1,0 +1,31 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}FAQ · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-3xl px-4 py-12 lg:px-8">
+  <div class="text-center">
+    <span class="section-eyebrow justify-center">Help Centre</span>
+    <h1 class="mt-2 font-display text-4xl font-semibold text-ink">Frequently Asked Questions</h1>
+  </div>
+
+  <div class="mt-10 space-y-3">
+    {% for f in faqs %}
+      <details class="card group p-5 [&_summary::-webkit-details-marker]:hidden">
+        <summary class="flex cursor-pointer items-center justify-between gap-4">
+          <span class="font-display text-base font-semibold">{{ f.question }}</span>
+          <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600 transition group-open:rotate-45">+</span>
+        </summary>
+        <div class="mt-3 text-sm leading-relaxed text-ink/70">{{ f.answer|safe }}</div>
+      </details>
+    {% empty %}
+      <p class="text-center text-ink/50">No FAQs yet.</p>
+    {% endfor %}
+  </div>
+
+  <div class="mt-10 rounded-2xl bg-brand-600 p-8 text-center text-white">
+    <p class="font-display text-xl font-semibold">Still have questions?</p>
+    <p class="mt-1 text-white/70">Our team is happy to help.</p>
+    <a href="/help-support" class="mt-4 inline-flex rounded-full bg-gold-500 px-5 py-2.5 text-sm font-semibold text-ink">Contact us</a>
+  </div>
+</section>
+{% endblock %}

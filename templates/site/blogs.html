@@ -1,0 +1,31 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Journal · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="bg-grain">
+  <div class="mx-auto max-w-7xl px-4 py-12 lg:px-8">
+    <span class="section-eyebrow">The Journal</span>
+    <h1 class="mt-2 font-display text-4xl font-semibold text-ink">Stories from the spice trail</h1>
+    <p class="mt-2 max-w-xl text-ink/60">Recipes, sourcing notes and wellness wisdom from our kitchen and our farms.</p>
+
+    <div class="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {% for b in blogs %}
+        <a href="/blogs/{{ b.slug }}" class="card group overflow-hidden">
+          <div class="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-brand-50 to-cream">
+            <img src="{{ b.image }}" alt="{{ b.title }}"
+                 onerror="this.style.display='none'" class="h-full w-full object-cover transition group-hover:scale-105" />
+          </div>
+          <div class="p-5">
+            {% if b.tag %}<span class="section-eyebrow !text-[11px]">{{ b.tag }}</span>{% endif %}
+            <h3 class="mt-2 font-display text-lg font-semibold leading-snug group-hover:text-brand-600">{{ b.title }}</h3>
+            <p class="mt-2 line-clamp-2 text-sm text-ink/60">{{ b.description|striptags|truncatewords:24 }}</p>
+            <p class="mt-3 text-xs text-ink/40">{{ b.created_at|date:"d M Y" }}</p>
+          </div>
+        </a>
+      {% empty %}
+        <p class="text-ink/50">No articles yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
