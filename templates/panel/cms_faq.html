@@ -1,0 +1,245 @@
+{% extends "panel/base.html" %}
+{% block title %}FAQ Manager · CMS · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}CMS › FAQ Manager{% endblock %}
+
+{% block content %}
+<style>
+.drag-handle { cursor:grab; color:#9ca3af; }
+.drag-handle:active { cursor:grabbing; }
+.faq-row.dragging { opacity:.4; background:#f0fdf4; }
+.faq-row.drag-over { border-top:2px solid #1f6b3a; }
+</style>
+
+<div class="mb-5 flex items-center justify-between gap-4">
+  <div>
+    <h1 class="font-display text-2xl font-bold text-ink">FAQ Manager</h1>
+    <p class="mt-0.5 text-sm text-ink/50">Drag to reorder · Click question to edit</p>
+  </div>
+  <a href="/admin-panel/cms" onclick="event.preventDefault();goBack('/admin-panel/cms')" class="btn-outline text-xs">← Back to CMS</a>
+</div>
+
+{% for m in messages %}
+<div class="mb-4 rounded-xl px-4 py-3 text-sm font-medium {% if 'error' in m.tags %}bg-red-50 text-red-700{% else %}bg-brand-50 text-brand-700{% endif %} border border-current/20">{{ m }}</div>
+{% endfor %}
+
+<div class="flex gap-5 items-start">
+
+  <!-- ── FAQ list ── -->
+  <div class="flex-1 min-w-0">
+
+    <!-- Add FAQ form -->
+    <div class="card mb-4 p-5">
+      <h2 class="font-semibold text-ink mb-3 text-sm">Add New FAQ</h2>
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_faq">
+        <div class="grid gap-3 sm:grid-cols-[1fr_180px] mb-3">
+          <div>
+            <label class="text-xs text-ink/50 font-medium">Question</label>
+            <input name="question" required class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:bg-white focus:outline-none" placeholder="What is your return policy?">
+          </div>
+          <div>
+            <label class="text-xs text-ink/50 font-medium">Category</label>
+            <select name="category_id" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
+              <option value="">Uncategorised</option>
+              {% for c in cats %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="text-xs text-ink/50 font-medium">Answer</label>
+          <textarea name="answer" required rows="3" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:bg-white focus:outline-none resize-y" placeholder="Type the answer here…"></textarea>
+        </div>
+        <button class="btn-primary text-xs">Add FAQ</button>
+      </form>
+    </div>
+
+    <!-- FAQ table -->
+    <div class="card overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-black/[.06]">
+        <h2 class="font-semibold text-ink text-sm">All FAQs <span class="text-ink/40 font-normal">({{ faqs|length }})</span></h2>
+        <span class="text-xs text-ink/40">Drag rows to reorder</span>
+      </div>
+      <table class="w-full text-sm" id="faqTable">
+        <thead>
+          <tr class="bg-gray-50 border-b border-black/[.06]">
+            <th class="w-8 px-3 py-2"></th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-ink/50 uppercase tracking-wide">Question</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-ink/50 uppercase tracking-wide hidden sm:table-cell">Category</th>
+            <th class="px-4 py-2 text-left text-xs font-semibold text-ink/50 uppercase tracking-wide">Status</th>
+            <th class="px-4 py-2 text-right text-xs font-semibold text-ink/50 uppercase tracking-wide">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-black/[.04]" id="faqBody">
+          {% for f in faqs %}
+          <tr class="faq-row hover:bg-gray-50/60" data-id="{{ f.pk }}">
+            <td class="px-3 py-3 text-center">
+              <span class="drag-handle select-none">⠿</span>
+            </td>
+            <td class="px-4 py-3">
+              <p class="font-medium text-ink line-clamp-1">{{ f.question }}</p>
+              <p class="text-xs text-ink/40 mt-0.5 line-clamp-1">{{ f.answer|striptags|truncatechars:80 }}</p>
+            </td>
+            <td class="px-4 py-3 hidden sm:table-cell text-xs text-ink/60">{{ f.category.name|default:"—" }}</td>
+            <td class="px-4 py-3">
+              <form method="POST" class="inline">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="toggle_faq">
+                <input type="hidden" name="pk" value="{{ f.pk }}">
+                <button class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold
+                  {% if f.status == 'ACTIVE' %}bg-green-50 text-green-700{% else %}bg-gray-100 text-ink/50{% endif %}">
+                  {{ f.status }}
+                </button>
+              </form>
+            </td>
+            <td class="px-4 py-3 text-right whitespace-nowrap">
+              <button onclick="openEdit({{ f.pk }}, {{ f.question|escapejs|json_script:f.pk }}, `{{ f.answer|escapejs }}`, `{{ f.category.pk|default:'' }}`)"
+                      class="text-xs font-medium text-brand-600 hover:underline mr-3">Edit</button>
+              <form method="POST" class="inline" onsubmit="return confirm('Delete this FAQ?')">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="delete_faq">
+                <input type="hidden" name="pk" value="{{ f.pk }}">
+                <button class="text-xs font-medium text-red-500 hover:underline">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="px-4 py-10 text-center text-sm text-ink/40">No FAQs yet. Add one above.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Categories sidebar ── -->
+  <div class="w-[220px] shrink-0">
+    <div class="card p-4 mb-4">
+      <h3 class="font-semibold text-ink text-sm mb-3">Add Category</h3>
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_category">
+        <input name="name" required class="w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-400 mb-2" placeholder="e.g. Shipping">
+        <button class="btn-primary w-full text-xs justify-center">Add</button>
+      </form>
+    </div>
+    <div class="card p-4">
+      <h3 class="font-semibold text-ink text-sm mb-3">Categories <span class="text-ink/40">({{ cats|length }})</span></h3>
+      <div class="space-y-1">
+        {% for c in cats %}
+        <div class="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-gray-50">
+          <span class="text-sm text-ink truncate">{{ c.name }}</span>
+          <form method="POST" class="ml-2 shrink-0" onsubmit="return confirm('Delete category?')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_category">
+            <input type="hidden" name="pk" value="{{ c.pk }}">
+            <button class="text-xs text-red-400 hover:text-red-600">✕</button>
+          </form>
+        </div>
+        {% empty %}
+        <p class="text-xs text-ink/40">No categories yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit FAQ modal -->
+<div id="editModal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-ink">Edit FAQ</h3>
+      <button onclick="closeEdit()" class="text-ink/40 hover:text-ink text-xl leading-none">&times;</button>
+    </div>
+    <form method="POST" id="editForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="edit_faq">
+      <input type="hidden" name="pk" id="editPk">
+      <div class="mb-3">
+        <label class="text-xs font-medium text-ink/50">Category</label>
+        <select name="category_id" id="editCat" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:outline-none">
+          <option value="">Uncategorised</option>
+          {% for c in cats %}<option value="{{ c.pk }}">{{ c.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="text-xs font-medium text-ink/50">Question</label>
+        <textarea name="question" id="editQ" required rows="2" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:bg-white focus:outline-none resize-none"></textarea>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs font-medium text-ink/50">Answer</label>
+        <textarea name="answer" id="editA" required rows="4" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:bg-white focus:outline-none resize-y"></textarea>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="btn-primary text-sm">Save Changes</button>
+        <button type="button" onclick="closeEdit()" class="btn-outline text-sm">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── Edit modal ──
+function openEdit(pk, q, a, catId) {
+  document.getElementById('editPk').value = pk;
+  document.getElementById('editQ').value  = q;
+  document.getElementById('editA').value  = a;
+  var sel = document.getElementById('editCat');
+  for (var i=0; i<sel.options.length; i++) {
+    sel.options[i].selected = (sel.options[i].value == catId);
+  }
+  document.getElementById('editModal').style.display = 'flex';
+}
+function closeEdit() { document.getElementById('editModal').style.display = 'none'; }
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEdit();
+});
+
+// ── openEdit needs the question text, build data from table ──
+document.querySelectorAll('[data-id]').forEach(function(row) {
+  var editBtn = row.querySelector('button[onclick]');
+  // rewrite onclick with actual data extracted from DOM
+  var q = row.querySelector('td:nth-child(2) p:first-child')?.textContent?.trim() || '';
+  var a = row.querySelector('td:nth-child(2) p:last-child')?.textContent?.trim() || '';
+  var catOpt = row.querySelector('td:nth-child(3)')?.textContent?.trim();
+  if (editBtn) {
+    editBtn.setAttribute('onclick',
+      'openEdit(' + row.dataset.id + ', ' +
+      JSON.stringify(q) + ', ' +
+      JSON.stringify(a) + ', ' +
+      JSON.stringify('') + ')');
+  }
+});
+
+// ── Drag-and-drop reorder ──
+(function() {
+  var tbody = document.getElementById('faqBody');
+  var dragging = null;
+
+  tbody.querySelectorAll('.faq-row').forEach(function(row) {
+    row.draggable = true;
+    row.addEventListener('dragstart', function() { dragging = this; this.classList.add('dragging'); });
+    row.addEventListener('dragend',   function() { this.classList.remove('dragging'); saveOrder(); });
+    row.addEventListener('dragover',  function(e) { e.preventDefault(); this.classList.add('drag-over'); });
+    row.addEventListener('dragleave', function()  { this.classList.remove('drag-over'); });
+    row.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      if (dragging && dragging !== this) {
+        var rows = [...tbody.querySelectorAll('.faq-row')];
+        var fi = rows.indexOf(dragging), ti = rows.indexOf(this);
+        tbody.insertBefore(dragging, fi < ti ? this.nextSibling : this);
+      }
+    });
+  });
+
+  function saveOrder() {
+    var ids = [...tbody.querySelectorAll('.faq-row')].map(function(r) { return parseInt(r.dataset.id); });
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    fetch('/admin-panel/cms/faq/reorder', {
+      method:'POST', headers:{'X-CSRFToken':csrf,'Content-Type':'application/json'},
+      body: JSON.stringify({order: ids})
+    });
+  }
+})();
+</script>
+{% endblock %}

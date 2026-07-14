@@ -9,6 +9,38 @@ from django.shortcuts import redirect, render
 from .models import User, UserType, Status
 
 
+def _get_client_ip(request):
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
+
+
+def _record_login(user, request, status="SUCCESS"):
+    try:
+        from accounts.models import LoginHistory, ActivityLog, ActivityType
+        ua = request.META.get("HTTP_USER_AGENT", "")[:500]
+        ua_lower = ua.lower()
+        if any(k in ua_lower for k in ("mobile", "android", "iphone")):
+            device = "Mobile"
+        elif any(k in ua_lower for k in ("tablet", "ipad")):
+            device = "Tablet"
+        else:
+            device = "Desktop"
+        LoginHistory.objects.create(
+            user=user,
+            ip_address=_get_client_ip(request),
+            user_agent=ua,
+            device=device,
+            status=status,
+        )
+        if status == "SUCCESS":
+            ActivityLog.log(user, ActivityType.LOGIN,
+                            f"Logged in from {device}")
+    except Exception:
+        pass
+
+
 def signup_view(request):
     if request.user.is_authenticated:
         return redirect("/account")
@@ -34,6 +66,7 @@ def signup_view(request):
             mobile=mobile or None, user_type=UserType.USER, status=Status.ACTIVE,
         )
         login(request, user, backend="accounts.backends.EmailOrMobileBackend")
+        _record_login(user, request)
         messages.success(request, "Welcome to Spicearog!")
         return redirect("/account")
     return render(request, "registration/signup.html")
@@ -48,6 +81,10 @@ def login_view(request):
         user = authenticate(request, username=identifier, password=password)
         if user:
             login(request, user, backend="accounts.backends.EmailOrMobileBackend")
+            from django.utils import timezone
+            user.last_login_date = timezone.now()
+            user.save(update_fields=["last_login_date"])
+            _record_login(user, request)
             nxt = request.GET.get("next") or "/account"
             return redirect(nxt)
         messages.error(request, "Invalid credentials or inactive account.")
@@ -63,11 +100,18 @@ def admin_login_view(request):
         user = authenticate(request, username=identifier, password=password, scope="admin")
         if user:
             login(request, user, backend="accounts.backends.EmailOrMobileBackend")
+            _record_login(user, request)
             return redirect("/admin-panel")
         messages.error(request, "Invalid admin credentials.")
     return render(request, "registration/admin_login.html")
 
 
 def logout_view(request):
+    if request.user.is_authenticated:
+        try:
+            from accounts.models import ActivityLog, ActivityType
+            ActivityLog.log(request.user, ActivityType.LOGOUT, "Logged out")
+        except Exception:
+            pass
     logout(request)
     return redirect("/")

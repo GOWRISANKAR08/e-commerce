@@ -1,7 +1,7 @@
 {% extends "registration/_auth_base.html" %}
 {% block title %}Login · {{ SITE_NAME }}{% endblock %}
 {% block form %}
-<h1 class="font-display text-3xl font-semibold text-ink">Welcome back</h1>
+<h1 class="font-display text-2xl sm:text-3xl font-semibold text-ink">Welcome back</h1>
 <p class="mt-2 text-ink/55">Log in with your email or mobile number.</p>
 
 <form method="post" action="/login{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" class="mt-8 space-y-4">

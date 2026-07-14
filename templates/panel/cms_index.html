@@ -1,0 +1,89 @@
+{% extends "panel/base.html" %}
+{% block title %}CMS · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Content Management{% endblock %}
+{% block content %}
+
+<div class="mb-5 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="font-display text-2xl font-bold text-ink">Content Management</h1>
+    <p class="mt-0.5 text-sm text-ink/50">Manage all customer-facing website pages from one place.</p>
+  </div>
+</div>
+
+<!-- Stat strip -->
+<div class="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+  <div class="card p-4">
+    <p class="text-xs text-ink/50">CMS Pages</p>
+    <p class="text-2xl font-bold text-ink mt-0.5">{{ cards|length }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="text-xs text-ink/50">FAQ Items</p>
+    <p class="text-2xl font-bold text-ink mt-0.5">{{ faq_count }}</p>
+  </div>
+  <div class="card p-4">
+    <p class="text-xs text-ink/50">Team Members</p>
+    <p class="text-2xl font-bold text-ink mt-0.5">{{ team_count }}</p>
+  </div>
+  <a href="/admin-panel/cms/enquiries?status=OPEN" class="card p-4 hover:bg-brand-50 transition">
+    <p class="text-xs text-ink/50">Unread Enquiries</p>
+    <p class="text-2xl font-bold {% if enquiry_unread %}text-brand-700{% else %}text-ink{% endif %} mt-0.5">{{ enquiry_unread }}</p>
+  </a>
+</div>
+
+<!-- Page cards -->
+<h2 class="font-semibold text-ink mb-3 text-sm">Static Pages</h2>
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {% for card in cards %}
+  <div class="card p-5 flex flex-col gap-3">
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <h3 class="font-semibold text-ink">{{ card.label }}</h3>
+        <a href="{{ card.url }}" target="_blank" class="text-xs text-ink/40 hover:text-brand-600 transition">{{ card.url }} ↗</a>
+      </div>
+      {% if card.published %}
+      <span class="shrink-0 rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-semibold text-green-700">Published</span>
+      {% else %}
+      <span class="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">Draft</span>
+      {% endif %}
+    </div>
+    {% if card.updated_at %}
+    <p class="text-[11px] text-ink/40">Last updated {{ card.updated_at|date:"d M Y, g:i a" }}</p>
+    {% else %}
+    <p class="text-[11px] text-ink/40">No content yet — click Edit to get started</p>
+    {% endif %}
+    <div class="mt-auto pt-1 flex gap-2">
+      {% if card.type == 'ABOUT_US' %}
+      <a href="/admin-panel/cms/about" class="btn-primary text-xs px-3 py-1.5">Edit Page</a>
+      {% else %}
+      <a href="/admin-panel/cms/page/{{ card.type|lower }}" class="btn-primary text-xs px-3 py-1.5">Edit Page</a>
+      {% endif %}
+      <a href="{{ card.url }}" target="_blank" class="btn-outline text-xs px-3 py-1.5">Preview ↗</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Quick-access modules -->
+<h2 class="font-semibold text-ink mt-8 mb-3 text-sm">Modules</h2>
+<div class="grid gap-4 sm:grid-cols-3">
+  <a href="/admin-panel/cms/faq" class="card p-5 hover:shadow-md transition flex items-center gap-3">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </span>
+    <div><p class="font-semibold text-ink">FAQ Manager</p><p class="text-xs text-ink/50 mt-0.5">{{ faq_count }} question{{ faq_count|pluralize }}</p></div>
+  </a>
+  <a href="/admin-panel/cms/about" class="card p-5 hover:shadow-md transition flex items-center gap-3">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-50 text-gold-600">
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    </span>
+    <div><p class="font-semibold text-ink">Team Members</p><p class="text-xs text-ink/50 mt-0.5">{{ team_count }} member{{ team_count|pluralize }}</p></div>
+  </a>
+  <a href="/admin-panel/cms/enquiries" class="card p-5 hover:shadow-md transition flex items-center gap-3">
+    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl {% if enquiry_unread %}bg-brand-600 text-white{% else %}bg-gray-100 text-ink/50{% endif %}">
+      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+    </span>
+    <div><p class="font-semibold text-ink">Contact Inbox</p><p class="text-xs {% if enquiry_unread %}text-brand-700 font-semibold{% else %}text-ink/50{% endif %} mt-0.5">{% if enquiry_unread %}{{ enquiry_unread }} unread{% else %}All read{% endif %}</p></div>
+  </a>
+</div>
+
+{% endblock %}

@@ -362,7 +362,7 @@
         </label>
         <label class="block text-sm">
           <span class="text-ink/60 text-xs font-medium">Position</span>
-          <input name="position" id="modalPosition" type="number" value="1" min="1"
+          <input name="position" id="modalPosition" type="number" value="{{ next_pos }}" min="1"
                  class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
         </label>
         <label class="block text-sm">
@@ -422,7 +422,7 @@ function openAddModal() {
   document.getElementById('modalName').value = '';
   document.getElementById('modalDescription').value = '';
   document.getElementById('modalSlug').value = '';
-  document.getElementById('modalPosition').value = '1';
+  document.getElementById('modalPosition').value = '{{ next_pos }}';
   document.getElementById('modalStatus').value = 'ACTIVE';
   document.getElementById('catImageUrl').value = '';
   hideCatPreview();

@@ -6,7 +6,9 @@
 <div class="mx-auto max-w-3xl space-y-5">
   <div class="flex items-center justify-between">
     <h1 class="font-display text-2xl font-semibold text-ink">{% if product %}Edit Product{% else %}New Product{% endif %}</h1>
-    <a href="/admin-panel/products" class="text-sm font-medium text-ink/55 hover:text-ink">← Back</a>
+    <a href="/admin-panel/products" onclick="event.preventDefault();goBack('/admin-panel/products')" class="back-btn" title="Back to Products">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    </a>
   </div>
 
   <form method="post" action="{% if product %}/admin-panel/products/{{ product.id }}/edit{% else %}/admin-panel/products/new{% endif %}" class="card space-y-5 p-6" enctype="multipart/form-data">
@@ -46,7 +48,7 @@
               Uploading…
             </div>
             <div id="uploadError" class="hidden rounded-md bg-red-50 px-3 py-2 text-xs text-red-700"></div>
-            <p class="text-xs text-ink/40">Upload stores to Firebase if configured; otherwise saved locally.</p>
+            <p class="text-xs text-ink/40">Images are stored in Cloudinary. Configure Cloudinary in Settings → Integrations.</p>
           </div>
         </div>
       </div>
@@ -54,8 +56,10 @@
         <input name="badge" value="{{ product.badge|default:'' }}" placeholder="Bestseller / Organic / New" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
       <label class="text-sm"><span class="text-ink/60">YouTube link <span class="text-ink/30">(optional)</span></span>
         <input name="youtube_link" value="{{ product.youtube_link|default:'' }}" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
-      <label class="text-sm"><span class="text-ink/60">Position</span>
-        <input name="position" type="number" value="{{ product.position|default:1 }}" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+      <label class="text-sm">
+        <span class="text-ink/60">Position</span>{% if next_pos %}<span class="ml-1.5 text-[10px] text-ink/30">{{ next_pos }} suggested</span>{% endif %}
+        <input name="position" type="number" min="1" value="{{ product.position|default:next_pos }}"
+               class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
       <label class="text-sm"><span class="text-ink/60">Status</span>
         <select name="status" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200">
           {% for val, lab in statuses %}<option value="{{ val }}" {% if product.status == val %}selected{% endif %}>{{ lab }}</option>{% endfor %}
@@ -67,7 +71,7 @@
     </div>
     <div class="flex gap-3 border-t border-black/5 pt-4">
       <button class="btn-primary">{% if product %}Save changes{% else %}Create product{% endif %}</button>
-      <a href="/admin-panel/products" class="rounded-lg px-4 py-2 text-sm font-medium text-ink/55 ring-1 ring-black/10 hover:bg-cream">Cancel</a>
+      <a href="/admin-panel/products" onclick="event.preventDefault();goBack('/admin-panel/products')" class="rounded-lg px-4 py-2 text-sm font-medium text-ink/55 ring-1 ring-black/10 hover:bg-cream">Cancel</a>
     </div>
   </form>
 

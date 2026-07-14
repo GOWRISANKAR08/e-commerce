@@ -3,142 +3,834 @@
 {% block title %}{{ SITE_NAME }} — Organic Spices, Herbs & Wellness{% endblock %}
 {% block content %}
 
-{# ── HERO ── #}
-<section class="bg-grain">
-  <div class="mx-auto grid max-w-7xl items-center gap-10 px-4 py-14 lg:grid-cols-2 lg:px-8 lg:py-20">
-    <div class="animate-fade-up">
-      <span class="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">🌿 100% Organic &amp; Certified</span>
-      <h1 class="mt-5 font-display text-5xl font-semibold leading-[1.05] text-ink lg:text-6xl">
-        Taste the<br /><span class="text-brand-600">Purity of</span><br />Nature's Finest
-      </h1>
-      <p class="mt-5 max-w-md text-ink/60">Handpicked spices, herbs &amp; wellness products sourced directly from organic farms across India. Rooted in Ayurvedic tradition, crafted for modern living.</p>
-      <div class="mt-7 flex items-center gap-4">
-        <a href="/products" class="btn-primary">Shop Now →</a>
-        <a href="/about-us" class="btn-ghost">Our Story →</a>
+<section class="relative overflow-hidden bg-grain py-14 lg:py-20">
+  <div class="pointer-events-none absolute inset-0 overflow-hidden">
+    <div class="absolute -right-16 -top-8 h-[560px] w-[560px] rounded-full bg-brand-100/65 blur-3xl"></div>
+    <div class="absolute right-0 top-0 h-[380px] w-[380px] rounded-full bg-brand-200/20 blur-2xl"></div>
+    <div class="absolute -left-16 bottom-0 h-[280px] w-[280px] rounded-full bg-gold-400/6 blur-3xl"></div>
+  </div>
+
+  <div class="relative mx-auto max-w-7xl px-6 lg:px-10">
+    <div class="grid items-center gap-10 lg:grid-cols-[1fr_1.2fr] lg:gap-12">
+
+      <div class="animate-fade-up">
+        <span class="inline-flex items-center gap-2 rounded-full bg-brand-100 px-4 py-1.5 text-xs font-semibold text-brand-700">
+          🌿 100% Organic &amp; Certified
+        </span>
+        <h1 class="mt-5 font-display text-[2rem] font-bold leading-[1.15] text-ink sm:text-4xl lg:text-[3.5rem] lg:leading-[1.1]">
+          Taste the<br />
+          <span class="text-brand-600">Purity of</span><br />
+          Nature's Finest
+        </h1>
+        <p class="mt-5 max-w-[22rem] text-[15px] leading-relaxed text-ink/55">
+          Handpicked spices, herbs &amp; wellness products sourced directly from organic farms across India. Rooted in Ayurvedic tradition, crafted for modern living.
+        </p>
+        <div class="mt-7 flex flex-wrap items-center gap-5">
+          <a href="/products"
+             class="inline-flex items-center gap-2 rounded-full bg-brand-600 px-7 py-3.5 text-[15px] font-bold text-white transition hover:bg-brand-700 active:scale-95">
+            Shop Now →
+          </a>
+          <a href="/about-us" class="btn-ghost text-[15px] font-semibold">Our Story ›</a>
+        </div>
+        <div class="mt-8 flex flex-wrap items-center gap-6 border-t border-black/6 pt-6 text-sm text-ink/55">
+          <span class="flex items-center gap-2">🛡️ 100% Organic</span>
+          <span class="flex items-center gap-2">🚚 Free Delivery</span>
+          <span class="flex items-center gap-2">✅ FSSAI Certified</span>
+        </div>
       </div>
-      <div class="mt-8 flex flex-wrap gap-6 border-t border-black/5 pt-6 text-sm text-ink/70">
-        <span class="flex items-center gap-2">🛡️ 100% Organic</span>
-        <span class="flex items-center gap-2">🚚 Free Delivery</span>
-        <span class="flex items-center gap-2">✅ FSSAI Certified</span>
+
+      <div>
+        <div class="hidden lg:block relative" style="height:490px">
+          <div class="grid h-full" style="grid-template-columns:58fr 42fr;gap:20px">
+
+            <div class="relative">
+              <div class="absolute inset-x-0 top-0 z-10 overflow-hidden"
+                   style="height:65%;border-radius:22px;box-shadow:0 8px 32px -8px rgba(16,61,36,0.20)">
+                {% if hero_banners %}
+                  <img src="{{ hero_banners.0.image }}" alt="{{ hero_banners.0.name }}"
+                       class="h-full w-full object-cover transition duration-500 hover:scale-105"
+                       onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')" />
+                  <div style="display:none" class="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-brand-100 via-cream to-gold-400/20 p-6 text-center gap-3">
+                    <span class="text-6xl">🌶️</span>
+                    <p class="font-display text-xs text-brand-600/40">{{ hero_banners.0.name }}</p>
+                  </div>
+                {% else %}
+                  <div class="h-full w-full flex flex-col items-center justify-center bg-gradient-to-br from-brand-100 via-cream to-gold-400/15 gap-3 text-center p-6">
+                    <span class="text-6xl">🌶️</span>
+                    <p class="font-display text-xs text-brand-600/40">Add Home Banners in Admin</p>
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="absolute bottom-0 left-0 z-20 overflow-hidden"
+                   style="top:60%;right:18%;left:18%;border-radius:20px;box-shadow:0 4px 20px -6px rgba(16,61,36,0.18)">
+                {% if hero_banners|length > 2 %}
+                  <img src="{{ hero_banners.2.image }}" alt="{{ hero_banners.2.name }}"
+                       class="h-full w-full object-cover transition duration-500 hover:scale-105"
+                       onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')" />
+                  <div style="display:none" class="h-full w-full flex items-center justify-center bg-gradient-to-br from-brand-100 to-cream">
+                    <span class="text-4xl">🌿</span>
+                  </div>
+                {% elif categories|length > 1 %}
+                  <img src="{{ categories.1.image }}" alt="{{ categories.1.name }}"
+                       class="h-full w-full object-cover"
+                       onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')" />
+                  <div style="display:none" class="h-full w-full flex items-center justify-center bg-gradient-to-br from-brand-100 to-cream">
+                    <span class="text-4xl">🌿</span>
+                  </div>
+                {% elif categories %}
+                  <img src="{{ categories.0.image }}" alt="{{ categories.0.name }}"
+                       class="h-full w-full object-cover"
+                       onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')" />
+                  <div style="display:none" class="h-full w-full flex items-center justify-center bg-gradient-to-br from-brand-100 to-cream">
+                    <span class="text-4xl">🌿</span>
+                  </div>
+                {% else %}
+                  <div class="h-full w-full flex items-center justify-center bg-gradient-to-br from-brand-100 to-cream">
+                    <span class="text-4xl">🌿</span>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="flex flex-col" style="gap:20px">
+              <div class="relative shrink-0 overflow-hidden"
+                   style="height:43%;border-radius:20px;box-shadow:0 4px 20px -6px rgba(16,61,36,0.18)">
+                {% if hero_banners|length > 1 %}
+                  <img src="{{ hero_banners.1.image }}" alt="{{ hero_banners.1.name }}"
+                       class="h-full w-full object-cover transition duration-500 hover:scale-105"
+                       onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')" />
+                  <div style="display:none" class="h-full w-full flex items-center justify-center bg-gradient-to-br from-gold-400/20 to-brand-100">
+                    <span class="text-4xl">🌾</span>
+                  </div>
+                {% elif categories %}
+                  <img src="{{ categories.0.image }}" alt="{{ categories.0.name }}"
+                       class="h-full w-full object-cover"
+                       onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')" />
+                  <div style="display:none" class="h-full w-full flex items-center justify-center bg-gradient-to-br from-gold-400/20 to-brand-100">
+                    <span class="text-4xl">🌾</span>
+                  </div>
+                {% else %}
+                  <div class="h-full w-full flex items-center justify-center bg-gradient-to-br from-gold-400/15 to-brand-100">
+                    <span class="text-4xl">🌾</span>
+                  </div>
+                {% endif %}
+                <span class="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-brand-600 px-2.5 py-1 text-[10px] font-bold text-white shadow">
+                  🌿 Farm Fresh
+                </span>
+              </div>
+
+              <div class="flex items-center gap-3 self-end rounded-2xl bg-white px-4 py-3 ring-1 ring-black/5"
+                   style="box-shadow:0 8px 28px -10px rgba(16,61,36,0.22)">
+                <span class="grid h-9 w-9 place-items-center rounded-full bg-gold-400/20">
+                  <span class="text-gold-500 text-lg leading-none">★</span>
+                </span>
+                <div>
+                  <p class="text-base font-bold leading-none text-ink">4.9</p>
+                  <p class="mt-0.5 text-[11px] text-ink/40">10K+ Reviews</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="lg:hidden relative overflow-hidden rounded-3xl shadow-soft" style="height:260px">
+          {% if hero_banners %}
+            <img src="{{ hero_banners.0.image }}" alt="{{ hero_banners.0.name }}"
+                 class="h-full w-full object-cover"
+                 onerror="this.style.display='none';this.nextElementSibling.style.removeProperty('display')" />
+            <div style="display:none" class="h-full w-full flex items-center justify-center bg-gradient-to-br from-brand-100 to-cream">
+              <span class="text-6xl">🌶️</span>
+            </div>
+          {% else %}
+            <div class="h-full w-full flex items-center justify-center bg-gradient-to-br from-brand-100 to-cream">
+              <span class="text-6xl">🌶️</span>
+            </div>
+          {% endif %}
+        </div>
       </div>
-    </div>
-    <div class="relative animate-fade-up">
-      <div class="overflow-hidden rounded-3xl shadow-soft bg-gradient-to-br from-brand-100 to-gold-400/30 aspect-[4/3]">
-        {% if banner %}<img src="{{ banner.image }}" alt="{{ banner.name }}"
-          onerror="this.style.display='none'" class="aspect-[4/3] w-full object-cover" />{% endif %}
-      </div>
-      <div class="absolute -bottom-5 left-6 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-soft">
-        <span class="text-gold-500">★</span>
-        <div><p class="text-sm font-bold leading-none">4.9</p><p class="text-[11px] text-ink/50">10K+ Reviews</p></div>
-      </div>
+
     </div>
   </div>
 </section>
 
-{# ── CATEGORIES ── #}
-<section class="mx-auto max-w-7xl px-4 py-14 lg:px-8">
+{# ── SHOP BY CATEGORY ── #}
+<section id="shop-by-category" class="mx-auto max-w-7xl px-4 py-12 lg:px-8">
   <div class="mb-8 flex items-end justify-between">
-    <div><span class="section-eyebrow">Browse by category</span><h2 class="mt-2 font-display text-3xl font-semibold">What Are You Looking For?</h2></div>
-    <a href="/categories" class="btn-ghost">View All Categories →</a>
+    <div>
+      <span class="section-eyebrow">Browse by category</span>
+      <h2 class="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">Shop by Category</h2>
+    </div>
+    <a href="/categories" class="btn-ghost hidden sm:flex">View All →</a>
   </div>
-  <div class="flex gap-5 overflow-x-auto no-scrollbar pb-2">
+  {% if categories %}
+  <div class="grid grid-cols-4 gap-2.5 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 sm:gap-3">
     {% for c in categories %}
-      <a href="/products?category={{ c.slug }}" class="group min-w-[150px] flex-1 text-center">
-        <div class="mx-auto grid aspect-square place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-brand-50 to-cream ring-1 ring-black/5 transition group-hover:ring-brand-200">
-          <img src="{{ c.image }}" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" class="h-full w-full object-cover" />
-          <span style="display:none" class="font-display text-xl text-brand-600/50">{{ c.name }}</span>
+      <a href="/products?category={{ c.slug }}" class="group text-center">
+        <div class="mx-auto aspect-square overflow-hidden rounded-2xl bg-gradient-to-br from-brand-50 to-cream ring-1 ring-black/5 transition group-hover:ring-brand-300 group-hover:shadow-card">
+          <img src="{{ c.image }}" alt="{{ c.name }}"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+               class="h-full w-full object-cover" />
+          <div style="display:none" class="h-full w-full flex items-center justify-center p-2">
+            <span class="font-display text-xs text-brand-600/50 text-center">{{ c.name }}</span>
+          </div>
         </div>
-        <p class="mt-3 font-semibold group-hover:text-brand-600">{{ c.name }}</p>
+        <p class="mt-2 text-xs font-semibold text-ink group-hover:text-brand-600 leading-tight line-clamp-2">{{ c.name }}</p>
+        {% if c.products.count %}<p class="text-[10px] text-ink/35 mt-0.5">{{ c.products.count }} products</p>{% endif %}
       </a>
     {% endfor %}
   </div>
-</section>
-
-{# ── FEATURED PRODUCTS ── #}
-<section class="mx-auto max-w-7xl px-4 py-6 lg:px-8">
-  <div class="mb-8 flex items-end justify-between">
-    <div><span class="section-eyebrow">Handpicked for you</span><h2 class="mt-2 font-display text-3xl font-semibold">Featured Products</h2></div>
-    <a href="/products" class="btn-ghost">View All Products →</a>
-  </div>
-  <div class="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
-    {% for product in products %}{% include "site/_product_card.html" %}{% endfor %}
+  {% endif %}
+  <div class="mt-4 flex justify-center sm:hidden">
+    <a href="/categories" class="btn-ghost">View All Categories →</a>
   </div>
 </section>
 
-{# ── BRAND VIDEOS ── #}
-{% if brand_videos %}
-<section class="mx-auto max-w-7xl px-4 py-16 lg:px-8">
-  <div class="mb-8 text-center"><span class="section-eyebrow justify-center">Watch &amp; Discover</span><h2 class="mt-2 font-display text-3xl font-semibold">From Our Farms to Your Kitchen</h2></div>
-  <div class="grid gap-6 md:grid-cols-2">
-    {% for v in brand_videos %}
-      <div class="card overflow-hidden">
-        {% if v.video_url %}
-          <video controls class="aspect-video w-full bg-black object-cover"><source src="{{ v.video_url }}"></video>
-        {% else %}
-          <div class="grid aspect-video place-items-center bg-gradient-to-br from-brand-100 to-gold-400/30 font-display text-2xl text-brand-600/50">{{ v.name }}</div>
-        {% endif %}
-        <div class="p-4"><p class="font-display text-lg font-semibold">{{ v.name }}</p>{% if v.description %}<p class="mt-1 text-sm text-ink/60">{{ v.description }}</p>{% endif %}</div>
+{# ── BEST SELLERS ── #}
+{% if best_sellers %}
+<section class="bg-white py-12">
+  <div class="mx-auto max-w-7xl px-4 lg:px-8">
+    <div class="mb-8 flex items-end justify-between">
+      <div>
+        <span class="section-eyebrow">Top picks this week</span>
+        <h2 class="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">Best Sellers</h2>
       </div>
+      <a href="/products" class="btn-ghost hidden sm:flex">View All →</a>
+    </div>
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      {% for product in best_sellers %}{% include "site/_product_card.html" %}{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ── FLASH DEALS ── #}
+{% if flash_deals %}
+<section class="mx-auto max-w-7xl px-4 py-12 lg:px-8">
+  <div class="mb-8 flex flex-wrap items-center gap-4 justify-between">
+    <div class="flex items-center gap-5">
+      <div>
+        <span class="section-eyebrow">Limited time only</span>
+        <h2 class="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">Flash Deals</h2>
+      </div>
+      <div class="flex items-center gap-2 ml-2">
+        <span class="hidden md:block text-xs text-ink/50 font-medium whitespace-nowrap">Ends in</span>
+        <div class="flex items-center gap-1 font-mono text-sm">
+          <span class="rounded bg-ink text-cream font-bold px-2 py-1" id="flash-h">00</span>
+          <span class="font-bold text-ink">:</span>
+          <span class="rounded bg-ink text-cream font-bold px-2 py-1" id="flash-m">00</span>
+          <span class="font-bold text-ink">:</span>
+          <span class="rounded bg-ink text-cream font-bold px-2 py-1" id="flash-s">00</span>
+        </div>
+      </div>
+    </div>
+    <a href="/products" class="btn-ghost hidden sm:flex">View All Deals →</a>
+  </div>
+  <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+    {% for product in flash_deals %}{% include "site/_product_card.html" %}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{# ── PROMO BANNERS ── #}
+<section class="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+  <div class="grid gap-4 md:grid-cols-2">
+    {% if offer_banners %}
+      {% for b in offer_banners %}
+      <a href="/products" class="group relative overflow-hidden rounded-2xl min-h-[160px] bg-gradient-to-br from-brand-600 to-brand-800 flex items-end">
+        <img src="{{ b.image }}" alt="{{ b.name }}"
+             onerror="this.style.display='none'"
+             class="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition duration-300" />
+        <div class="relative z-10 p-6">
+          <p class="font-display text-2xl font-bold text-white drop-shadow-lg">{{ b.name }}</p>
+          {% if b.description %}<p class="mt-1 text-sm text-white/70">{{ b.description }}</p>{% endif %}
+          <span class="mt-3 inline-flex items-center gap-1 text-sm font-bold text-gold-400">Shop Now →</span>
+        </div>
+      </a>
+      {% endfor %}
+    {% else %}
+      <div class="relative overflow-hidden rounded-2xl min-h-[160px] bg-gradient-to-br from-brand-600 to-brand-800 p-6 flex flex-col justify-between">
+        <div>
+          <p class="text-xs font-semibold text-gold-400 uppercase tracking-wider">Summer Special</p>
+          <p class="font-display text-2xl font-bold text-white mt-1">Up to 15% off<br />on all Masalas</p>
+          {% if active_offers %}<p class="mt-2 text-sm text-white/60">Use: <span class="font-mono font-bold text-gold-300">{{ active_offers.0.code }}</span></p>{% endif %}
+        </div>
+        <a href="/products" class="mt-4 inline-flex items-center gap-1 text-sm font-bold text-gold-400">Shop Now →</a>
+      </div>
+      <div class="relative overflow-hidden rounded-2xl min-h-[160px] bg-gradient-to-br from-gold-400/20 to-gold-500/40 border border-gold-400/30 p-6 flex flex-col justify-between">
+        <div>
+          <p class="text-xs font-semibold text-brand-700 uppercase tracking-wider">Premium Collection</p>
+          <p class="font-display text-2xl font-bold text-ink mt-1">Gift Sets<br />from ₹499</p>
+          <p class="mt-2 text-sm text-ink/60">Perfect for every occasion</p>
+        </div>
+        <a href="/products" class="mt-4 inline-flex items-center gap-1 text-sm font-bold text-brand-700">Explore Gift Sets →</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{# ── NEW ARRIVALS ── #}
+{% if new_arrivals %}
+<section class="bg-cream py-12">
+  <div class="mx-auto max-w-7xl px-4 lg:px-8">
+    <div class="mb-8 flex items-end justify-between">
+      <div>
+        <span class="section-eyebrow">Just added this month</span>
+        <h2 class="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">New Arrivals</h2>
+      </div>
+      <a href="/products" class="btn-ghost hidden sm:flex">View All →</a>
+    </div>
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      {% for product in new_arrivals %}{% include "site/_product_card.html" %}{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ── COMBO PACKS ── #}
+{% if combos %}
+<section class="mx-auto max-w-7xl px-4 py-12 lg:px-8">
+  <div class="mb-8 flex items-end justify-between">
+    <div>
+      <h2 class="font-display text-2xl font-bold text-ink sm:text-3xl">Combo Packs — Save More</h2>
+      <p class="mt-1 text-sm text-ink/50">Curated bundles for better value and gifting</p>
+    </div>
+    <a href="/combos" class="btn-ghost hidden sm:flex items-center gap-1.5 text-sm font-semibold text-brand-700 border border-brand-200 rounded-full px-4 py-1.5 hover:bg-brand-50 transition">All combos →</a>
+  </div>
+  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    {% for combo in combos %}
+    <div class="card overflow-hidden group flex flex-col">
+
+      <!-- Image -->
+      <a href="/combo/{{ combo.slug }}" class="relative block aspect-[4/3] bg-gradient-to-br from-brand-50 to-cream overflow-hidden flex-shrink-0">
+        {% with img=combo.main_image %}
+          {% if img %}
+            <img src="{{ img }}" alt="{{ combo.name }}"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+                 class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+            <div style="display:none" class="w-full h-full flex items-center justify-center">
+              <span class="text-4xl">🎁</span>
+            </div>
+          {% else %}
+            <div class="w-full h-full flex flex-col items-center justify-center gap-2">
+              <span class="text-4xl">🎁</span>
+              <span class="font-display text-xs text-brand-600/40 text-center px-3">{{ combo.name }}</span>
+            </div>
+          {% endif %}
+        {% endwith %}
+        <span class="absolute top-2.5 left-2.5 rounded-md bg-ink/80 text-white px-2.5 py-0.5 text-[10px] font-bold tracking-wide">{{ combo.badge_label|default:"Combo" }}</span>
+        {% if combo.savings > 0 %}
+          <span class="absolute top-2.5 right-2.5 rounded-md bg-brand-600 text-white px-2.5 py-0.5 text-[10px] font-bold">Save ₹{{ combo.savings|floatformat:0 }}</span>
+        {% endif %}
+      </a>
+
+      <!-- Card body -->
+      <div class="p-4 flex flex-col flex-1">
+        <a href="/combo/{{ combo.slug }}">
+          <h3 class="font-display font-bold text-sm text-ink leading-snug hover:text-brand-600 transition line-clamp-2">{{ combo.name }}</h3>
+        </a>
+
+        <!-- Items list -->
+        <ul class="mt-2 space-y-1 flex-1">
+          {% for item in combo.items.all|slice:":4" %}
+          <li class="flex items-center gap-1.5 text-[11px] text-ink/60">
+            <svg class="w-3 h-3 shrink-0 text-brand-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            {{ item.variant.product.name }}{% if item.quantity > 1 %} {{ item.quantity }}{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+
+        <!-- Rating -->
+        {% if combo.review_count > 0 %}
+        <div class="mt-2.5 flex items-center gap-1.5">
+          <div class="flex items-center gap-0.5">
+            {% for star in "12345" %}
+            <svg class="w-3.5 h-3.5 {% if combo.avg_rating_int >= forloop.counter %}text-gold-500{% else %}text-black/15{% endif %}" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+            {% endfor %}
+          </div>
+          <span class="text-[11px] text-ink/45">({{ combo.review_count }})</span>
+        </div>
+        {% endif %}
+
+        <!-- Pricing -->
+        <div class="mt-2.5 flex items-baseline gap-2 flex-wrap">
+          <span class="font-bold text-base text-ink">{{ combo.selling_price|inr }}</span>
+          {% if combo.original_total > combo.selling_price %}
+            <span class="text-xs text-ink/35 line-through">{{ combo.original_total|inr }}</span>
+            <span class="text-[11px] font-bold text-red-500">{{ combo.savings_pct }}% off</span>
+          {% elif combo.mrp_price and combo.mrp_price > combo.selling_price %}
+            <span class="text-xs text-ink/35 line-through">{{ combo.mrp_price|inr }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Add to Cart -->
+        <button type="button"
+                onclick="addComboToCart('{{ combo.slug }}', this)"
+                class="btn-primary mt-3 w-full !py-2.5 text-xs">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          Add to Cart
+        </button>
+      </div>
+    </div>
     {% endfor %}
   </div>
 </section>
 {% endif %}
 
-{# ── OUR STORY ── #}
-<section class="bg-grain">
-  <div class="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 lg:grid-cols-2 lg:px-8">
-    <div class="grid aspect-[4/5] place-items-center overflow-hidden rounded-3xl bg-gradient-to-br from-brand-200 to-brand-600 font-display text-3xl text-white/60 shadow-soft">Our Farmers</div>
-    <div>
-      <span class="section-eyebrow">Our Story</span>
-      <h2 class="mt-2 font-display text-4xl font-semibold">Rooted in Tradition, <span class="text-brand-600">Grown with Love</span></h2>
-      <p class="mt-4 text-ink/60">Spicearog was born from a simple belief — that nature's ingredients, sourced with care and processed with integrity, can transform everyday cooking into a ritual of nourishment.</p>
-      <div class="mt-6 grid grid-cols-2 gap-4">
-        {% for n, l in story_stats %}
-          <div class="card p-4"><p class="font-display text-2xl font-bold text-brand-600">{{ n }}</p><p class="text-xs text-ink/50">{{ l }}</p></div>
-        {% endfor %}
+{# ── TRENDING NOW ── #}
+{% if trending %}
+<section class="bg-white py-12">
+  <div class="mx-auto max-w-7xl px-4 lg:px-8">
+    <div class="mb-8 flex items-end justify-between">
+      <div>
+        <span class="section-eyebrow">What customers are buying</span>
+        <h2 class="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">Trending Now</h2>
       </div>
-      <a href="/about-us" class="btn-primary mt-7">Discover Our Story →</a>
+      <a href="/products" class="btn-ghost hidden sm:flex">View All →</a>
+    </div>
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      {% for product in trending %}{% include "site/_product_card.html" %}{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ── OUR STORY ── #}
+<section class="bg-grain py-16">
+  <div class="mx-auto max-w-7xl px-4 lg:px-8">
+    <div class="grid gap-12 lg:grid-cols-2 items-center">
+      <div class="relative aspect-[4/5] max-h-[460px] overflow-hidden rounded-3xl bg-gradient-to-br from-brand-200 to-brand-700 shadow-soft flex items-center justify-center">
+        <p class="font-display text-2xl text-white/20">Our Farmers</p>
+      </div>
+      <div>
+        <span class="section-eyebrow">Our Story</span>
+        <h2 class="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl lg:text-4xl">Rooted in Tradition, <span class="text-brand-600">Grown with Love</span></h2>
+        <p class="mt-4 text-ink/60 leading-relaxed">Spicearog was born from a simple belief — that nature's ingredients, sourced with care and processed with integrity, can transform everyday cooking into a ritual of nourishment.</p>
+        <div class="mt-6 grid grid-cols-2 gap-4">
+          {% for n, l in story_stats %}
+            <div class="card p-4">
+              <p class="font-display text-2xl font-bold text-brand-600">{{ n }}</p>
+              <p class="text-xs text-ink/50 mt-1">{{ l }}</p>
+            </div>
+          {% endfor %}
+        </div>
+        <a href="/about-us" class="btn-primary mt-7 !px-6">Discover Our Story →</a>
+      </div>
     </div>
   </div>
 </section>
 
-{# ── TESTIMONIALS ── #}
-<section class="mx-auto max-w-7xl px-4 py-16 lg:px-8">
-  <div class="mb-10 text-center"><span class="section-eyebrow justify-center">What customers say</span><h2 class="mt-2 font-display text-3xl font-semibold">Loved by Thousands Across India</h2></div>
-  <div class="grid gap-6 md:grid-cols-3">
-    {% for t in testimonials|slice:":3" %}
-      <div class="card p-6">
-        <div class="text-gold-500">{% for _ in "12345"|make_list %}{% if forloop.counter <= t.rating %}★{% else %}☆{% endif %}{% endfor %}</div>
-        <p class="mt-3 text-ink/70">“{{ t.comment }}”</p>
-        <div class="mt-4 flex items-center gap-3">
-          <span class="grid h-10 w-10 place-items-center rounded-full bg-brand-600 font-bold text-white">{{ t.name|initials }}</span>
-          <div><p class="font-semibold">{{ t.name }}</p>{% if t.city %}<p class="text-xs text-ink/50">{{ t.city }}</p>{% endif %}</div>
+{# ── TESTIMONIALS CAROUSEL ── #}
+{% if testimonials %}
+<section class="py-16" style="background:#ffffff;">
+
+<style>
+/* ── Carousel shell ── */
+#tsCarousel{position:relative;}
+.ts-viewport{overflow:hidden;}
+.ts-track{display:flex;will-change:transform;}
+
+/* ── Arrow buttons ── */
+.ts-arrow{
+  position:absolute;top:50%;transform:translateY(-60%);
+  z-index:10;width:42px;height:42px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  background:#ffffff;
+  border:1px solid rgba(0,0,0,.1);
+  box-shadow:0 4px 18px -4px rgba(16,61,36,.16);
+  color:#1b2420;cursor:pointer;
+  transition:background .15s,color .15s,border-color .15s,transform .15s,box-shadow .15s;
+}
+.ts-arrow:hover{background:#2f7a47;color:#fff;border-color:#2f7a47;box-shadow:0 6px 24px -6px rgba(47,122,71,.35);}
+.ts-arrow:focus-visible{outline:2px solid #2f7a47;outline-offset:2px;}
+.ts-arrow:active{transform:translateY(-60%) scale(.93);}
+.ts-prev{left:0;}
+.ts-next{right:0;}
+
+/* ── Pagination dots ── */
+.ts-dot{
+  width:7px;height:7px;
+  border-radius:999px;
+  background:rgba(27,36,32,.15);
+  border:none;padding:0;
+  cursor:pointer;
+  transition:width .28s cubic-bezier(.4,0,.2,1),background .28s;
+  flex-shrink:0;
+}
+.ts-dot.ts-active{width:26px;background:#2f7a47;}
+.ts-dot:focus-visible{outline:2px solid #2f7a47;}
+
+/* ── Cards ── */
+.ts-card{
+  background:#ffffff;
+  border-radius:1rem;
+  border:1px solid rgba(0,0,0,.07);
+  box-shadow:0 2px 20px -8px rgba(16,61,36,.12);
+  padding:1.5rem;
+  transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s;
+  display:flex;flex-direction:column;height:100%;
+}
+.ts-card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 12px 36px -10px rgba(16,61,36,.18);
+}
+.ts-featured{
+  border-color:rgba(234,179,8,.4);
+  box-shadow:0 2px 20px -8px rgba(234,179,8,.18),0 0 0 2px rgba(234,179,8,.22);
+}
+.ts-feat-label{
+  display:inline-flex;align-items:center;gap:.25rem;
+  font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  color:#a16207;margin-bottom:.65rem;
+}
+.ts-divider{border:none;border-top:1px solid rgba(0,0,0,.06);margin:1rem 0;}
+.ts-verified{
+  display:inline-block;
+  font-size:.6rem;font-weight:700;
+  background:#eef6ef;color:#1f6b3a;
+  border-radius:999px;padding:.15rem .5rem;
+  white-space:nowrap;line-height:1.5;
+}
+
+/* ── prefers-reduced-motion ── */
+@media(prefers-reduced-motion:reduce){
+  .ts-track{transition:none!important;}
+  .ts-card{transition:none!important;}
+}
+</style>
+
+  <div class="mx-auto max-w-7xl px-4 lg:px-8">
+
+    <!-- Header -->
+    <div class="mb-10 text-center">
+      <span class="section-eyebrow justify-center">Loved by home cooks</span>
+      <h2 class="mt-2 font-display text-2xl font-bold text-ink sm:text-3xl">What Our Customers Say</h2>
+      <p class="mt-3 text-[15px] text-ink/55 max-w-lg mx-auto leading-relaxed">Real reviews from customers who've experienced the Spicearog difference in their kitchens.</p>
+      <div class="mt-3 flex items-center justify-center gap-2">
+        <span class="text-gold-500 text-xl leading-none">★★★★★</span>
+        <span class="font-bold text-ink text-sm">4.8</span>
+        <span class="text-sm text-ink/45"> · trusted by 25,000+ customers</span>
+      </div>
+    </div>
+
+    <!-- Carousel (px-10/px-12 reserves room for the arrow buttons) -->
+    <div class="relative px-10 lg:px-12" id="tsCarousel"
+         aria-roledescription="carousel" aria-label="Customer testimonials">
+
+      <!-- Prev arrow -->
+      <button type="button" class="ts-arrow ts-prev" aria-label="Previous testimonials">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+
+      <!-- Clipping viewport -->
+      <div class="ts-viewport">
+        <div class="ts-track" id="tsTrack">
+          {% for t in testimonials %}
+          <div class="ts-slide" style="padding:0 .625rem;" aria-roledescription="slide" aria-label="{{ forloop.counter }} of {{ testimonials|length }}">
+            <figure class="ts-card{% if t.is_featured %} ts-featured{% endif %}">
+
+              {% if t.is_featured %}
+              <div class="ts-feat-label"><span>★</span> Featured Review</div>
+              {% endif %}
+
+              <!-- Star rating -->
+              <div class="flex items-center gap-0.5 mb-2.5" aria-label="{{ t.rating }} out of 5 stars">
+                {% for i in "12345"|make_list %}
+                {% if forloop.counter <= t.rating %}
+                <svg class="h-[15px] w-[15px] flex-shrink-0 fill-current text-gold-500" aria-hidden="true" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                {% else %}
+                <svg class="h-[15px] w-[15px] flex-shrink-0 fill-current text-ink/10" aria-hidden="true" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                {% endif %}
+                {% endfor %}
+              </div>
+
+              <!-- Title -->
+              {% if t.title %}<h3 class="font-semibold text-sm text-ink mb-2 leading-snug">{{ t.title }}</h3>{% endif %}
+
+              <!-- Quote -->
+              <blockquote class="flex-1 text-sm text-ink/70 leading-relaxed" style="-webkit-line-clamp:4;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;">"{{ t.comment }}"</blockquote>
+
+              <hr class="ts-divider">
+
+              <!-- Author -->
+              <figcaption class="flex items-center gap-3">
+                {% if t.image %}
+                <img src="{{ t.image }}" alt="{{ t.name }}" loading="lazy"
+                     class="h-10 w-10 rounded-full object-cover flex-shrink-0"
+                     style="border:2px solid #f7f4ec;"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+                <span style="display:none;" class="h-10 w-10 rounded-full bg-brand-600 text-sm font-bold text-gold-500 flex-shrink-0 place-items-center">{{ t.name|initials }}</span>
+                {% else %}
+                <span class="grid h-10 w-10 place-items-center rounded-full bg-brand-600 text-sm font-bold text-gold-500 flex-shrink-0">{{ t.name|initials }}</span>
+                {% endif %}
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="font-semibold text-sm text-ink leading-none">{{ t.name }}</span>
+                    {% if t.order %}<span class="ts-verified">✓ Verified</span>{% endif %}
+                  </div>
+                  {% if t.city %}<p class="text-xs text-ink/40 mt-0.5 truncate">{{ t.city }}</p>{% endif %}
+                  <p class="text-[10px] text-ink/30 mt-0.5">{{ t.created_at|date:"M Y" }}</p>
+                </div>
+              </figcaption>
+            </figure>
+          </div>
+          {% endfor %}
         </div>
       </div>
-    {% endfor %}
+
+      <!-- Next arrow -->
+      <button type="button" class="ts-arrow ts-next" aria-label="Next testimonials">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+
+      <!-- Pagination dots -->
+      <div class="ts-dots mt-8 flex justify-center items-center gap-2"
+           id="tsDots" role="tablist" aria-label="Carousel pagination"></div>
+    </div>
+
+    <!-- View all CTA -->
+    <p class="mt-8 text-center">
+      <a href="/testimonials" class="text-sm font-semibold text-brand-700 hover:text-brand-800 underline underline-offset-2">
+        Read all customer reviews →
+      </a>
+    </p>
+
   </div>
 </section>
 
-{# ── BLOGS ── #}
-<section class="mx-auto max-w-7xl px-4 pb-8 lg:px-8">
-  <div class="mb-8 flex items-end justify-between">
-    <div><span class="section-eyebrow">From our journal</span><h2 class="mt-2 font-display text-3xl font-semibold">Stories of Nature &amp; Nourishment</h2></div>
-    <a href="/blogs" class="btn-ghost">Read All Articles →</a>
-  </div>
-  <div class="grid gap-6 md:grid-cols-3">
-    {% for b in blogs %}
-      <a href="/blogs/{{ b.slug }}" class="card group overflow-hidden">
-        <div class="grid aspect-[16/10] place-items-center bg-gradient-to-br from-brand-100 to-gold-400/30 font-display text-xl text-brand-600/40">
-          <img src="{{ b.image }}" onerror="this.style.display='none'" class="aspect-[16/10] w-full object-cover transition group-hover:scale-105" />
-        </div>
-        <div class="p-5">
-          {% if b.tag %}<span class="rounded-full bg-brand-100 px-2.5 py-1 text-[11px] font-semibold text-brand-700">{{ b.tag }}</span>{% endif %}
-          <h3 class="mt-3 font-display text-lg font-semibold leading-snug group-hover:text-brand-600">{{ b.title }}</h3>
-          <p class="mt-2 line-clamp-2 text-sm text-ink/60">{{ b.description }}</p>
-          <span class="btn-ghost mt-3">Read More →</span>
-        </div>
-      </a>
-    {% endfor %}
-  </div>
-</section>
+<script>
+(function(){
+  'use strict';
+  var outer     = document.getElementById('tsCarousel');
+  var track     = document.getElementById('tsTrack');
+  var dotsWrap  = document.getElementById('tsDots');
+  if(!outer||!track||!dotsWrap) return;
+
+  var prevBtn = outer.querySelector('.ts-prev');
+  var nextBtn = outer.querySelector('.ts-next');
+
+  /* ── Collect original slides ── */
+  var origSlides = [].slice.call(track.querySelectorAll(':scope > .ts-slide'));
+  var N = origSlides.length;
+  if(N < 2){ prevBtn.hidden=true; nextBtn.hidden=true; return; }
+
+  /* ── State ── */
+  var perView   = 1;
+  var curIdx    = 0;   /* index into origSlides (0-based) */
+  var isJumping = false;
+  var timer     = null;
+  var touchX    = 0;
+  var dots      = [];
+
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── Helpers ── */
+  function getPV(){
+    return window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1;
+  }
+
+  function totalSlides(){ return N + perView * 2; }
+  function trackIdx(){ return perView + curIdx; }   /* offset for prepended clones */
+
+  /* ── Build clones for seamless infinite loop ── */
+  function buildClones(){
+    track.querySelectorAll('.ts-clone').forEach(function(c){ c.remove(); });
+    /* prepend clones of last perView originals */
+    for(var i = N - perView; i < N; i++){
+      var c = origSlides[i].cloneNode(true);
+      c.classList.add('ts-clone'); c.setAttribute('aria-hidden','true');
+      track.insertBefore(c, track.firstChild);
+    }
+    /* append clones of first perView originals */
+    for(var j = 0; j < perView; j++){
+      var d = origSlides[j].cloneNode(true);
+      d.classList.add('ts-clone'); d.setAttribute('aria-hidden','true');
+      track.appendChild(d);
+    }
+  }
+
+  /* ── Apply slide widths & track width ── */
+  function applySizes(){
+    var tot = totalSlides();
+    var sw  = (100/tot).toFixed(6)+'%';
+    track.style.width = (tot/perView*100).toFixed(4)+'%';
+    track.querySelectorAll('.ts-slide').forEach(function(s){
+      s.style.flex = '0 0 '+sw;
+      s.style.maxWidth = sw;
+    });
+  }
+
+  /* ── Move the track ── */
+  function moveTo(animate){
+    var tot = totalSlides();
+    var pct = (trackIdx()/tot*100).toFixed(6);
+    track.style.transition = (animate && !reduceMotion)
+      ? 'transform 0.52s cubic-bezier(0.4,0,0.2,1)' : 'none';
+    track.style.transform  = 'translateX(-'+pct+'%)';
+    updateDots();
+  }
+
+  /* ── After transition: silently jump from clone zone to real zone ── */
+  track.addEventListener('transitionend', function(e){
+    if(e.propertyName !== 'transform') return;
+    if(curIdx >= N){
+      curIdx -= N; moveTo(false); isJumping = false;
+    } else if(curIdx < 0){
+      curIdx += N; moveTo(false); isJumping = false;
+    }
+  });
+
+  /* ── Navigation ── */
+  function goNext(){
+    if(isJumping) return;
+    curIdx++;
+    if(curIdx >= N) isJumping = true;
+    moveTo(true);
+  }
+  function goPrev(){
+    if(isJumping) return;
+    curIdx--;
+    if(curIdx < 0) isJumping = true;
+    moveTo(true);
+  }
+  function goPage(page){
+    curIdx = page * perView;
+    moveTo(true);
+  }
+
+  /* ── Dots ── */
+  function buildDots(){
+    dotsWrap.innerHTML = '';
+    dots = [];
+    var pages = Math.ceil(N/perView);
+    for(var i=0;i<pages;i++){
+      var btn = document.createElement('button');
+      btn.className = 'ts-dot';
+      btn.setAttribute('role','tab');
+      btn.setAttribute('aria-label','Slide '+(i+1)+' of '+pages);
+      (function(idx){ btn.addEventListener('click', function(){ goPage(idx); resetTimer(); }); })(i);
+      dotsWrap.appendChild(btn);
+      dots.push(btn);
+    }
+    updateDots();
+  }
+  function updateDots(){
+    var pages = Math.ceil(N/perView);
+    var active = Math.floor(((curIdx%N)+N)%N / perView) % pages;
+    dots.forEach(function(d,i){
+      d.classList.toggle('ts-active', i===active);
+      d.setAttribute('aria-selected', i===active ? 'true':'false');
+    });
+  }
+
+  /* ── Autoplay ── */
+  function startTimer(){ stopTimer(); timer = setInterval(goNext, 4500); }
+  function stopTimer(){ clearInterval(timer); timer=null; }
+  function resetTimer(){ stopTimer(); startTimer(); }
+
+  /* ── Touch / swipe ── */
+  track.addEventListener('touchstart',function(e){ touchX=e.touches[0].clientX; stopTimer(); },{passive:true});
+  track.addEventListener('touchend',function(e){
+    var dx = e.changedTouches[0].clientX - touchX;
+    if(Math.abs(dx)>44){ dx<0 ? goNext() : goPrev(); }
+    startTimer();
+  },{passive:true});
+
+  /* ── Mouse pause ── */
+  outer.addEventListener('mouseenter', stopTimer);
+  outer.addEventListener('mouseleave', startTimer);
+
+  /* ── Manual arrows ── */
+  prevBtn.addEventListener('click',function(){ goPrev(); resetTimer(); });
+  nextBtn.addEventListener('click',function(){ goNext(); resetTimer(); });
+
+  /* ── Resize: rebuild on breakpoint change ── */
+  var resizeTick;
+  window.addEventListener('resize',function(){
+    clearTimeout(resizeTick);
+    resizeTick = setTimeout(function(){
+      var pv = getPV();
+      if(pv !== perView){
+        perView = pv;
+        curIdx  = 0;
+        buildClones();
+        buildDots();
+        applySizes();
+      } else {
+        applySizes();
+      }
+      moveTo(false);
+    },180);
+  });
+
+  /* ── Keyboard support ── */
+  outer.addEventListener('keydown',function(e){
+    if(e.key==='ArrowLeft'){  goPrev(); resetTimer(); }
+    if(e.key==='ArrowRight'){ goNext(); resetTimer(); }
+  });
+
+  /* ── Init ── */
+  function init(){
+    perView = getPV();
+    buildClones();
+    buildDots();
+    applySizes();
+    moveTo(false);
+    startTimer();
+  }
+  init();
+})();
+</script>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Flash deals countdown to midnight
+  (function(){
+    function tick(){
+      const now = new Date();
+      const end = new Date(now); end.setHours(23,59,59,999);
+      const d = Math.max(0, end - now);
+      const h = document.getElementById('flash-h');
+      const m = document.getElementById('flash-m');
+      const s = document.getElementById('flash-s');
+      if (!h) return;
+      h.textContent = String(Math.floor(d/3600000)).padStart(2,'0');
+      m.textContent = String(Math.floor((d%3600000)/60000)).padStart(2,'0');
+      s.textContent = String(Math.floor((d%60000)/1000)).padStart(2,'0');
+    }
+    tick(); setInterval(tick, 1000);
+  })();
+
+  // Combo add-to-cart
+  async function addComboToCart(slug, btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = 'Adding…';
+    btn.disabled = true;
+    try {
+      const res = await postJSON('/api/combo/add', {slug: slug, qty: 1});
+      if (!res.ok) {
+        alert(res.error || 'Could not add combo to cart.');
+        btn.innerHTML = orig; btn.disabled = false; return;
+      }
+      btn.innerHTML = '✓ Added to Cart!';
+      const cc = document.getElementById('cart-count');
+      if (cc) { cc.textContent = res.cart_count; cc.classList.remove('hidden'); }
+      setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 1800);
+    } catch(e) {
+      alert('Network error. Please try again.');
+      btn.innerHTML = orig; btn.disabled = false;
+    }
+  }
+</script>
 {% endblock %}

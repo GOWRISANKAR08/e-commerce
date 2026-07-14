@@ -208,6 +208,11 @@
               <!-- Actions -->
               <td class="px-4 py-3 text-right">
                 <div class="flex items-center justify-end gap-1">
+                  <!-- View Details -->
+                  <a href="/admin-panel/orders/{{ o.id }}"
+                     class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-brand-50 hover:text-brand-700 transition" title="View Order Details">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </a>
                   <!-- Cancel (only if not terminal) -->
                   {% if o.status != 'CANCELLED' and o.status != 'REFUNDED' and o.status != 'DELIVERED' %}
                     <button form="cancel{{ o.id }}"

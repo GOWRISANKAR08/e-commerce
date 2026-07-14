@@ -5,11 +5,45 @@
 <section class="mx-auto max-w-3xl px-4 py-12 lg:px-8">
   <div class="text-center">
     <span class="section-eyebrow justify-center">Help Centre</span>
-    <h1 class="mt-2 font-display text-4xl font-semibold text-ink">Frequently Asked Questions</h1>
+    <h1 class="mt-2 font-display text-2xl sm:text-3xl lg:text-4xl font-semibold text-ink">Frequently Asked Questions</h1>
   </div>
 
-  <div class="mt-10 space-y-3">
+  <!-- Search -->
+  <form method="GET" class="mt-8 flex gap-2">
+    <input name="q" value="{{ q }}" placeholder="Search FAQs…"
+           class="flex-1 rounded-full border border-black/10 bg-white px-4 py-2.5 text-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100">
+    <button class="btn-primary px-5 py-2.5 text-sm">Search</button>
+    {% if q %}<a href="/faq" class="flex items-center rounded-full border border-black/10 px-4 text-sm text-ink/50 hover:border-brand-300">Clear</a>{% endif %}
+  </form>
+
+  {% if q %}
+  <!-- Search results -->
+  <div class="mt-8 space-y-3">
+    <p class="text-sm text-ink/50 mb-4">Results for "<strong>{{ q }}</strong>"</p>
     {% for f in faqs %}
+    <details class="card group p-5 [&_summary::-webkit-details-marker]:hidden">
+      <summary class="flex cursor-pointer items-center justify-between gap-4">
+        <span class="font-display text-base font-semibold">{{ f.question }}</span>
+        <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600 transition group-open:rotate-45">+</span>
+      </summary>
+      <div class="mt-3 text-sm leading-relaxed text-ink/70">{{ f.answer|safe }}</div>
+    </details>
+    {% empty %}
+    <div class="rounded-2xl border border-dashed border-black/10 py-10 text-center">
+      <p class="text-ink/50">No results for "{{ q }}"</p>
+      <a href="/faq" class="mt-2 inline-block text-sm text-brand-600 hover:underline">Browse all FAQs</a>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- Categorised FAQs -->
+  {% for cat in cats %}
+  {% if cat.active_items %}
+  <div class="mt-10">
+    <h2 class="font-display text-xl font-semibold text-ink mb-4">{{ cat.name }}</h2>
+    <div class="space-y-3">
+      {% for f in cat.active_items %}
       <details class="card group p-5 [&_summary::-webkit-details-marker]:hidden">
         <summary class="flex cursor-pointer items-center justify-between gap-4">
           <span class="font-display text-base font-semibold">{{ f.question }}</span>
@@ -17,12 +51,35 @@
         </summary>
         <div class="mt-3 text-sm leading-relaxed text-ink/70">{{ f.answer|safe }}</div>
       </details>
-    {% empty %}
-      <p class="text-center text-ink/50">No FAQs yet.</p>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
+  {% endif %}
+  {% endfor %}
 
-  <div class="mt-10 rounded-2xl bg-brand-600 p-8 text-center text-white">
+  {% if uncategorised %}
+  <div class="mt-10">
+    {% if cats %}<h2 class="font-display text-xl font-semibold text-ink mb-4">Other</h2>{% endif %}
+    <div class="space-y-3">
+      {% for f in uncategorised %}
+      <details class="card group p-5 [&_summary::-webkit-details-marker]:hidden">
+        <summary class="flex cursor-pointer items-center justify-between gap-4">
+          <span class="font-display text-base font-semibold">{{ f.question }}</span>
+          <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600 transition group-open:rotate-45">+</span>
+        </summary>
+        <div class="mt-3 text-sm leading-relaxed text-ink/70">{{ f.answer|safe }}</div>
+      </details>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not cats and not uncategorised %}
+  <div class="mt-10 text-center text-ink/50">No FAQs yet.</div>
+  {% endif %}
+  {% endif %}
+
+  <div class="mt-12 rounded-2xl bg-brand-600 p-8 text-center text-white">
     <p class="font-display text-xl font-semibold">Still have questions?</p>
     <p class="mt-1 text-white/70">Our team is happy to help.</p>
     <a href="/help-support" class="mt-4 inline-flex rounded-full bg-gold-500 px-5 py-2.5 text-sm font-semibold text-ink">Contact us</a>

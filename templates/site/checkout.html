@@ -1,78 +1,844 @@
 {% extends "site/base.html" %}
 {% load store_extras %}
 {% block title %}Checkout · {{ SITE_NAME }}{% endblock %}
+
 {% block content %}
-<section class="mx-auto max-w-6xl px-4 py-10 lg:px-8">
-  <h1 class="font-display text-3xl font-semibold text-ink">Checkout</h1>
+<style>
+  /* ── Checkout-specific styles ──────────────────────────────────────── */
+  .co-step-line{flex:1;height:2px;background:#e5e7eb;}
+  .co-step-line.done{background:#1f6b3a;}
+  .co-step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;}
+  .co-step-circle.done{background:#1f6b3a;color:#fff;}
+  .co-step-circle.active{background:#f2c014;color:#1b2420;}
+  .co-step-circle.future{background:#f3f4f6;color:#9ca3af;border:2px solid #e5e7eb;}
+  .co-card{border-radius:1rem;background:#fff;box-shadow:0 2px 14px -4px rgba(16,61,36,.1);outline:1px solid rgba(0,0,0,.04);}
+  .co-step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;}
+  .co-addr-card{border:1.5px solid rgba(0,0,0,.1);border-radius:.875rem;padding:.85rem 1rem;cursor:pointer;transition:.15s;}
+  .co-addr-card:has(input:checked){border-color:#f2c014;background:#fffbeb;}
+  .co-addr-card.co-addr-selected{border-color:#f2c014;background:#fffbeb;}
+  .co-pay-card{border:1.5px solid rgba(0,0,0,.1);border-radius:.875rem;padding:.85rem 1rem;cursor:pointer;transition:.15s;}
+  .co-pay-card:has(input:checked){border-color:#f2c014;background:#fffbeb;}
+  .co-field{width:100%;border-radius:.75rem;border:1.5px solid rgba(0,0,0,.1);padding:.65rem .9rem;font-size:.875rem;color:#1b2420;background:#fff;transition:.15s;}
+  .co-field:focus{outline:none;border-color:#2f7a47;box-shadow:0 0 0 3px rgba(47,122,71,.1);}
+  .co-field::placeholder{color:rgba(27,36,32,.35);}
+  .co-label{font-size:.78rem;font-weight:600;color:rgba(27,36,32,.6);margin-bottom:.3rem;display:block;}
+  select.co-field{cursor:pointer;}
+  #add-addr-form{display:none;}
+  #add-addr-form.open{display:block;}
+</style>
 
-  <form method="post" action="/checkout" class="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
-    {% csrf_token %}
-    <div class="space-y-6">
-      <div class="card p-6">
-        <h2 class="font-display text-lg font-semibold">Shipping Address</h2>
-        <div class="mt-4 grid grid-cols-2 gap-4">
-          <label class="col-span-2 text-sm">
-            <span class="text-ink/60">Full name</span>
-            <input name="name" required value="{{ default_address.name|default:user.full_name }}"
-                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
-          </label>
-          <label class="text-sm">
-            <span class="text-ink/60">Mobile</span>
-            <input name="mobile" required value="{{ default_address.mobile|default:user.mobile|default:'' }}"
-                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
-          </label>
-          <label class="text-sm">
-            <span class="text-ink/60">PIN code</span>
-            <input name="pinCode" required value="{{ default_address.pin_code|default:'' }}"
-                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
-          </label>
-          <label class="col-span-2 text-sm">
-            <span class="text-ink/60">Address</span>
-            <textarea name="address" required rows="2"
-                      class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200">{{ default_address.address|default:'' }}</textarea>
-          </label>
-          <label class="text-sm">
-            <span class="text-ink/60">City</span>
-            <input name="city" required value="{{ default_address.city|default:user.city|default:'' }}"
-                   class="mt-1 w-full rounded-xl border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200" />
-          </label>
-        </div>
-      </div>
+<section class="mx-auto max-w-6xl px-4 py-8 lg:px-8">
+  <!-- Page header -->
+  <div class="mb-6">
+    <h1 class="font-display text-2xl font-bold text-ink">Checkout</h1>
+    <p class="text-sm text-ink/50 mt-1">Complete your order — just a few steps away!</p>
+  </div>
 
-      <div class="card p-6">
-        <h2 class="font-display text-lg font-semibold">Payment Method</h2>
-        <div class="mt-4 space-y-3">
-          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 p-4 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50">
-            <input type="radio" name="paymentMode" value="COD" checked class="accent-brand-600" />
-            <span><span class="font-semibold">Cash on Delivery</span><br><span class="text-sm text-ink/50">Pay when your order arrives.</span></span>
-          </label>
-          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-black/10 p-4 has-[:checked]:border-brand-500 has-[:checked]:bg-brand-50">
-            <input type="radio" name="paymentMode" value="RAZORPAY" class="accent-brand-600" />
-            <span><span class="font-semibold">Pay Online (Razorpay)</span><br><span class="text-sm text-ink/50">UPI, cards, net banking & wallets.</span></span>
-          </label>
-        </div>
+  <!-- Progress Stepper -->
+  <div class="mb-8 flex items-center gap-0">
+    <!-- Step 1: Cart (done) -->
+    <div class="flex flex-col items-center gap-1.5 min-w-0">
+      <div class="co-step-circle done">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
       </div>
+      <span class="text-[11px] font-semibold text-brand-700 hidden sm:block">Cart</span>
     </div>
+    <div class="co-step-line done mx-1.5 mt-0 sm:-mt-4"></div>
 
-    <aside class="card h-fit p-6">
-      <h2 class="font-display text-lg font-semibold">Order Summary</h2>
-      <div class="mt-4 space-y-3">
-        {% for it in items %}
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-ink/80">{{ it.variant.product.name }} <span class="text-ink/40">({{ it.variant.variant }}) × {{ it.qty }}</span></span>
-            <span class="font-medium">{{ it.line_total|inr }}</span>
+    <!-- Step 2: Address (active) -->
+    <div class="flex flex-col items-center gap-1.5 min-w-0">
+      <div class="co-step-circle active">2</div>
+      <span class="text-[11px] font-semibold text-gold-600 hidden sm:block">Address</span>
+    </div>
+    <div class="co-step-line mx-1.5 mt-0 sm:-mt-4"></div>
+
+    <!-- Step 3: Payment -->
+    <div class="flex flex-col items-center gap-1.5 min-w-0">
+      <div class="co-step-circle future">3</div>
+      <span class="text-[11px] font-medium text-ink/40 hidden sm:block">Payment</span>
+    </div>
+    <div class="co-step-line mx-1.5 mt-0 sm:-mt-4"></div>
+
+    <!-- Step 4: Confirmation -->
+    <div class="flex flex-col items-center gap-1.5 min-w-0">
+      <div class="co-step-circle future">4</div>
+      <span class="text-[11px] font-medium text-ink/40 hidden sm:block">Confirmation</span>
+    </div>
+  </div>
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_380px]">
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- LEFT COLUMN                                           -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <div class="space-y-5 order-last lg:order-none">
+
+      <!-- ── Step 1: Contact Information (completed) ─────── -->
+      <div class="co-card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-full bg-brand-600 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h2 class="font-semibold text-base text-ink">Contact Information</h2>
           </div>
-        {% endfor %}
+          <span class="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full">Completed</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-brand-600 flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+            {{ user.full_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm text-ink">{{ user.full_name|default:user.email }}</p>
+            <p class="text-xs text-ink/50 mt-0.5">
+              {{ user.email|default:"—" }}
+              {% if user.mobile %} · {{ user.mobile }}{% endif %}
+            </p>
+          </div>
+          <a href="/account" class="text-xs font-semibold text-gold-600 hover:text-gold-700 transition shrink-0">Change</a>
+        </div>
       </div>
-      <dl class="mt-4 space-y-2 border-t border-black/5 pt-4 text-sm">
-        <div class="flex justify-between"><dt class="text-ink/60">Subtotal</dt><dd class="font-medium">{{ subtotal|inr }}</dd></div>
-        <div class="flex justify-between"><dt class="text-ink/60">Shipping</dt>
-          <dd class="font-medium">{% if shipping %}{{ shipping|inr }}{% else %}<span class="text-brand-600">FREE</span>{% endif %}</dd></div>
-        <div class="flex justify-between border-t border-black/5 pt-2 text-base"><dt class="font-semibold">Total</dt><dd class="font-bold text-brand-700">{{ grand_total|inr }}</dd></div>
-      </dl>
-      <button class="btn-primary mt-5 w-full">Place Order</button>
-      <a href="/cart" class="btn-ghost mt-3 w-full justify-center">← Back to cart</a>
+
+      <!-- ── Step 2: Delivery Address ─────────────────────── -->
+      <div class="co-card p-5">
+        <div class="flex items-center gap-2.5 mb-5">
+          <div class="co-step-num bg-gold-500 text-ink" style="font-size:.78rem;font-weight:700;">2</div>
+          <h2 class="font-semibold text-base text-ink">Delivery Address</h2>
+        </div>
+
+        {% if addresses %}
+        <!-- Saved Addresses -->
+        <p class="text-[10px] font-bold text-ink/40 tracking-widest uppercase mb-3">Saved Addresses</p>
+        <div class="space-y-2.5 mb-4" id="saved-addr-list">
+          {% for addr in addresses %}
+          <div id="addr-item-{{ addr.pk }}" class="co-addr-card block w-full">
+            <div class="flex items-start gap-3">
+              <label class="flex items-start gap-3 flex-1 cursor-pointer min-w-0" for="saved-addr-{{ addr.pk }}">
+                <input type="radio" id="saved-addr-{{ addr.pk }}" name="savedAddress" value="{{ addr.pk }}"
+                       {% if addr.is_default %}checked{% endif %}
+                       class="mt-0.5 accent-gold-500 shrink-0" />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span data-addr-name class="text-sm font-semibold text-ink">{{ addr.address_name|default:"Address" }}</span>
+                    <span data-addr-default class="text-[10px] font-bold bg-gold-500 text-ink px-1.5 py-0.5 rounded-full{% if not addr.is_default %} hidden{% endif %}">Default</span>
+                  </div>
+                  <p data-addr-text class="text-xs text-ink/55 mt-0.5 leading-relaxed">
+                    {{ addr.street_flat }}{% if addr.street_flat and addr.address %}, {% endif %}{{ addr.address }}{% if addr.city %}, {{ addr.city }}{% endif %}{% if addr.pin_code %} - {{ addr.pin_code }}{% endif %}
+                  </p>
+                </div>
+              </label>
+              <button type="button" onclick="editAddr({{ addr.pk }})"
+                      class="text-xs font-semibold text-gold-600 hover:text-gold-700 transition shrink-0 mt-0.5">Edit</button>
+            </div>
+
+            <!-- Inline edit form -->
+            <div id="edit-form-{{ addr.pk }}" class="hidden mt-3 pt-3 border-t border-black/6">
+              <div class="grid grid-cols-2 gap-2.5 mb-2.5">
+                <div>
+                  <label class="co-label">Address Type</label>
+                  <select name="editAddressName_{{ addr.pk }}" class="co-field">
+                    <option{% if addr.address_name == "Home" %} selected{% endif %}>Home</option>
+                    <option{% if addr.address_name == "Work" %} selected{% endif %}>Work</option>
+                    <option{% if addr.address_name == "Other" %} selected{% endif %}>Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="co-label">Landmark <span class="text-ink/40">(optional)</span></label>
+                  <input name="editLandmark_{{ addr.pk }}" type="text" value="{{ addr.landmark|default:'' }}" class="co-field" placeholder="Near ..." />
+                </div>
+                <div class="col-span-2">
+                  <label class="co-label">Flat / House No. <span class="text-red-500">*</span></label>
+                  <input name="editStreetFlat_{{ addr.pk }}" type="text" value="{{ addr.street_flat|default:'' }}" class="co-field" />
+                </div>
+                <div class="col-span-2">
+                  <label class="co-label">Street / Area <span class="text-red-500">*</span></label>
+                  <input name="editAddress_{{ addr.pk }}" type="text" value="{{ addr.address }}" class="co-field" required />
+                </div>
+                <div>
+                  <label class="co-label">City <span class="text-red-500">*</span></label>
+                  <input name="editCity_{{ addr.pk }}" type="text" value="{{ addr.city }}" class="co-field" required />
+                </div>
+                <div>
+                  <label class="co-label">Pincode <span class="text-red-500">*</span></label>
+                  <input name="editPincode_{{ addr.pk }}" type="text" value="{{ addr.pin_code }}" class="co-field" pattern="\d{6}" required />
+                </div>
+              </div>
+              <label class="flex items-center gap-2 mb-3 cursor-pointer">
+                <input type="checkbox" name="editIsDefault_{{ addr.pk }}" id="editIsDefault_{{ addr.pk }}"
+                       {% if addr.is_default %}checked{% endif %}
+                       class="accent-gold-500" />
+                <span class="text-xs text-ink/70">Set as default address</span>
+              </label>
+              <div class="flex gap-2">
+                <button type="button" onclick="saveAddr({{ addr.pk }})"
+                        class="flex-1 py-2 rounded-xl bg-gold-500 text-ink font-semibold text-sm hover:bg-gold-600 transition">Save Changes</button>
+                <button type="button" onclick="cancelEditAddr({{ addr.pk }})"
+                        class="px-4 py-2 rounded-xl border border-black/10 text-ink/60 text-sm hover:text-ink transition">Cancel</button>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <hr class="border-black/6 mb-4">
+        {% endif %}
+
+        <!-- Add New Address toggle -->
+        <button type="button" id="toggle-add-addr"
+                class="flex items-center gap-2 text-sm font-semibold text-brand-600 hover:text-brand-800 mb-3 transition">
+          <div class="w-6 h-6 rounded-full border-2 border-brand-600 flex items-center justify-center flex-shrink-0">
+            <span id="toggle-icon" style="font-size:1rem;line-height:1;margin-top:-1px;">+</span>
+          </div>
+          <span id="toggle-label">Add New Address</span>
+        </button>
+
+        <!-- New Address form (hidden by default if saved addresses exist) -->
+        <div id="add-addr-form" {% if not addresses %}class="open"{% endif %}>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="co-label">Full Name</label>
+              <input name="deliveryName" type="text" placeholder="Recipient name"
+                     value="{{ user.full_name }}" class="co-field" />
+            </div>
+            <div>
+              <label class="co-label">Phone</label>
+              <input name="deliveryMobile" type="tel" placeholder="+91 XXXXX XXXXX"
+                     value="{{ user.mobile|default:'' }}" class="co-field" />
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="co-label">Address Line 1 <span class="text-red-500">*</span></label>
+            <input name="addressLine1" type="text" placeholder="House / Flat / Building no."
+                   class="co-field" required />
+          </div>
+          <div class="mb-3">
+            <label class="co-label">Address Line 2 <span class="text-ink/30">(optional)</span></label>
+            <input name="addressLine2" type="text" placeholder="Area, Landmark"
+                   class="co-field" />
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div>
+              <label class="co-label">City <span class="text-red-500">*</span></label>
+              <input name="deliveryCity" type="text" placeholder="City"
+                     value="{{ user.city|default:'' }}" class="co-field" required />
+            </div>
+            <div>
+              <label class="co-label">Pincode <span class="text-red-500">*</span></label>
+              <input name="deliveryPincode" type="text" placeholder="6-digit PIN"
+                     pattern="\d{6}" class="co-field" required />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="co-label">State</label>
+              <select name="deliveryState" class="co-field">
+                <option>Tamil Nadu</option>
+                <option>Andhra Pradesh</option>
+                <option>Karnataka</option>
+                <option>Kerala</option>
+                <option>Telangana</option>
+                <option>Maharashtra</option>
+                <option>Delhi</option>
+                <option>Gujarat</option>
+                <option>Rajasthan</option>
+                <option>Uttar Pradesh</option>
+                <option>West Bengal</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="co-label">Address Type</label>
+              <select name="addressType" class="co-field">
+                <option value="Home">Home</option>
+                <option value="Office">Office</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <label class="flex items-center gap-2 text-sm text-ink/70 cursor-pointer mb-1">
+            <input type="checkbox" name="saveAddress" value="1" class="accent-brand-600 w-4 h-4" />
+            Save this address for future orders
+          </label>
+        </div>
+
+        <!-- Deliver to this Address button -->
+        <button type="button" id="deliver-btn"
+                onclick="proceedToPayment()"
+                class="mt-4 w-full rounded-full bg-gold-500 hover:bg-gold-600 text-ink font-bold py-3 text-sm transition">
+          Deliver to this Address
+        </button>
+      </div>
+
+      <!-- ── Step 3: Payment ──────────────────────────────── -->
+      <div class="co-card p-5" id="payment-section" style="opacity:.5;pointer-events:none;">
+        <div class="flex items-center gap-2.5 mb-5">
+          <div class="co-step-num bg-gray-100 text-ink/40" style="font-size:.78rem;font-weight:700;">3</div>
+          <h2 class="font-semibold text-base text-ink/60">Payment</h2>
+        </div>
+
+        <div class="space-y-2.5">
+          <!-- Razorpay -->
+          <label class="co-pay-card flex items-start gap-3 cursor-pointer block w-full">
+            <input type="radio" name="paymentMode" value="RAZORPAY"
+                   {% if not COD_ENABLED %}checked{% endif %}
+                   class="mt-0.5 accent-gold-500 shrink-0" />
+            <div class="flex-1">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-[#072654] flex items-center justify-center flex-shrink-0">
+                  <svg width="20" height="12" viewBox="0 0 40 16" fill="none">
+                    <text x="0" y="12" fill="#ffffff" font-size="11" font-weight="bold" font-family="sans-serif">razorpay</text>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-ink">Pay Online</p>
+                  <p class="text-xs text-ink/50">UPI, Cards, Net Banking &amp; Wallets via Razorpay</p>
+                </div>
+              </div>
+            </div>
+          </label>
+
+          {% if COD_ENABLED %}
+          <!-- Cash on Delivery -->
+          <label class="co-pay-card flex items-start gap-3 cursor-pointer block w-full">
+            <input type="radio" name="paymentMode" value="COD" checked
+                   class="mt-0.5 accent-gold-500 shrink-0" />
+            <div class="flex-1">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-ink">Cash on Delivery</p>
+                  <p class="text-xs text-ink/50">Pay when your order arrives</p>
+                </div>
+              </div>
+            </div>
+          </label>
+          {% endif %}
+        </div>
+      </div>
+
+    </div><!-- /left column -->
+
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!-- RIGHT COLUMN — Order Summary                          -->
+    <!-- ══════════════════════════════════════════════════════ -->
+    <aside class="space-y-4 order-first lg:order-none">
+      <div class="co-card p-5">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-base text-ink">Order Summary</h2>
+          <span class="text-xs text-ink/50 bg-ink/5 px-2.5 py-1 rounded-full font-medium">{{ items|length }} item{{ items|length|pluralize }}</span>
+        </div>
+
+        <!-- Product list -->
+        <div class="space-y-3 mb-4">
+          {% for it in items %}
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg overflow-hidden bg-brand-50 shrink-0">
+              <img src="{{ it.product.image }}" alt="{{ it.product.name }}"
+                   onerror="this.style.display='none'"
+                   class="w-full h-full object-cover" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-semibold text-ink leading-snug line-clamp-1">{{ it.variant.product.name }}</p>
+              <p class="text-[10px] text-ink/45 mt-0.5">{{ it.variant.variant }} · Qty: {{ it.qty }}</p>
+            </div>
+            <span class="text-sm font-bold text-ink shrink-0">{{ it.line_total|inr }}</span>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Coupon section -->
+        <div class="border-t border-black/5 pt-4 mb-4">
+          {% if has_combo %}
+          <div class="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+            <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            <p class="text-xs text-amber-700 leading-relaxed">Coupon codes cannot be applied to Combo Products because they already include a special bundle discount.</p>
+          </div>
+          {% else %}
+          {% if applied_code %}
+          <div id="coupon-applied" class="rounded-xl bg-brand-50 border border-brand-200 p-3 flex items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-brand-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+              </svg>
+              <div>
+                <p class="text-xs font-bold text-brand-700">Coupon <span class="font-mono">{{ applied_code }}</span> applied</p>
+                {% if coupon_obj %}
+                <p class="text-[10px] text-brand-600">
+                  {% if coupon_free_ship %}Free shipping!{% else %}You save {{ coupon_discount|inr }}!{% endif %}
+                </p>
+                {% endif %}
+              </div>
+            </div>
+            <button type="button" onclick="removeCoupon()"
+                    class="text-xs text-red-500 hover:text-red-700 font-semibold transition shrink-0">Remove</button>
+          </div>
+          <div id="coupon-input-wrap" class="hidden">
+          {% else %}
+          <div id="coupon-applied" class="hidden rounded-xl bg-brand-50 border border-brand-200 p-3 flex items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-brand-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+              </svg>
+              <div>
+                <p id="applied-code-label" class="text-xs font-bold text-brand-700"></p>
+                <p id="applied-saving-label" class="text-[10px] text-brand-600"></p>
+              </div>
+            </div>
+            <button type="button" onclick="removeCoupon()"
+                    class="text-xs text-red-500 hover:text-red-700 font-semibold transition shrink-0">Remove</button>
+          </div>
+          <div id="coupon-input-wrap">
+          {% endif %}
+            <p class="text-xs font-medium text-ink/55 mb-2">Have a coupon code?</p>
+            <div class="flex gap-2">
+              <input id="coupon-input" type="text" placeholder="Enter code"
+                     class="flex-1 px-3 py-2 rounded-xl border border-black/10 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-brand-200"
+                     oninput="this.value=this.value.toUpperCase()" />
+              <button type="button" onclick="applyCoupon()"
+                      class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition">Apply</button>
+            </div>
+            <p id="coupon-error" class="hidden text-xs text-red-600 mt-1.5"></p>
+            {% if active_offers %}
+            <div class="mt-2.5 flex flex-wrap gap-1.5">
+              {% for o in active_offers %}
+              <button type="button" onclick="applyFromOffer('{{ o.code }}')"
+                      class="text-xs font-mono font-bold bg-gold-400/20 text-ink px-2 py-1 rounded-lg hover:bg-gold-400/40 transition">
+                {{ o.code }}
+              </button>
+              {% endfor %}
+            </div>
+            <p class="text-[10px] text-ink/40 mt-1">Tap a code to apply</p>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Price breakdown -->
+        <dl class="space-y-2.5 text-sm border-t border-black/5 pt-4">
+          <div class="flex justify-between">
+            <dt class="text-ink/55">Subtotal ({{ items|length }} item{{ items|length|pluralize }})</dt>
+            <dd class="font-semibold" id="sum-subtotal">{{ subtotal|inr }}</dd>
+          </div>
+          {% if product_savings > 0 %}
+          <div class="flex justify-between text-brand-600">
+            <dt class="font-medium">Product Savings</dt>
+            <dd class="font-bold" id="sum-savings">-{{ product_savings|inr }}</dd>
+          </div>
+          {% endif %}
+          <div id="discount-row" class="flex justify-between text-brand-600 {% if not coupon_discount and not coupon_free_ship %}hidden{% endif %}">
+            <dt class="font-medium">Coupon Discount</dt>
+            <dd class="font-bold" id="sum-discount">
+              {% if coupon_discount %}-{{ coupon_discount|inr }}
+              {% elif coupon_free_ship %}-{{ SHIPPING_FEE|inr }}{% endif %}
+            </dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-ink/55">Shipping</dt>
+            <dd class="font-semibold" id="sum-shipping">
+              {% if shipping %}<span class="text-ink">{{ shipping|inr }}</span>{% else %}<span class="text-brand-600 font-bold">FREE</span>{% endif %}
+            </dd>
+          </div>
+          <div class="flex justify-between border-t border-black/8 pt-3">
+            <dt class="font-bold text-base text-ink">Total Payable</dt>
+            <dd class="font-extrabold text-lg text-ink" id="sum-total">{{ grand_total|inr }}</dd>
+          </div>
+        </dl>
+
+        <!-- Savings highlight -->
+        {% with total_save=product_savings|add:coupon_discount %}
+        {% if total_save > 0 %}
+        <p class="text-xs font-semibold text-brand-600 text-right mt-2" id="sum-saving-msg">
+          You save {{ total_save|inr }} on this order 🎉
+        </p>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Payment failure UI (hidden until a payment attempt fails) -->
+        <div id="payment-failure-ui" class="hidden mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+          <div class="flex items-start gap-3">
+            <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm text-red-700">Payment not completed</p>
+              <p id="payment-failure-msg" class="mt-1 text-xs text-red-600">Your payment could not be processed.</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                <button type="button" id="retry-payment-btn" onclick="retryPayment()"
+                        class="rounded-full bg-brand-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 transition">
+                  Retry Payment
+                </button>
+                <button type="button" onclick="switchToCOD()"
+                        class="rounded-full border border-ink/20 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-ink/5 transition">
+                  Use Cash on Delivery
+                </button>
+                <a href="/cart" class="rounded-full border border-ink/10 px-4 py-1.5 text-xs text-ink/50 hover:text-brand-600 transition">
+                  Return to cart
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Place Order -->
+        <button type="button" id="place-order-btn" onclick="submitOrder()"
+                class="mt-5 w-full rounded-full bg-gold-500 hover:bg-gold-600 text-ink font-bold py-3.5 text-sm flex items-center justify-center gap-2 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          Place Order — <span id="btn-total">{{ grand_total|inr }}</span>
+        </button>
+        <p class="text-center text-[10px] text-ink/40 mt-2">🔒 256-bit SSL secured checkout</p>
+        <a href="/cart" class="block text-center text-xs text-ink/40 hover:text-brand-600 mt-2 transition">← Back to cart</a>
+      </div>
+
+      <!-- Trust info -->
+      <div class="co-card p-4 space-y-3">
+        <div class="flex items-center gap-3 text-sm text-ink/70">
+          <svg class="w-4 h-4 text-brand-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <span>Estimated delivery: <strong class="text-ink">{{ ESTIMATED_DELIVERY }} business days</strong></span>
+        </div>
+        <div class="flex items-center gap-3 text-sm text-ink/70">
+          <svg class="w-4 h-4 text-brand-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span>7-day easy returns</span>
+        </div>
+        <div class="flex items-center gap-3 text-sm text-ink/70">
+          <svg class="w-4 h-4 text-brand-600 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+          </svg>
+          <span>Need help? <a href="https://wa.me/{{ user.mobile }}" class="text-brand-600 font-semibold">Chat on WhatsApp</a></span>
+        </div>
+      </div>
     </aside>
-  </form>
+  </div><!-- /grid -->
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  const SUBTOTAL = {{ subtotal }};
+  const FREE_OVER = {{ FREE_DELIVERY_OVER }};
+  const SHIP_FEE = {{ SHIPPING_FEE }};
+  const GRAND_TOTAL = {{ grand_total }};
+  var _addrUnlocked = {% if addresses %}false{% else %}true{% endif %};
+
+  function fmt(n){ return '₹' + Math.round(Number(n)).toLocaleString('en-IN'); }
+
+  // ── Address step: proceed to payment ────────────────────────────────────
+  function proceedToPayment() {
+    // Validate: if no saved address selected and form is hidden, error
+    var addForm = document.getElementById('add-addr-form');
+    var savedRadios = document.querySelectorAll('input[name="savedAddress"]');
+    var hasSelected = false;
+    savedRadios.forEach(function(r){ if(r.checked) hasSelected = true; });
+
+    if (!hasSelected && !addForm.classList.contains('open')) {
+      addForm.classList.add('open');
+      document.getElementById('toggle-icon').textContent = '−';
+      document.getElementById('toggle-label').textContent = 'Cancel';
+      return;
+    }
+
+    if (addForm.classList.contains('open') && !hasSelected) {
+      // Validate new address form
+      var line1 = document.querySelector('[name="addressLine1"]').value.trim();
+      var city = document.querySelector('[name="deliveryCity"]').value.trim();
+      var pin = document.querySelector('[name="deliveryPincode"]').value.trim();
+      if (!line1 || !city || !pin) {
+        alert('Please fill in the required address fields.');
+        return;
+      }
+    }
+
+    // Unlock payment section
+    var pSection = document.getElementById('payment-section');
+    pSection.style.opacity = '1';
+    pSection.style.pointerEvents = 'auto';
+    var stepNum = pSection.querySelector('.co-step-num');
+    if (stepNum) { stepNum.style.background='#f2c014'; stepNum.style.color='#1b2420'; }
+    var stepLabel = pSection.querySelector('h2');
+    if (stepLabel) stepLabel.classList.remove('text-ink/60');
+    _addrUnlocked = true;
+
+    // Scroll to payment
+    setTimeout(function(){
+      pSection.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 100);
+  }
+
+  // ── Toggle add-new-address form ──────────────────────────────────────────
+  document.getElementById('toggle-add-addr').addEventListener('click', function(){
+    var form = document.getElementById('add-addr-form');
+    var isOpen = form.classList.contains('open');
+    form.classList.toggle('open');
+    document.getElementById('toggle-icon').textContent = isOpen ? '+' : '−';
+    document.getElementById('toggle-label').textContent = isOpen ? 'Add New Address' : 'Cancel';
+    if (!isOpen) {
+      // Deselect saved addresses
+      document.querySelectorAll('input[name="savedAddress"]').forEach(function(r){ r.checked = false; });
+    }
+  });
+
+  // ── Place Order ──────────────────────────────────────────────────────────
+  async function submitOrder() {
+    if (!_addrUnlocked) {
+      document.getElementById('deliver-btn').scrollIntoView({behavior:'smooth', block:'center'});
+      document.getElementById('deliver-btn').focus();
+      return;
+    }
+
+    var btn = document.getElementById('place-order-btn');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+
+    // Build form data
+    var fd = new FormData();
+    fd.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+
+    var payMode = document.querySelector('input[name="paymentMode"]:checked');
+    fd.append('paymentMode', payMode ? payMode.value : 'COD');
+
+    var selAddr = document.querySelector('input[name="savedAddress"]:checked');
+    if (selAddr) {
+      fd.append('selectedAddressId', selAddr.value);
+    } else {
+      fd.append('deliveryName', document.querySelector('[name="deliveryName"]')?.value || '');
+      fd.append('deliveryMobile', document.querySelector('[name="deliveryMobile"]')?.value || '');
+      fd.append('addressLine1', document.querySelector('[name="addressLine1"]')?.value || '');
+      fd.append('addressLine2', document.querySelector('[name="addressLine2"]')?.value || '');
+      fd.append('deliveryCity', document.querySelector('[name="deliveryCity"]')?.value || '');
+      fd.append('deliveryPincode', document.querySelector('[name="deliveryPincode"]')?.value || '');
+      fd.append('deliveryState', document.querySelector('[name="deliveryState"]')?.value || '');
+      fd.append('addressType', document.querySelector('[name="addressType"]')?.value || 'Home');
+      var saveChk = document.querySelector('[name="saveAddress"]');
+      if (saveChk && saveChk.checked) fd.append('saveAddress', '1');
+    }
+
+    try {
+      const res = await fetch('/checkout', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd,
+      });
+      const data = await res.json();
+
+      if (!data.ok) {
+        var errMsg = data.error || 'Something went wrong. Please try again.';
+        document.getElementById('payment-failure-msg').textContent = errMsg;
+        document.getElementById('payment-failure-ui').classList.remove('hidden');
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Place Order — <span id="btn-total">' + fmt(GRAND_TOTAL) + '</span>';
+        return;
+      }
+
+      if (data.razorpay) {
+        // Store rzp options so retryPayment() can reuse them
+        var _rzpData = data;
+        var _rzpInstance = null;
+
+        function _openRazorpay() {
+          document.getElementById('payment-failure-ui').classList.add('hidden');
+          btn.disabled = true;
+          btn.textContent = 'Opening payment…';
+
+          var options = {
+            key: _rzpData.key_id,
+            amount: _rzpData.amount,
+            currency: 'INR',
+            name: '{{ SITE_NAME|escapejs }}',
+            description: 'Order Payment',
+            order_id: _rzpData.razorpay_order_id,
+            prefill: { name: _rzpData.name, email: _rzpData.email, contact: _rzpData.mobile },
+            theme: { color: '#f2c014' },
+            handler: async function(response) {
+              btn.textContent = 'Verifying payment…';
+              try {
+                const verifyRes = await postJSON('/checkout/verify-payment', {
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id:   response.razorpay_order_id,
+                  razorpay_signature:  response.razorpay_signature,
+                  order_code:          _rzpData.order_code,
+                });
+                if (verifyRes.ok) {
+                  btn.textContent = 'Order confirmed!';
+                  window.location.href = verifyRes.redirect || '/orders';
+                } else {
+                  _showPaymentFailure(verifyRes.error || 'Payment verification failed.');
+                }
+              } catch(e) {
+                _showPaymentFailure('Network error during verification. Please contact support if amount was debited.');
+              }
+            },
+            modal: {
+              ondismiss: function() {
+                _logPaymentFailure(_rzpData.razorpay_order_id, 'User closed payment window');
+                _showPaymentFailure('Payment window was closed before completing payment.');
+              }
+            }
+          };
+
+          _rzpInstance = new Razorpay(options);
+          _rzpInstance.on('payment.failed', function(response) {
+            _logPaymentFailure(_rzpData.razorpay_order_id,
+              response.error.description || 'Payment failed');
+          });
+          _rzpInstance.open();
+        }
+
+        window.retryPayment = function() { _openRazorpay(); };
+        window.switchToCOD  = function() {
+          document.getElementById('payment-failure-ui').classList.add('hidden');
+          var codRadio = document.querySelector('input[name="paymentMode"][value="COD"]');
+          if (codRadio) {
+            codRadio.checked = true;
+            codRadio.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          btn.disabled = false;
+          btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Place Order — <span id="btn-total">' + fmt(GRAND_TOTAL) + '</span>';
+        };
+
+        _openRazorpay();
+        return;
+      }
+
+      // COD success
+      window.location.href = data.redirect || '/orders';
+
+    } catch(e) {
+      document.getElementById('payment-failure-msg').textContent = 'Network error. Please check your connection and try again.';
+      document.getElementById('payment-failure-ui').classList.remove('hidden');
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Place Order — <span id="btn-total">' + fmt(GRAND_TOTAL) + '</span>';
+    }
+  }
+
+  // ── Coupon logic ─────────────────────────────────────────────────────────
+  async function applyCoupon(){
+    var code = document.getElementById('coupon-input').value.trim().toUpperCase();
+    var errEl = document.getElementById('coupon-error');
+    errEl.classList.add('hidden');
+    if(!code) return;
+    const res = await postJSON('/api/coupon/apply', {code: code, subtotal: SUBTOTAL});
+    if(!res.ok){
+      errEl.textContent = res.error;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    var lbl = document.getElementById('applied-code-label');
+    if(lbl) lbl.textContent = 'Coupon ' + res.code + ' applied';
+    var sav = document.getElementById('applied-saving-label');
+    if(sav) sav.textContent = res.free_ship ? 'Free shipping!' : 'You save ' + fmt(res.discount) + '!';
+    document.getElementById('coupon-applied').classList.remove('hidden');
+    document.getElementById('coupon-input-wrap').classList.add('hidden');
+    updateTotals(res);
+  }
+
+  async function removeCoupon(){
+    await fetch('/api/coupon/remove', {method:'POST',
+      headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});
+    document.getElementById('coupon-applied').classList.add('hidden');
+    document.getElementById('coupon-input-wrap').classList.remove('hidden');
+    var ci = document.getElementById('coupon-input');
+    if(ci) ci.value = '';
+    var ship = SUBTOTAL >= FREE_OVER ? 0 : SHIP_FEE;
+    document.getElementById('sum-shipping').innerHTML = ship
+      ? fmt(ship) : '<span class="text-brand-600 font-bold">FREE</span>';
+    document.getElementById('discount-row').classList.add('hidden');
+    document.getElementById('sum-total').textContent = fmt(SUBTOTAL + ship);
+    var btnTotal = document.getElementById('btn-total');
+    if(btnTotal) btnTotal.textContent = fmt(SUBTOTAL + ship);
+  }
+
+  function updateTotals(res){
+    document.getElementById('sum-shipping').innerHTML = res.shipping > 0
+      ? fmt(res.shipping) : '<span class="text-brand-600 font-bold">FREE</span>';
+    document.getElementById('discount-row').classList.remove('hidden');
+    document.getElementById('sum-discount').textContent = '-' + fmt(res.discount || 0);
+    document.getElementById('sum-total').textContent = fmt(res.grand_total);
+    var btnTotal = document.getElementById('btn-total');
+    if(btnTotal) btnTotal.textContent = fmt(res.grand_total);
+  }
+
+  function applyFromOffer(code){
+    document.getElementById('coupon-input-wrap').classList.remove('hidden');
+    document.getElementById('coupon-applied').classList.add('hidden');
+    var ci = document.getElementById('coupon-input');
+    if(ci) ci.value = code;
+    applyCoupon();
+  }
+
+  // ── Address edit ─────────────────────────────────────────────────────────
+  function _logPaymentFailure(rzpOrderId, reason) {
+    try {
+      postJSON('/checkout/payment-failed', { razorpay_order_id: rzpOrderId, reason: reason });
+    } catch(e) {}
+  }
+
+  function _showPaymentFailure(message) {
+    var failureDiv = document.getElementById('payment-failure-ui');
+    var failureMsg = document.getElementById('payment-failure-msg');
+    if (failureMsg) failureMsg.textContent = message || 'Payment could not be completed.';
+    if (failureDiv) {
+      failureDiv.classList.remove('hidden');
+      failureDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    var btn = document.getElementById('place-order-btn');
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg> Place Order — <span id="btn-total">' + fmt(GRAND_TOTAL) + '</span>';
+  }
+
+  // ── Address edit ─────────────────────────────────────────────────────────
+  function editAddr(pk) {
+    document.querySelectorAll('[id^="edit-form-"]').forEach(function(f){
+      f.classList.add('hidden');
+    });
+    document.getElementById('edit-form-' + pk).classList.remove('hidden');
+  }
+
+  function cancelEditAddr(pk) {
+    document.getElementById('edit-form-' + pk).classList.add('hidden');
+  }
+
+  async function saveAddr(pk) {
+    var form = document.getElementById('edit-form-' + pk);
+    var g = function(n){ return form.querySelector('[name="' + n + '_' + pk + '"]'); };
+    var body = {
+      address_name: g('editAddressName').value,
+      street_flat:  (g('editStreetFlat').value  || '').trim(),
+      address:      (g('editAddress').value      || '').trim(),
+      city:         (g('editCity').value         || '').trim(),
+      pin_code:     (g('editPincode').value      || '').trim(),
+      landmark:     (g('editLandmark').value     || '').trim(),
+      is_default:   g('editIsDefault').checked,
+    };
+    if (!body.address || !body.city || !body.pin_code) {
+      alert('Please fill in Street/Area, City and Pincode.'); return;
+    }
+    var btn = form.querySelector('button[onclick^="saveAddr"]');
+    btn.textContent = 'Saving…'; btn.disabled = true;
+    var res = await postJSON('/api/address/' + pk + '/update', body);
+    btn.textContent = 'Save Changes'; btn.disabled = false;
+    if (!res.ok) { alert(res.error || 'Failed to update address.'); return; }
+    if (body.is_default) {
+      window.location.reload(); return;
+    }
+    var item = document.getElementById('addr-item-' + pk);
+    item.querySelector('[data-addr-name]').textContent = body.address_name;
+    var parts = [];
+    if (body.street_flat) parts.push(body.street_flat);
+    if (body.address) parts.push(body.address);
+    if (body.city) parts.push(body.city);
+    var txt = parts.join(', ');
+    if (body.pin_code) txt += ' - ' + body.pin_code;
+    item.querySelector('[data-addr-text]').textContent = txt;
+    form.classList.add('hidden');
+  }
+</script>
 {% endblock %}

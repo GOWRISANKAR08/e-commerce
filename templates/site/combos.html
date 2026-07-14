@@ -1,0 +1,235 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Combo Packs · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<div class="bg-white border-b border-black/5">
+  <div class="mx-auto max-w-7xl px-4 lg:px-8 py-2.5">
+    <nav class="flex items-center gap-1.5 text-xs text-ink/45">
+      <a href="/" class="hover:text-brand-600 transition">Home</a>
+      <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      <span class="text-ink font-medium">Combo Packs</span>
+    </nav>
+  </div>
+</div>
+
+<!-- Page hero -->
+<div class="bg-gradient-to-br from-brand-50 via-cream to-white border-b border-black/5">
+  <div class="mx-auto max-w-7xl px-4 lg:px-8 py-10">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div>
+        <span class="section-eyebrow">Bundle &amp; save more</span>
+        <h1 class="mt-2 font-display text-3xl lg:text-4xl font-bold text-ink">Combo Packs</h1>
+        <p class="mt-2 text-sm text-ink/60 max-w-md">Curated bundles of our best spices — bigger savings, better value.</p>
+      </div>
+      {% if total %}
+      <p class="text-sm font-semibold text-brand-700 bg-white rounded-full px-4 py-2 shadow-sm border border-brand-100 shrink-0">{{ total }} combo{{ total|pluralize }} available</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="mx-auto max-w-7xl px-4 lg:px-8 py-8">
+
+  <!-- Search + Sort toolbar -->
+  <div class="flex flex-wrap items-center gap-3 mb-7">
+    <form method="get" class="flex items-stretch rounded-xl border border-black/12 bg-cream overflow-hidden focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200 transition flex-1 min-w-[220px] max-w-xs">
+      <input name="q" value="{{ q }}" placeholder="Search combos…"
+             class="flex-1 bg-transparent px-4 py-2 text-sm text-ink placeholder-ink/40 focus:outline-none" />
+      {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
+      <button type="submit" class="px-3 text-ink/40 hover:text-brand-600 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      </button>
+    </form>
+    {% if q %}
+    <a href="/combos{% if sort != 'position' %}?sort={{ sort }}{% endif %}" class="text-xs text-ink/50 hover:text-red-500 transition">
+      ✕ Clear search
+    </a>
+    {% endif %}
+    <div class="ml-auto flex items-center gap-2">
+      <span class="text-xs text-ink/40 hidden sm:block">Sort:</span>
+      <form method="get" id="sort-form">
+        {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+        <select name="sort" onchange="document.getElementById('sort-form').submit()"
+                class="text-sm bg-white border border-black/12 rounded-xl px-3 py-2 text-ink focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <option value="position" {% if sort == "position" %}selected{% endif %}>Featured</option>
+          <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest</option>
+          <option value="price_asc" {% if sort == "price_asc" %}selected{% endif %}>Price: Low → High</option>
+          <option value="price_desc" {% if sort == "price_desc" %}selected{% endif %}>Price: High → Low</option>
+          <option value="savings" {% if sort == "savings" %}selected{% endif %}>Most Savings</option>
+        </select>
+      </form>
+    </div>
+  </div>
+
+  {% if combos %}
+  <!-- Combo grid -->
+  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    {% for combo in combos %}
+    <div class="card overflow-hidden group flex flex-col">
+
+      <!-- Image -->
+      <a href="/combo/{{ combo.slug }}" class="relative block aspect-[4/3] bg-gradient-to-br from-brand-50 to-cream overflow-hidden flex-shrink-0">
+        {% with img=combo.main_image %}
+          {% if img %}
+            <img src="{{ img }}" alt="{{ combo.name }}"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+                 class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+            <div style="display:none" class="w-full h-full flex items-center justify-center p-6">
+              <span class="text-4xl">🎁</span>
+            </div>
+          {% else %}
+            <div class="w-full h-full flex flex-col items-center justify-center gap-2">
+              <span class="text-4xl">🎁</span>
+              <span class="font-display text-xs text-brand-600/50 text-center px-4">{{ combo.name }}</span>
+            </div>
+          {% endif %}
+        {% endwith %}
+        <!-- Badges -->
+        {% if combo.badge_label %}
+          <span class="absolute top-2 left-2 rounded-full bg-gold-500 text-ink px-2.5 py-0.5 text-[10px] font-bold shadow-sm">{{ combo.badge_label }}</span>
+        {% endif %}
+        {% if combo.savings > 0 %}
+          <span class="absolute top-2 right-2 rounded-full bg-brand-600 text-white px-2.5 py-0.5 text-[10px] font-bold shadow-sm">Save ₹{{ combo.savings|floatformat:0 }}</span>
+        {% endif %}
+        {% if combo.is_featured %}
+          <span class="absolute bottom-2 left-2 rounded-full bg-gold-400 text-ink px-2 py-0.5 text-[9px] font-bold">⭐ Featured</span>
+        {% endif %}
+      </a>
+
+      <!-- Info -->
+      <div class="p-4 flex flex-col flex-1">
+        <a href="/combo/{{ combo.slug }}">
+          <h3 class="font-display font-bold text-sm text-ink leading-snug hover:text-brand-600 transition line-clamp-2">{{ combo.name }}</h3>
+        </a>
+
+        <!-- Items list -->
+        <ul class="mt-2 space-y-0.5 flex-1">
+          {% for item in combo.items.all|slice:":3" %}
+          <li class="flex items-center gap-1.5 text-[11px] text-ink/55">
+            <svg class="w-3 h-3 shrink-0 text-brand-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            {{ item.variant.product.name }}{% if item.quantity > 1 %} &times; {{ item.quantity }}{% endif %}
+          </li>
+          {% endfor %}
+          {% if combo.items.count > 3 %}
+          <li class="text-[10px] text-ink/35 pl-4">+{{ combo.items.count|add:"-3" }} more items</li>
+          {% endif %}
+        </ul>
+
+        <!-- Pricing -->
+        <div class="mt-3 flex items-baseline gap-2">
+          <span class="font-bold text-lg text-ink">{{ combo.selling_price|inr }}</span>
+          {% if combo.original_total > combo.selling_price %}
+            <span class="text-xs text-ink/40 line-through">{{ combo.original_total|inr }}</span>
+            <span class="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded">{{ combo.savings_pct }}% off</span>
+          {% elif combo.mrp_price and combo.mrp_price > combo.selling_price %}
+            <span class="text-xs text-ink/40 line-through">{{ combo.mrp_price|inr }}</span>
+          {% endif %}
+        </div>
+
+        <!-- CTA buttons -->
+        <div class="mt-3 flex gap-2">
+          <button type="button"
+                  onclick="addComboToCart('{{ combo.slug }}', this)"
+                  class="flex-1 btn-primary !py-2 text-xs">
+            Add to Cart
+          </button>
+          <a href="/combo/{{ combo.slug }}"
+             class="flex items-center justify-center px-3 py-2 rounded-xl border border-black/12 text-ink/60 hover:text-ink hover:border-brand-300 transition text-xs font-medium">
+            Details
+          </a>
+        </div>
+
+        {% if combo.is_cod_available %}
+        <p class="mt-2 text-[10px] text-ink/40 text-center">Cash on Delivery available</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div class="mt-8 flex items-center justify-center gap-2">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if sort != 'position' %}&sort={{ sort }}{% endif %}"
+       class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-black/12 text-sm font-medium text-ink hover:bg-cream transition">
+      ← Prev
+    </a>
+    {% endif %}
+    <span class="px-4 py-2 text-sm text-ink/50">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if sort != 'position' %}&sort={{ sort }}{% endif %}"
+       class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-black/12 text-sm font-medium text-ink hover:bg-cream transition">
+      Next →
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="flex flex-col items-center justify-center py-20 text-center">
+    <div class="text-6xl mb-4">🎁</div>
+    <h3 class="font-display text-xl font-bold text-ink mb-2">
+      {% if q %}No combos found for "{{ q }}"{% else %}No combo packs available{% endif %}
+    </h3>
+    <p class="text-sm text-ink/50 mb-6 max-w-sm">
+      {% if q %}Try a different search term or browse all combos.{% else %}Check back soon — we're preparing exciting bundles for you!{% endif %}
+    </p>
+    {% if q %}
+    <a href="/combos" class="btn-primary">Browse All Combos</a>
+    {% else %}
+    <a href="/products" class="btn-primary">Shop All Products</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Available Offers strip -->
+  {% if active_offers %}
+  <div class="mt-12 rounded-2xl bg-gradient-to-br from-brand-50 to-cream p-5 border border-brand-100">
+    <p class="text-xs font-bold text-brand-700 uppercase tracking-widest mb-3">Available Coupon Offers</p>
+    <div class="flex flex-wrap gap-2">
+      {% for o in active_offers %}
+      <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 shadow-sm border border-black/6">
+        <span class="font-mono font-bold text-xs text-ink">{{ o.code }}</span>
+        <span class="text-[10px] text-ink/50">—
+          {% if o.coupon_type == "PERCENT" %}{{ o.discount_value|floatformat:0 }}% off
+          {% elif o.coupon_type == "FLAT" %}₹{{ o.discount_value|floatformat:0 }} off
+          {% else %}Free shipping{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+async function addComboToCart(slug, btn) {
+  const orig = btn.textContent;
+  btn.textContent = 'Adding…';
+  btn.disabled = true;
+  try {
+    const res = await postJSON('/api/combo/add', {slug: slug, qty: 1});
+    if (!res.ok) {
+      alert(res.error || 'Could not add combo to cart.');
+      btn.textContent = orig;
+      btn.disabled = false;
+      return;
+    }
+    btn.textContent = '✓ Added!';
+    btn.classList.add('!bg-brand-600', '!text-white');
+    const cc = document.getElementById('cart-count');
+    if (cc) { cc.textContent = res.cart_count; cc.classList.remove('hidden'); }
+    setTimeout(function(){ btn.textContent = orig; btn.classList.remove('!bg-brand-600','!text-white'); btn.disabled = false; }, 1800);
+  } catch(e) {
+    alert('Network error. Please try again.');
+    btn.textContent = orig;
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

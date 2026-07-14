@@ -1,37 +1,81 @@
 {% load store_extras %}
 {% with v=product.default_variant %}
-<div class="card group relative overflow-hidden">
-  <a href="/product/{{ product.slug }}" class="block">
-    <div class="relative aspect-square overflow-hidden bg-gradient-to-br from-brand-50 to-cream">
+<div class="card group relative overflow-hidden bg-white flex flex-col">
+  <!-- Image -->
+  <div class="relative aspect-square overflow-hidden bg-gradient-to-br from-brand-50 to-cream shrink-0">
+    <a href="/product/{{ product.slug }}" class="block h-full w-full" tabindex="-1" aria-hidden="true">
       <img src="{{ product.image }}" alt="{{ product.name }}"
            onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
-           class="h-full w-full object-cover transition group-hover:scale-105" />
-      <div style="display:none" class="absolute inset-0 flex-col items-center justify-center text-center p-4">
-        <span class="font-display text-2xl font-semibold text-brand-600/40">{{ product.name }}</span>
+           class="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+      <div style="display:none" class="absolute inset-0 flex flex-col items-center justify-center p-4">
+        <span class="font-display text-xl font-semibold text-brand-600/40 text-center">{{ product.name }}</span>
       </div>
+    </a>
+
+    <!-- Badges (top-left) -->
+    <div class="absolute left-2 top-2 flex flex-col gap-1">
+      {% if v and v.discount_pct > 0 %}
+        <span class="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white leading-tight">{{ v.discount_pct }}% off</span>
+      {% endif %}
       {% if product.badge %}
-        <span class="absolute left-3 top-3 rounded-full bg-gold-500 px-2.5 py-1 text-[11px] font-bold text-ink">{{ product.badge }}</span>
+        <span class="rounded-full bg-gold-500 px-2 py-0.5 text-[10px] font-bold text-ink leading-tight">{{ product.badge }}</span>
       {% endif %}
     </div>
-  </a>
-  <button data-fav="{{ product.id }}" title="Favourite"
-          class="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-lg shadow-card {% if product.id in fav_ids %}text-red-500{% else %}text-ink/30{% endif %}">♥</button>
-  <div class="p-4">
-    <p class="text-[11px] font-medium uppercase tracking-wide text-brand-500">{{ product.category.name }}</p>
-    <a href="/product/{{ product.slug }}"><h3 class="mt-1 font-display text-base font-semibold leading-snug group-hover:text-brand-600">{{ product.name }}</h3></a>
+
+    <!-- Wishlist -->
+    <button type="button" data-fav="{{ product.id }}" title="Add to Wishlist"
+            class="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-white shadow-sm transition hover:scale-110 z-10 {% if product.id in fav_ids %}text-red-500{% else %}text-ink/30{% endif %}">
+      <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+      </svg>
+    </button>
+
+  </div>
+
+  <!-- Info -->
+  <div class="p-3 flex flex-col flex-1">
     {% if v %}
-      <div class="mt-2 flex items-center gap-2">
-        <span class="text-lg font-bold text-ink">{{ v.selling_price|inr }}</span>
-        {% if v.mrp_price > v.selling_price %}
-          <span class="text-sm text-ink/40 line-through">{{ v.mrp_price|inr }}</span>
-          <span class="rounded bg-brand-50 px-1.5 py-0.5 text-[11px] font-bold text-brand-600">{{ v.discount_pct }}% off</span>
-        {% endif %}
-      </div>
-      <button data-add-cart data-variant="{{ v.id }}" data-label="Add to Cart"
-              class="btn-primary mt-3 w-full !py-2 text-sm">Add to Cart</button>
-    {% else %}
-      <p class="mt-3 text-sm text-ink/40">Coming soon</p>
+      <p class="text-[10px] text-ink/35 font-mono leading-none">{{ v.va_code }}</p>
     {% endif %}
+    <a href="/product/{{ product.slug }}">
+      <h3 class="mt-0.5 font-semibold text-sm leading-snug text-ink group-hover:text-brand-600 line-clamp-2">{{ product.name }}</h3>
+    </a>
+
+    <!-- Rating -->
+    {% with rating=product.avg_rating %}
+    {% if rating > 0 %}
+      <div class="mt-1 flex items-center gap-1">
+        <div class="flex text-[11px] text-gold-500 leading-none">
+          {% for _ in "12345"|make_list %}{% if forloop.counter <= rating %}★{% else %}☆{% endif %}{% endfor %}
+        </div>
+        <span class="text-[10px] text-ink/40">{{ rating }}</span>
+      </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="mt-auto pt-2">
+      {% if v %}
+        <!-- Price -->
+        <div class="flex items-baseline gap-1.5 flex-wrap">
+          <span class="font-bold text-base text-ink">{{ v.selling_price|inr }}</span>
+          {% if v.mrp_price > v.selling_price %}
+            <span class="text-xs text-ink/40 line-through">{{ v.mrp_price|inr }}</span>
+          {% endif %}
+        </div>
+
+        {% if v.stock_status == "OUT_OF_STOCK" %}
+          <p class="mt-2 text-xs text-red-500 font-medium text-center">Out of Stock</p>
+        {% else %}
+          {% if v.stock_status == "LOW_STOCK" and v.stock > 0 %}
+            <p class="text-[10px] text-orange-500 font-medium mt-1">Only {{ v.stock }} left!</p>
+          {% endif %}
+          <button type="button" onclick="openQuickView('{{ product.slug }}')"
+                  class="btn-primary mt-2 w-full !py-2 text-xs">Add to Cart</button>
+        {% endif %}
+      {% else %}
+        <p class="mt-3 text-xs text-ink/40 text-center">Coming soon</p>
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endwith %}

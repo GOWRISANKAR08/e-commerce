@@ -16,7 +16,7 @@
     {% if combo %}<p class="text-xs text-ink/40 font-mono mt-0.5">{{ combo.code }}</p>{% endif %}
   </div>
   <div class="flex items-center gap-2">
-    <a href="/admin-panel/combos"
+    <a href="/admin-panel/combos" onclick="event.preventDefault();goBack('/admin-panel/combos')"
        class="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink/70 hover:bg-cream transition">
       Discard
     </a>
@@ -416,6 +416,14 @@
         <label class="block text-xs font-medium text-ink/50 mb-1.5">Max Quantity Per Order</label>
         <input name="max_qty_per_order" type="number" min="1" max="99"
                value="{{ combo.max_qty_per_order|default:'10' }}"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-ink/50 mb-1.5">
+          Position{% if next_pos %} <span class="font-normal text-ink/30 ml-1">{{ next_pos }} suggested</span>{% endif %}
+        </label>
+        <input name="position" type="number" min="1"
+               value="{{ combo.position|default:next_pos }}"
                class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
       </div>
     </div>

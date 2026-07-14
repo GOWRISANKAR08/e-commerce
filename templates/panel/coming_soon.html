@@ -1,0 +1,375 @@
+{% extends "panel/base.html" %}
+{% block title %}{{ module_name }} · Coming Soon · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}{{ module_name }} · Coming Soon{% endblock %}
+
+{% block content %}
+<style>
+@keyframes dot-pulse {
+  0%, 80%, 100% { transform: scale(.55); opacity: .25; }
+  40%            { transform: scale(1);   opacity: 1; }
+}
+@keyframes badge-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(242,192,20,0); }
+  50%       { box-shadow: 0 0 0 6px rgba(242,192,20,.18); }
+}
+.wip-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #1f6b3a;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+.wip-dot:nth-child(2) { animation-delay: .22s; }
+.wip-dot:nth-child(3) { animation-delay: .44s; }
+.wip-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border-radius: 9999px;
+  background: #fef9e7;
+  border: 1px solid rgba(242,192,20,.5);
+  padding: .28rem 1rem;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #92710a;
+  animation: badge-glow 2.4s ease-in-out infinite;
+}
+.wip-badge::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #f2c014;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wip-dot, .wip-badge { animation: none !important; }
+  .wip-dot { opacity: .6; }
+}
+</style>
+
+<div class="flex min-h-[calc(100vh-160px)] items-center justify-center px-4 py-10">
+  <div class="w-full max-w-2xl">
+
+    <div class="card overflow-hidden">
+
+      <!-- ── Illustration ── -->
+      <div id="wip-hero" style="position:relative;height:250px;
+           background:linear-gradient(135deg,#eef6ef 0%,#f2f8f3 55%,#faf8f0 100%);">
+        <canvas id="wip-canvas" style="position:absolute;inset:0;width:100%;height:100%;display:block;"></canvas>
+      </div>
+
+      <!-- ── Copy ── -->
+      <div class="px-8 pb-9 pt-7 text-center">
+
+        <span class="wip-badge">Coming Soon</span>
+
+        <h1 class="mt-4 font-display text-[1.55rem] font-bold text-ink leading-snug" style="text-wrap:balance;">
+          {% if module_name %}{{ module_name }}{% else %}This Module{% endif %} is Under Development
+        </h1>
+
+        <p class="mt-3 text-sm text-ink/55 max-w-sm mx-auto leading-relaxed">
+          We're actively building this feature to provide you with the best experience.
+          It will be available in a future update — thank you for your patience.
+        </p>
+
+        <!-- Animated dots -->
+        <div class="mt-6 flex items-center justify-center gap-2">
+          <span class="wip-dot"></span>
+          <span class="wip-dot"></span>
+          <span class="wip-dot"></span>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-7 flex items-center justify-center gap-3 flex-wrap">
+          <a href="/admin-panel" class="btn-primary">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Dashboard
+          </a>
+        </div>
+
+        <p class="mt-6 text-xs text-ink/30">
+          Need this feature urgently?
+          <a href="/admin-panel/cms/enquiries" class="text-ink/50 underline underline-offset-2 hover:text-brand-600">Contact the development team</a>
+        </p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var canvas = document.getElementById('wip-canvas');
+  var hero   = document.getElementById('wip-hero');
+  if (!canvas || !hero) return;
+
+  var dpr  = window.devicePixelRatio || 1;
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ctx, W, H, animId;
+
+  /* ── state ─────────────────────────── */
+  var t = 0;
+  var progress = 0;           // fills to 0.72
+  var barH     = [0,0,0,0,0];
+  var BAR_MAX  = [.54,.78,.62,.88,.67];
+  var cursor   = true;
+
+  var particles = (function () {
+    var a = [];
+    for (var i = 0; i < 15; i++) {
+      a.push({
+        x: Math.random(),  // stored as 0-1 fraction, scaled in draw
+        y: Math.random(),
+        r: 1.4 + Math.random() * 2,
+        vx: (Math.random() - .5) * .18,
+        vy: (Math.random() - .5) * .18,
+        a: .08 + Math.random() * .22,
+      });
+    }
+    return a;
+  }());
+
+  /* ── helpers ───────────────────────── */
+  function rrect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y,     x + w, y + r,     r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h,     x, y + h - r,     r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y,         x + r, y,         r);
+    ctx.closePath();
+  }
+
+  function gear(cx, cy, ro, ri, teeth, angle, fill, stroke, lw) {
+    var s = (Math.PI * 2) / teeth;
+    ctx.beginPath();
+    for (var i = 0; i < teeth; i++) {
+      var a = angle + i * s;
+      ctx.lineTo(cx + ri * Math.cos(a - s * .30), cy + ri * Math.sin(a - s * .30));
+      ctx.lineTo(cx + ro * Math.cos(a - s * .12), cy + ro * Math.sin(a - s * .12));
+      ctx.lineTo(cx + ro * Math.cos(a + s * .12), cy + ro * Math.sin(a + s * .12));
+      ctx.lineTo(cx + ri * Math.cos(a + s * .30), cy + ri * Math.sin(a + s * .30));
+    }
+    ctx.closePath();
+    ctx.fillStyle   = fill;   ctx.fill();
+    ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke();
+    /* hub */
+    ctx.beginPath(); ctx.arc(cx, cy, ro * .28, 0, Math.PI * 2);
+    ctx.fillStyle = stroke; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, ro * .13, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';  ctx.fill();
+  }
+
+  /* ── resize ────────────────────────── */
+  function resize() {
+    W = hero.offsetWidth;
+    H = hero.offsetHeight;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+  }
+
+  /* ── draw ──────────────────────────── */
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    /* advance state */
+    if (!reduced) {
+      t++;
+      progress = Math.min(.72, progress + .0025);
+      if (t % 36 === 0) cursor = !cursor;
+    } else {
+      progress = .72;
+      barH = BAR_MAX.slice();
+    }
+
+    /* particles */
+    for (var pi = 0; pi < particles.length; pi++) {
+      var p = particles[pi];
+      ctx.beginPath();
+      ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(31,107,58,' + p.a + ')';
+      ctx.fill();
+      if (!reduced) {
+        p.x += p.vx / W;
+        p.y += p.vy / H;
+        if (p.x < 0) p.x = 1; if (p.x > 1) p.x = 0;
+        if (p.y < 0) p.y = 1; if (p.y > 1) p.y = 0;
+      }
+    }
+
+    /* ── MONITOR ─────────────────────── */
+    var mW = Math.min(175, W * .29);
+    var mH = mW * 0.71;
+    var mX = W * .5 - mW * .5 + W * .02;
+    var mY = H * .07;
+    var sX = mX + 9, sY = mY + 9, sW = mW - 18, sH = mH - 18;
+
+    /* monitor bezel + shadow */
+    ctx.shadowColor = 'rgba(13,50,26,.22)';
+    ctx.shadowBlur  = 22;
+    ctx.shadowOffsetY = 5;
+    rrect(mX, mY, mW, mH, 10);
+    ctx.fillStyle = '#2d4a38'; ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    /* bezel outline */
+    rrect(mX, mY, mW, mH, 10);
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1; ctx.stroke();
+
+    /* screen */
+    rrect(sX, sY, sW, sH, 4);
+    ctx.fillStyle = '#091a0f'; ctx.fill();
+
+    /* code-line stubs */
+    var lineWidths = [sW * .56, sW * .82, sW * .41];
+    var lineColors = ['#2f7a47', '#4f9663', '#f2c014'];
+    for (var li = 0; li < 3; li++) {
+      var lw = lineWidths[li] * Math.min(1, progress * 1.9);
+      if (lw > 2) {
+        rrect(sX + 6, sY + 7 + li * 9, lw, 3.5, 1.5);
+        ctx.fillStyle = lineColors[li]; ctx.fill();
+      }
+    }
+
+    /* blinking cursor */
+    if (!reduced && cursor && progress > .08) {
+      var cursorX = sX + 6 + lineWidths[2] * Math.min(1, progress * 1.9) + 3;
+      ctx.fillStyle = '#f2c014';
+      ctx.fillRect(cursorX, sY + 7 + 2 * 9, 1.5, 4);
+    }
+
+    /* bar chart (lower half of screen) */
+    var chartTop = sY + sH * .48;
+    var chartH   = sH - sH * .48 - 4;
+    var bW       = (sW - 14) / 7; /* 5 bars + 2 gaps */
+    var barColors = ['#1f6b3a', '#2f7a47', '#f2c014', '#1f6b3a', '#4f9663'];
+    for (var bi = 0; bi < 5; bi++) {
+      var target = BAR_MAX[bi] * chartH;
+      if (!reduced) barH[bi] = Math.min(target, barH[bi] + target * .022);
+      else          barH[bi] = target;
+      var bX = sX + 7 + bi * (bW + bW * .35);
+      var bY = chartTop + chartH - barH[bi];
+      if (barH[bi] > 1) {
+        rrect(bX, bY, bW, barH[bi], 1.5);
+        ctx.fillStyle = barColors[bi]; ctx.fill();
+      }
+    }
+
+    /* monitor stand */
+    rrect(mX + mW / 2 - 5, mY + mH,     10, 14, 2); ctx.fillStyle = '#2d4a38'; ctx.fill();
+    rrect(mX + mW / 2 - 26, mY + mH + 12, 52, 6, 3); ctx.fillStyle = '#2d4a38'; ctx.fill();
+
+    /* ── PROGRESS BAR ─────────────────── */
+    var pbY = mY + mH + 32;
+    rrect(mX, pbY, mW, 5, 2.5);
+    ctx.fillStyle = '#c8dece'; ctx.fill();
+
+    var filled = mW * progress;
+    if (filled > 4) {
+      rrect(mX, pbY, filled, 5, 2.5);
+      ctx.fillStyle = '#1f6b3a'; ctx.fill();
+    }
+    /* glow dot at tip */
+    if (filled > 8) {
+      ctx.beginPath();
+      ctx.arc(mX + filled, pbY + 2.5, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#f2c014'; ctx.fill();
+      ctx.beginPath();
+      ctx.arc(mX + filled, pbY + 2.5, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff'; ctx.fill();
+    }
+    /* "72% complete" label */
+    ctx.fillStyle = '#2f7a47';
+    ctx.font = '500 9px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(Math.round(progress * 100) + '% complete', mX + mW / 2, pbY + 16);
+    ctx.textAlign = 'left';
+
+    /* ── LEFT GEARS ──────────────────── */
+    var lSpace = mX - 15;
+    if (lSpace > 70) {
+      var g1r  = Math.min(lSpace * .38, H * .22);
+      var g1cx = lSpace * .42;
+      var g1cy = H * .48;
+      var g1a  = reduced ? 0 : t * .007;
+      gear(g1cx, g1cy, g1r, g1r * .76, 12, g1a, '#c8dece', '#1f6b3a', 1.5);
+
+      /* G2 small, gold, interlocking upper-right of G1 */
+      var g2r   = g1r * .50;
+      var g2ang = -Math.PI * .38;
+      var g2d   = g1r + g2r + 1;
+      var g2cx  = g1cx + g2d * Math.cos(g2ang);
+      var g2cy  = g1cy + g2d * Math.sin(g2ang);
+      var g2a   = reduced ? 0 : -(t * .007 * (g1r / g2r));
+      gear(g2cx, g2cy, g2r, g2r * .74, 8, g2a, '#fef3c7', '#d9a40a', 1.5);
+    }
+
+    /* ── RIGHT DECOR ─────────────────── */
+    var rStart = mX + mW + 18;
+    var rAvail = W - rStart - 8;
+    if (rAvail > 72) {
+      /* small gear */
+      var sg1r  = Math.min(rAvail * .24, H * .13);
+      var sg1cx = rStart + rAvail * .35;
+      var sg1cy = H * .28;
+      var sg1a  = reduced ? 0 : -(t * .01);
+      gear(sg1cx, sg1cy, sg1r, sg1r * .73, 7, sg1a, '#eef6ef', '#2f7a47', 1.5);
+
+      /* mini data card */
+      var dc = { x: rStart + 2, y: H * .50, w: rAvail - 4, h: H * .36 };
+      ctx.shadowColor = 'rgba(13,50,26,.10)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+      rrect(dc.x, dc.y, dc.w, dc.h, 7);
+      ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = 'rgba(0,0,0,.06)'; ctx.lineWidth = 1; ctx.stroke();
+
+      /* data rows */
+      var rowC = ['#1f6b3a', '#f2c014', '#4f9663', '#c8dece'];
+      var rowW = [.78, .55, .65, .40];
+      for (var ri = 0; ri < 4; ri++) {
+        var ry = dc.y + 9 + ri * ((dc.h - 14) / 4);
+        /* dot */
+        ctx.beginPath(); ctx.arc(dc.x + 7, ry + 3, 3, 0, Math.PI * 2);
+        ctx.fillStyle = rowC[ri]; ctx.fill();
+        /* bar track */
+        var barTrackW = dc.w - 20;
+        rrect(dc.x + 14, ry + 1.5, barTrackW, 3, 1.5);
+        ctx.fillStyle = '#f0f0f0'; ctx.fill();
+        /* bar fill */
+        var bFill = barTrackW * rowW[ri] * Math.min(1, progress * 1.6);
+        if (bFill > 2) {
+          rrect(dc.x + 14, ry + 1.5, bFill, 3, 1.5);
+          ctx.fillStyle = rowC[ri]; ctx.fill();
+        }
+      }
+    }
+
+    if (!reduced) animId = requestAnimationFrame(draw);
+  }
+
+  /* ── init & resize ─────────────────── */
+  function init() {
+    cancelAnimationFrame(animId);
+    resize();
+    if (reduced) { progress = .72; barH = BAR_MAX.slice(); draw(); }
+    else animId = requestAnimationFrame(draw);
+  }
+
+  init();
+  window.addEventListener('resize', function () {
+    cancelAnimationFrame(animId);
+    resize();
+    animId = requestAnimationFrame(draw);
+  });
+}());
+</script>
+{% endblock %}

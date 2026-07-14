@@ -56,3 +56,14 @@ def div(a, b):
 @register.filter
 def split(value, sep=","):
     return (value or "").split(sep)
+
+
+@register.filter
+def get_item(d, key):
+    try:
+        return d[int(key)]
+    except (KeyError, TypeError, ValueError):
+        try:
+            return d[key]
+        except (KeyError, TypeError):
+            return None

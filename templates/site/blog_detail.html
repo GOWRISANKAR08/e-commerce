@@ -5,7 +5,7 @@
 <article class="mx-auto max-w-3xl px-4 py-10 lg:px-8">
   <a href="/blogs" class="btn-ghost text-sm">← Back to Journal</a>
   {% if blog.tag %}<span class="section-eyebrow mt-4 !text-[11px]">{{ blog.tag }}</span>{% endif %}
-  <h1 class="mt-2 font-display text-4xl font-semibold leading-tight text-ink">{{ blog.title }}</h1>
+  <h1 class="mt-2 font-display text-2xl sm:text-3xl lg:text-4xl font-semibold leading-tight text-ink">{{ blog.title }}</h1>
   <p class="mt-2 text-sm text-ink/40">{{ blog.created_at|date:"d M Y" }}</p>
 
   <div class="relative mt-6 aspect-[16/9] overflow-hidden rounded-2xl bg-gradient-to-br from-brand-50 to-cream">

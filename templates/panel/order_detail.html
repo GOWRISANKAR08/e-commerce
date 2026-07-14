@@ -1,0 +1,558 @@
+{% extends "panel/base.html" %}
+{% load store_extras %}
+{% block title %}Order {{ order.order_id }} · Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-[1400px] mx-auto space-y-5">
+
+  <!-- ── Page header ──────────────────────────────────────────────────── -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <a href="/admin-panel/orders" onclick="event.preventDefault();goBack('/admin-panel/orders')" class="back-btn" title="Back to Orders">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </a>
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="font-display text-xl font-bold text-ink">{{ order.order_id }}</h1>
+          <span class="font-mono text-xs text-ink/40">{{ order.invoice_no }}</span>
+          <!-- Status badge -->
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold
+            {% if order.status == 'DELIVERED' %}bg-brand-50 text-brand-700
+            {% elif order.status == 'CANCELLED' %}bg-red-50 text-red-600
+            {% elif order.status == 'REFUNDED' %}bg-purple-50 text-purple-700
+            {% elif order.status == 'DISPATCHED' %}bg-indigo-50 text-indigo-700
+            {% elif order.status == 'PACKED' %}bg-blue-50 text-blue-700
+            {% elif order.status == 'ORDER_CONFIRMED' %}bg-cyan-50 text-cyan-700
+            {% else %}bg-amber-50 text-amber-700{% endif %}">
+            {{ order.get_status_display }}
+          </span>
+          <!-- Payment badge -->
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold
+            {% if order.payment_status == 'PAID' %}bg-emerald-50 text-emerald-700
+            {% elif order.payment_status == 'REFUNDED' %}bg-purple-50 text-purple-700
+            {% elif order.payment_status == 'FAILED' %}bg-red-50 text-red-600
+            {% else %}bg-amber-50 text-amber-600{% endif %}">
+            {{ order.get_payment_status_display }}
+          </span>
+        </div>
+        <p class="text-xs text-ink/45 mt-0.5">
+          Placed {{ order.created_at|date:"d M Y, H:i" }}
+          · {{ order.get_channel_display }}
+          · {{ order.get_payment_mode_display }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <a href="/admin-panel/orders/{{ order.pk }}/invoice" target="_blank" class="btn-outline text-xs gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print Invoice
+      </a>
+      {% if cancellable %}
+      <button onclick="document.getElementById('cancel-modal').classList.remove('hidden')" class="btn-outline text-xs gap-1.5 !text-red-600 hover:!bg-red-50 hover:!border-red-200">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        Cancel Order
+      </button>
+      {% endif %}
+      {% if refundable %}
+      <button onclick="document.getElementById('refund-modal').classList.remove('hidden')" class="btn-outline text-xs gap-1.5 !text-purple-700 hover:!bg-purple-50 hover:!border-purple-200">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.27"/></svg>
+        Issue Refund
+      </button>
+      {% endif %}
+      {% if next_statuses %}
+      <button onclick="document.getElementById('status-modal').classList.remove('hidden')" class="btn-primary text-xs gap-1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        Update Status
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if messages %}
+  {% for msg in messages %}
+  <div class="rounded-xl px-4 py-2.5 text-sm font-medium {% if msg.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% else %}bg-brand-50 text-brand-700 border border-brand-200{% endif %}">
+    {{ msg }}
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <!-- ── Main grid ─────────────────────────────────────────────────────── -->
+  <div class="grid gap-5 lg:grid-cols-[1fr_340px]">
+
+    <!-- ── LEFT COLUMN ───────────────────────────────────────────────── -->
+    <div class="space-y-5">
+
+      <!-- Ordered Items -->
+      <div class="card overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-black/6">
+          <h2 class="font-semibold text-sm text-ink flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-600"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            Ordered Items
+          </h2>
+          <span class="text-xs text-ink/40">{{ order.no_of_product }} unit{{ order.no_of_product|pluralize }}</span>
+        </div>
+
+        <div class="divide-y divide-black/5">
+
+          <!-- Regular items -->
+          {% for it in regular_items %}
+          <div class="flex items-start gap-4 px-5 py-4">
+            <div class="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-brand-50 to-cream">
+              <img src="{{ it.product.image }}" alt="{{ it.name }}"
+                   onerror="this.style.display='none'" class="h-full w-full object-cover" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm text-ink">{{ it.name }}</p>
+              <p class="text-xs text-ink/45 mt-0.5">Variant: {{ it.variant_label }}</p>
+              <p class="text-[11px] text-ink/35">SKU: {{ it.variant.sku|default:"—" }}</p>
+            </div>
+            <div class="shrink-0 text-right space-y-0.5">
+              <p class="text-sm font-bold text-ink">{{ it.net_total|inr }}</p>
+              <p class="text-[11px] text-ink/45">{{ it.price|inr }} × {{ it.qty }}</p>
+              {% if it.variant.mrp_price > it.price %}
+              <p class="text-[10px] text-green-600 font-semibold">
+                Saved {{ it.variant.mrp_price|sub:it.price|mul:it.qty|inr }}
+              </p>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+
+          <!-- Combo groups -->
+          {% for combo_id, cdata in combos.items %}
+          <div class="bg-brand-50/30">
+            <div class="flex items-center gap-2 px-5 pt-3 pb-2">
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-brand-600 text-white text-[10px] font-bold px-2.5 py-1">
+                🎁 Combo: {{ cdata.combo.name }}
+              </span>
+              <span class="text-[10px] text-ink/40">Bundle — {{ cdata.items|length }} products</span>
+              <span class="ml-auto text-xs font-bold text-brand-700">{{ cdata.combo.selling_price|inr }} bundle price</span>
+            </div>
+            {% for it in cdata.items %}
+            <div class="flex items-start gap-4 px-5 py-3 pl-8 border-t border-brand-100/60">
+              <div class="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-50 to-cream">
+                <img src="{{ it.product.image }}" alt="{{ it.name }}"
+                     onerror="this.style.display='none'" class="h-full w-full object-cover" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm text-ink">{{ it.name }}</p>
+                <p class="text-xs text-ink/45">{{ it.variant_label }}</p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-sm font-bold text-ink">{{ it.net_total|inr }}</p>
+                <p class="text-[11px] text-ink/45">{{ it.price|inr }} × {{ it.qty }}</p>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+
+        </div>
+
+        <!-- Item totals footer -->
+        <div class="border-t border-black/6 bg-cream/30 px-5 py-3">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-ink/55">{{ items|length }} line item{{ items|length|pluralize }}</span>
+            <span class="font-bold text-ink">{{ order.sub_total|inr }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shipping Address -->
+      <div class="card p-5">
+        <h2 class="font-semibold text-sm text-ink mb-3 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-600"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Shipping Address
+        </h2>
+        <div class="text-sm text-ink/70 space-y-0.5">
+          {% if addr.name %}<p class="font-semibold text-ink">{{ addr.name }}</p>{% endif %}
+          {% if addr.address %}<p>{{ addr.address }}</p>{% endif %}
+          {% if addr.city %}
+            <p>{{ addr.city }}{% if addr.pinCode %} — {{ addr.pinCode }}{% endif %}</p>
+          {% endif %}
+          {% if addr.mobile %}<p class="text-ink/50 text-xs mt-1">📞 {{ addr.mobile }}</p>{% endif %}
+        </div>
+      </div>
+
+      <!-- Internal Notes -->
+      <div class="card overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-black/6">
+          <h2 class="font-semibold text-sm text-ink flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-600"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            Internal Notes
+          </h2>
+          <span class="text-[11px] text-ink/35">{{ notes|length }} note{{ notes|length|pluralize }}</span>
+        </div>
+
+        <!-- Add note form -->
+        <form method="post" action="/admin-panel/orders/{{ order.pk }}/note" class="border-b border-black/6 px-5 py-4">
+          {% csrf_token %}
+          <textarea name="text" rows="2" placeholder="Add an internal note about this order…"
+                    class="w-full rounded-xl border border-black/10 bg-cream/40 px-3 py-2.5 text-sm placeholder-ink/30 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 transition resize-none"></textarea>
+          <div class="flex items-center justify-between mt-2">
+            <label class="flex items-center gap-1.5 text-xs text-ink/50 cursor-pointer">
+              <input type="checkbox" name="is_internal" value="1" checked class="rounded accent-brand-600">
+              Internal only
+            </label>
+            <button type="submit" class="btn-primary !py-1.5 text-xs">Add Note</button>
+          </div>
+        </form>
+
+        <!-- Notes list -->
+        {% if notes %}
+        <div class="divide-y divide-black/5">
+          {% for note in notes %}
+          <div class="px-5 py-3.5">
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-sm text-ink leading-relaxed">{{ note.text }}</p>
+              {% if note.is_internal %}
+              <span class="shrink-0 text-[10px] font-semibold text-amber-600 bg-amber-50 rounded-full px-1.5 py-0.5">Internal</span>
+              {% endif %}
+            </div>
+            <p class="text-[11px] text-ink/35 mt-1.5">
+              {% if note.created_by_name %}{{ note.created_by_name }} · {% endif %}{{ note.created_at|date:"d M Y, H:i" }}
+            </p>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="px-5 py-4 text-xs text-ink/35 text-center">No notes yet.</p>
+        {% endif %}
+      </div>
+
+    </div><!-- /left column -->
+
+    <!-- ── RIGHT COLUMN ──────────────────────────────────────────────── -->
+    <div class="space-y-5">
+
+      <!-- Order Summary -->
+      <div class="card p-5">
+        <h2 class="font-semibold text-sm text-ink mb-4 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-600"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Order Summary
+        </h2>
+        <dl class="space-y-2.5 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-ink/55">Subtotal</dt>
+            <dd class="font-medium">{{ order.sub_total|inr }}</dd>
+          </div>
+          {% if order.discount and order.discount > 0 %}
+          <div class="flex justify-between text-green-600">
+            <dt>Product Discount</dt>
+            <dd class="font-semibold">−{{ order.discount|inr }}</dd>
+          </div>
+          {% endif %}
+          {% if order.coupon_discount and order.coupon_discount > 0 %}
+          <div class="flex justify-between text-brand-600">
+            <dt class="flex items-center gap-1">
+              Coupon Discount
+              {% if order.coupon %}<span class="font-mono text-[10px] bg-brand-50 px-1.5 py-0.5 rounded">{{ order.coupon.code }}</span>{% endif %}
+            </dt>
+            <dd class="font-semibold">−{{ order.coupon_discount|inr }}</dd>
+          </div>
+          {% endif %}
+          <div class="flex justify-between">
+            <dt class="text-ink/55">Shipping</dt>
+            <dd class="{% if not order.shipping_amount %}text-brand-600 font-semibold{% else %}font-medium{% endif %}">
+              {% if order.shipping_amount %}{{ order.shipping_amount|inr }}{% else %}FREE{% endif %}
+            </dd>
+          </div>
+          <div class="border-t border-black/8 pt-2.5 flex justify-between">
+            <dt class="font-bold text-ink">Total Payable</dt>
+            <dd class="text-base font-bold text-ink">{{ order.grand_total|inr }}</dd>
+          </div>
+        </dl>
+        {% with refund=order.refunds.first %}
+        {% if refund %}
+        <div class="mt-3 rounded-xl bg-purple-50 border border-purple-100 px-3 py-2.5 text-xs">
+          <p class="font-semibold text-purple-700">Refund Issued</p>
+          <p class="text-purple-600 mt-0.5">{{ refund.get_refund_type_display }} · {{ refund.amount|inr }}</p>
+          {% if refund.reason %}<p class="text-purple-500 mt-0.5">{{ refund.reason }}</p>{% endif %}
+        </div>
+        {% endif %}
+        {% endwith %}
+      </div>
+
+      <!-- Customer Info -->
+      <div class="card p-5">
+        <h2 class="font-semibold text-sm text-ink mb-4 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-600"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Customer
+        </h2>
+        <div class="flex items-start gap-3 mb-4">
+          <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-sm text-brand-700">{{ order.user.full_name|initials }}</span>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm text-ink">{{ order.user.full_name }}</p>
+            <p class="text-xs text-ink/50 truncate">{{ order.user.email }}</p>
+            {% if order.user.mobile %}
+            <p class="text-xs text-ink/50">{{ order.user.mobile }}</p>
+            {% endif %}
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap mb-4">
+          {% if user_total_spend >= 15000 or user_orders_count >= 10 %}
+          <span class="inline-flex items-center gap-1 rounded-full bg-gold-400/20 text-ink px-2 py-0.5 text-[10px] font-bold">👑 VIP</span>
+          {% elif user_orders_count >= 3 %}
+          <span class="inline-flex items-center gap-1 rounded-full bg-brand-50 text-brand-700 px-2 py-0.5 text-[10px] font-bold">🔁 Repeat</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 rounded-full bg-cream text-ink/55 px-2 py-0.5 text-[10px] font-semibold">🌱 New</span>
+          {% endif %}
+          <span class="text-[10px] text-ink/40">{{ user_orders_count }} order{{ user_orders_count|pluralize }}</span>
+          <span class="text-[10px] text-ink/40">{{ user_total_spend|inr }} lifetime</span>
+        </div>
+        <a href="/admin-panel/users/{{ order.user.pk }}"
+           class="btn-outline text-xs w-full justify-center">
+          View Full Profile →
+        </a>
+      </div>
+
+      <!-- Payment Info -->
+      <div class="card p-5">
+        <h2 class="font-semibold text-sm text-ink mb-3 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-600"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Payment Details
+        </h2>
+        <dl class="space-y-2 text-xs">
+          <div class="flex justify-between">
+            <dt class="text-ink/50">Method</dt>
+            <dd class="font-semibold">{{ order.get_payment_mode_display }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-ink/50">Status</dt>
+            <dd class="font-semibold {% if order.payment_status == 'PAID' %}text-green-600{% elif order.payment_status == 'FAILED' %}text-red-600{% else %}text-amber-600{% endif %}">
+              {{ order.get_payment_status_display }}
+            </dd>
+          </div>
+          {% if order.razorpay_order_id %}
+          <div class="flex justify-between gap-4">
+            <dt class="text-ink/50 shrink-0">Razorpay Order ID</dt>
+            <dd class="font-mono text-[10px] text-ink/60 truncate text-right">{{ order.razorpay_order_id }}</dd>
+          </div>
+          {% endif %}
+          {% if order.razorpay_payment_id %}
+          <div class="flex justify-between gap-4">
+            <dt class="text-ink/50 shrink-0">Transaction ID</dt>
+            <dd class="font-mono text-[10px] text-ink/60 truncate text-right">{{ order.razorpay_payment_id }}</dd>
+          </div>
+          {% endif %}
+          <div class="flex justify-between">
+            <dt class="text-ink/50">Invoice No</dt>
+            <dd class="font-mono text-[10px]">{{ order.invoice_no }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-ink/50">Order Date</dt>
+            <dd>{{ order.created_at|date:"d M Y, H:i" }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-ink/50">Last Updated</dt>
+            <dd>{{ order.updated_at|date:"d M Y, H:i" }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- Order Timeline -->
+      <div class="card p-5">
+        <h2 class="font-semibold text-sm text-ink mb-4 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-brand-600"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Order Timeline
+        </h2>
+        {% if events %}
+        <div class="relative space-y-0 pl-4">
+          <div class="absolute left-[7px] top-1 bottom-1 w-px bg-brand-100"></div>
+          {% for ev in events %}
+          <div class="relative flex gap-3 pb-4 last:pb-0">
+            <div class="absolute -left-[5px] top-1 h-3 w-3 rounded-full border-2 border-brand-600 bg-white flex-shrink-0"></div>
+            <div class="pl-2">
+              <p class="text-xs font-semibold text-ink">{{ ev.title }}</p>
+              {% if ev.description %}
+              <p class="text-[11px] text-ink/50 mt-0.5">{{ ev.description }}</p>
+              {% endif %}
+              <p class="text-[10px] text-ink/35 mt-0.5">
+                {{ ev.created_at|date:"d M Y, H:i" }}
+                {% if ev.actor_name %} · {{ ev.actor_name }}{% endif %}
+              </p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-xs text-ink/35 text-center py-2">No timeline events yet.</p>
+        {% endif %}
+      </div>
+
+    </div><!-- /right column -->
+  </div><!-- /main grid -->
+
+</div><!-- /page wrapper -->
+
+<!-- ── Print-only invoice ─────────────────────────────────────────────── -->
+<div id="print-area" class="hidden print:block p-8 text-sm font-sans">
+  <div class="flex justify-between items-start mb-6 border-b pb-4">
+    <div>
+      <h1 class="text-2xl font-bold">{{ SITE_NAME }}</h1>
+      <p class="text-gray-500 text-xs mt-1">{{ SITE_TAGLINE }}</p>
+    </div>
+    <div class="text-right">
+      <p class="font-bold text-lg">INVOICE</p>
+      <p class="text-gray-500 text-xs">{{ order.invoice_no }}</p>
+      <p class="text-gray-500 text-xs">{{ order.created_at|date:"d M Y" }}</p>
+    </div>
+  </div>
+  <div class="grid grid-cols-2 gap-8 mb-6">
+    <div>
+      <p class="font-semibold text-xs text-gray-400 uppercase mb-1">Bill To</p>
+      <p class="font-bold">{{ order.user.full_name }}</p>
+      <p>{{ order.user.email }}</p>
+      {% if order.user.mobile %}<p>{{ order.user.mobile }}</p>{% endif %}
+    </div>
+    <div>
+      <p class="font-semibold text-xs text-gray-400 uppercase mb-1">Ship To</p>
+      {% if addr.name %}<p class="font-bold">{{ addr.name }}</p>{% endif %}
+      {% if addr.address %}<p>{{ addr.address }}</p>{% endif %}
+      {% if addr.city %}<p>{{ addr.city }}{% if addr.pinCode %} — {{ addr.pinCode }}{% endif %}</p>{% endif %}
+    </div>
+  </div>
+  <table class="w-full mb-6 text-xs border-collapse">
+    <thead>
+      <tr class="bg-gray-100">
+        <th class="text-left px-2 py-2">Product</th>
+        <th class="text-left px-2 py-2">Variant</th>
+        <th class="text-center px-2 py-2">Qty</th>
+        <th class="text-right px-2 py-2">Unit Price</th>
+        <th class="text-right px-2 py-2">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr class="border-b">
+        <td class="px-2 py-2">{{ it.name }}{% if it.combo %} <span class="text-green-600">[Combo: {{ it.combo.name }}]</span>{% endif %}</td>
+        <td class="px-2 py-2 text-gray-500">{{ it.variant_label }}</td>
+        <td class="px-2 py-2 text-center">{{ it.qty }}</td>
+        <td class="px-2 py-2 text-right">{{ it.price|inr }}</td>
+        <td class="px-2 py-2 text-right font-semibold">{{ it.net_total|inr }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="4" class="px-2 py-1.5 text-right text-gray-500">Subtotal</td><td class="px-2 py-1.5 text-right">{{ order.sub_total|inr }}</td></tr>
+      {% if order.coupon_discount %}<tr><td colspan="4" class="px-2 py-1.5 text-right text-green-600">Coupon ({{ order.coupon.code|default:"" }})</td><td class="px-2 py-1.5 text-right text-green-600">−{{ order.coupon_discount|inr }}</td></tr>{% endif %}
+      <tr><td colspan="4" class="px-2 py-1.5 text-right text-gray-500">Shipping</td><td class="px-2 py-1.5 text-right">{% if order.shipping_amount %}{{ order.shipping_amount|inr }}{% else %}FREE{% endif %}</td></tr>
+      <tr class="font-bold border-t"><td colspan="4" class="px-2 py-2 text-right">Total Payable</td><td class="px-2 py-2 text-right text-lg">{{ order.grand_total|inr }}</td></tr>
+    </tfoot>
+  </table>
+  <div class="flex justify-between text-xs text-gray-400 border-t pt-3">
+    <span>Payment: {{ order.get_payment_mode_display }} · {{ order.get_payment_status_display }}</span>
+    <span>Order ID: {{ order.order_id }}</span>
+  </div>
+</div>
+
+<!-- ── Status Update Modal ──────────────────────────────────────────── -->
+<div id="status-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div class="w-full max-w-sm card p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-display font-semibold text-base">Update Order Status</h3>
+      <button onclick="document.getElementById('status-modal').classList.add('hidden')" class="text-ink/40 hover:text-ink text-xl leading-none">&times;</button>
+    </div>
+    <p class="text-xs text-ink/50">Current: <strong>{{ order.get_status_display }}</strong></p>
+    <form method="post" action="/admin-panel/orders/{{ order.pk }}/update" class="space-y-3">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-semibold text-ink/60 mb-1">New Status</label>
+        <select name="status" class="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <option value="{{ order.status }}">— Keep current ({{ order.get_status_display }}) —</option>
+          {% for ns_val, ns_label in next_statuses %}
+          <option value="{{ ns_val }}">{{ ns_label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-ink/60 mb-1">Payment Status</label>
+        <select name="payment_status" class="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          {% for val, lab in payment_statuses %}
+          <option value="{{ val }}" {% if order.payment_status == val %}selected{% endif %}>{{ lab }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="button" onclick="document.getElementById('status-modal').classList.add('hidden')" class="btn-outline flex-1 text-xs">Cancel</button>
+        <button type="submit" class="btn-primary flex-1 text-xs">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Cancel Modal ──────────────────────────────────────────────────── -->
+<div id="cancel-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div class="w-full max-w-sm card p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-display font-semibold text-base text-red-600">Cancel Order</h3>
+      <button onclick="document.getElementById('cancel-modal').classList.add('hidden')" class="text-ink/40 hover:text-ink text-xl leading-none">&times;</button>
+    </div>
+    <p class="text-sm text-ink/70">Are you sure you want to cancel <strong>{{ order.order_id }}</strong>?
+    {% if order.status == 'ORDER_CONFIRMED' or order.status == 'PACKED' or order.status == 'DISPATCHED' %}
+    Stock will be restored automatically.
+    {% endif %}
+    </p>
+    <form method="post" action="/admin-panel/orders/{{ order.pk }}/cancel" class="flex gap-2">
+      {% csrf_token %}
+      <button type="button" onclick="document.getElementById('cancel-modal').classList.add('hidden')" class="btn-outline flex-1 text-xs">Keep Order</button>
+      <button type="submit" class="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2.5 transition">Confirm Cancel</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Refund Modal ──────────────────────────────────────────────────── -->
+<div id="refund-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div class="w-full max-w-md card p-6 space-y-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h3 class="font-display font-semibold text-base">Issue Refund</h3>
+        <p class="text-xs text-ink/50">Order: <span class="font-mono font-semibold text-ink">{{ order.order_id }}</span></p>
+      </div>
+      <button onclick="document.getElementById('refund-modal').classList.add('hidden')" class="text-ink/40 hover:text-ink text-xl leading-none">&times;</button>
+    </div>
+    <form method="post" action="/admin-panel/orders/{{ order.pk }}/refund" class="space-y-3">
+      {% csrf_token %}
+      <div>
+        <label class="block text-xs font-semibold text-ink/60 mb-1">Refund Type</label>
+        <select name="refund_type" id="refundType" onchange="toggleRefundAmount(this)"
+                class="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <option value="FULL">Full Refund ({{ order.grand_total|inr }})</option>
+          <option value="PARTIAL">Partial Refund</option>
+        </select>
+      </div>
+      <div id="refundAmountRow" class="hidden">
+        <label class="block text-xs font-semibold text-ink/60 mb-1">Refund Amount (₹)</label>
+        <input type="number" name="amount" step="0.01" min="1" max="{{ order.grand_total }}"
+               class="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200"
+               placeholder="Enter amount…" />
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-ink/60 mb-1">Reason (optional)</label>
+        <textarea name="reason" rows="2"
+                  class="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none"
+                  placeholder="e.g. Product damaged on delivery…"></textarea>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="button" onclick="document.getElementById('refund-modal').classList.add('hidden')" class="btn-outline flex-1 text-xs">Cancel</button>
+        <button type="submit" class="flex-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold py-2.5 transition">Issue Refund</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+@media print {
+  body > *:not(#print-area) { display: none !important; }
+  #print-area { display: block !important; }
+}
+</style>
+
+<script>
+function toggleRefundAmount(sel) {
+  document.getElementById('refundAmountRow').classList.toggle('hidden', sel.value !== 'PARTIAL');
+}
+</script>
+{% endblock %}

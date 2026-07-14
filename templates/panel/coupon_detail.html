@@ -1,0 +1,230 @@
+{% extends "panel/base.html" %}
+{% load humanize store_extras %}
+{% block title %}{{ coupon.name|default:coupon.code }} — Offer Detail — {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Header -->
+  <div class="flex items-start justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <a href="/admin-panel/coupons" onclick="event.preventDefault();goBack('/admin-panel/coupons')" class="back-btn" title="Back to Coupons">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </a>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-mono font-bold text-lg text-ink bg-gray-100 px-2.5 py-0.5 rounded-lg">{{ coupon.code }}</span>
+          {% if coupon.status_tag == "Active" %}
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active
+          </span>
+          {% elif coupon.status_tag == "Scheduled" %}
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>Scheduled
+          </span>
+          {% elif coupon.status_tag == "Expired" %}
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Expired
+          </span>
+          {% else %}
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>Inactive
+          </span>
+          {% endif %}
+        </div>
+        {% if coupon.name %}
+        <p class="text-gray-500 text-sm mt-0.5">{{ coupon.name }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="flex gap-2 shrink-0">
+      <a href="/admin-panel/coupons/{{ coupon.pk }}/duplicate"
+         class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+        Duplicate
+      </a>
+      <a href="/admin-panel/coupons/{{ coupon.pk }}/edit"
+         class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+        Edit
+      </a>
+    </div>
+  </div>
+
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">Total Orders</p>
+      <p class="text-2xl font-bold text-ink">{{ order_count }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">Revenue Generated</p>
+      <p class="text-2xl font-bold text-ink">&#8377;{{ total_rev|floatformat:0|intcomma }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">Total Savings Given</p>
+      <p class="text-2xl font-bold text-ink">&#8377;{{ total_saved|floatformat:0|intcomma }}</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <p class="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">Redemptions</p>
+      <p class="text-2xl font-bold text-ink">{{ coupon.used_count }}</p>
+      {% if coupon.max_uses > 0 %}
+      <div class="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+        <div class="h-full rounded-full bg-brand-500" style="width:{{ coupon.usage_pct }}%"></div>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">{{ coupon.usage_pct }}% of {{ coupon.max_uses }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Offer config card -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-ink uppercase tracking-wide">Offer Configuration</h2>
+
+      <dl class="space-y-3">
+        <div>
+          <dt class="text-xs text-gray-400 mb-0.5">Discount Type</dt>
+          <dd>
+            {% if coupon.coupon_type == "PERCENT" %}
+            <span class="inline-block text-xs font-semibold bg-orange-50 text-orange-600 px-2 py-0.5 rounded-md">Percentage</span>
+            <span class="ml-1.5 font-bold text-ink">{{ coupon.discount_value|floatformat:0 }}% off</span>
+            {% elif coupon.coupon_type == "FLAT" %}
+            <span class="inline-block text-xs font-semibold bg-teal-50 text-teal-600 px-2 py-0.5 rounded-md">Fixed Amount</span>
+            <span class="ml-1.5 font-bold text-ink">&#8377;{{ coupon.discount_value|floatformat:0 }} off</span>
+            {% else %}
+            <span class="inline-block text-xs font-semibold bg-teal-50 text-teal-600 px-2 py-0.5 rounded-md">Free Shipping</span>
+            {% endif %}
+          </dd>
+        </div>
+        {% if coupon.min_order_value %}
+        <div>
+          <dt class="text-xs text-gray-400 mb-0.5">Min Order Value</dt>
+          <dd class="text-sm font-medium text-ink">&#8377;{{ coupon.min_order_value|floatformat:0 }}</dd>
+        </div>
+        {% endif %}
+        {% if coupon.max_discount %}
+        <div>
+          <dt class="text-xs text-gray-400 mb-0.5">Max Discount</dt>
+          <dd class="text-sm font-medium text-ink">&#8377;{{ coupon.max_discount|floatformat:0 }}</dd>
+        </div>
+        {% endif %}
+        <div>
+          <dt class="text-xs text-gray-400 mb-0.5">Valid Period</dt>
+          <dd class="text-sm font-medium text-ink">
+            {% if coupon.valid_from %}{{ coupon.valid_from|date:"M j, Y" }}{% else %}Anytime{% endif %}
+            &nbsp;&rarr;&nbsp;
+            {% if coupon.valid_until %}{{ coupon.valid_until|date:"M j, Y" }}{% else %}No expiry{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-400 mb-0.5">Usage Limits</dt>
+          <dd class="text-sm font-medium text-ink">
+            {% if coupon.max_uses > 0 %}{{ coupon.max_uses }} total{% else %}Unlimited{% endif %}
+            {% if coupon.per_user_limit > 0 %} · {{ coupon.per_user_limit }} per customer{% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-gray-400 mb-1">Sales Channels</dt>
+          <dd class="flex flex-wrap gap-1">
+            {% for ch in coupon.channel_list %}
+              {% if ch == "WEBSITE" %}
+              <span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">Website</span>
+              {% elif ch == "WHATSAPP" %}
+              <span class="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-medium">WhatsApp</span>
+              {% elif ch == "INSTAGRAM" %}
+              <span class="text-xs bg-pink-50 text-pink-700 px-2 py-0.5 rounded-full font-medium">Instagram</span>
+              {% else %}
+              <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">{{ ch|title }}</span>
+              {% endif %}
+            {% endfor %}
+          </dd>
+        </div>
+        {% if coupon.description %}
+        <div>
+          <dt class="text-xs text-gray-400 mb-0.5">Description</dt>
+          <dd class="text-sm text-gray-600">{{ coupon.description }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+
+    <!-- Order history -->
+    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink">Redemption History</h2>
+        <span class="text-xs text-gray-400">{{ order_count }} order{{ order_count|pluralize }}</span>
+      </div>
+
+      {% if orders %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs text-gray-400 uppercase tracking-wide border-b border-gray-100 bg-gray-50/60">
+              <th class="text-left px-5 py-3 font-medium">Order</th>
+              <th class="text-left px-4 py-3 font-medium">Customer</th>
+              <th class="text-right px-4 py-3 font-medium">Order Total</th>
+              <th class="text-right px-4 py-3 font-medium">Discount</th>
+              <th class="text-left px-4 py-3 font-medium">Date</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for o in orders %}
+            <tr class="hover:bg-gray-50/40 transition">
+              <td class="px-5 py-3">
+                <a href="/admin-panel/orders?q={{ o.order_id }}"
+                   class="font-mono text-xs text-brand-700 hover:underline font-medium">{{ o.order_id }}</a>
+              </td>
+              <td class="px-4 py-3">
+                <p class="text-sm font-medium text-ink">{{ o.user.get_full_name|default:o.user.email }}</p>
+                <p class="text-xs text-gray-400">{{ o.user.email }}</p>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <span class="font-semibold text-ink">&#8377;{{ o.grand_total|floatformat:0|intcomma }}</span>
+              </td>
+              <td class="px-4 py-3 text-right">
+                {% if o.coupon_discount %}
+                <span class="text-emerald-600 font-medium">-&#8377;{{ o.coupon_discount|floatformat:0 }}</span>
+                {% else %}
+                <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-xs text-gray-500">{{ o.created_at|date:"M j, Y" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if orders_page.has_other_pages %}
+      <div class="flex items-center justify-between px-5 py-3 border-t border-gray-100">
+        <p class="text-xs text-gray-500">Page {{ orders_page.number }} of {{ orders_page.paginator.num_pages }}</p>
+        <div class="flex gap-1">
+          {% if orders_page.has_previous %}
+          <a href="?page={{ orders_page.previous_page_number }}"
+             class="px-3 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">&larr;</a>
+          {% endif %}
+          {% if orders_page.has_next %}
+          <a href="?page={{ orders_page.next_page_number }}"
+             class="px-3 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">&rarr;</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div class="py-12 text-center">
+        <p class="text-sm text-gray-400">No orders have used this coupon yet.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

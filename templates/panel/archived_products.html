@@ -10,7 +10,7 @@
       <h1 class="font-display text-2xl font-semibold text-ink">Archived Products</h1>
       <p class="mt-0.5 text-sm text-ink/50">{{ total }} archived product{{ total|pluralize }} · restore or permanently delete</p>
     </div>
-    <a href="/admin-panel/products" class="btn-outline text-sm">← Back to Products</a>
+    <a href="/admin-panel/products" onclick="event.preventDefault();goBack('/admin-panel/products')" class="btn-outline text-sm">← Products</a>
   </div>
 
   <!-- Search bar -->

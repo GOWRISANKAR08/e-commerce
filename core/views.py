@@ -11,23 +11,27 @@ from datetime import datetime
 from functools import wraps
 
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Max, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from accounts.models import User, UserType, Status
+from accounts.models import CustomerNote, User, UserType, Status
 from core.nav import ADMIN_NAV
-from core.utils import gen_code, slugify
+from core.utils import gen_code, slugify, next_position, insert_at_position, move_to_position, repack_positions
 from store.models import (
-    Banner, BannerType, Category, ComboImage, ComboItem, ComboPackage,
-    Coupon, CouponType, Enquiry, EnquiryStatus, Order, OrderChannel,
-    OrderItem, OrderStatus, OrderRefund, PaymentStatus, Product, ProductVariant,
-    Review, ReviewStatus, StockStatus, StockThreshold, StockStatusHistory,
+    Banner, BannerType, Category, CMSRevision, ComboImage, ComboItem, ComboPackage,
+    Coupon, CouponType, Enquiry, EnquiryReply, EnquiryStatus, Faq, FaqCategory,
+    Notification, Order, OrderChannel, OrderEvent, OrderItem, OrderNote, OrderStatus,
+    OrderRefund, PaymentMode, PaymentStatus,
+    Policy, PolicyType, Product, ProductVariant, Review, ReviewStatus, SiteSettings,
+    StockStatus, StockThreshold, StockStatusHistory, TeamMember, Testimonial,
 )
+from django.http import JsonResponse as _JsonResponse
 
 # --------------------------------------------------------------------------- #
 # Order workflow engine
@@ -405,6 +409,7 @@ def product_clone(request, pk):
     orig.code = gen_code("PRD")
     orig.name = f"{orig.name} (Copy)"
     orig.slug = slugify(orig.name)
+    orig.position = next_position(Product)
     orig.save()
     messages.success(request, f"Cloned successfully.")
     return redirect("/admin-panel/products")
@@ -469,25 +474,45 @@ def product_edit(request, pk=None):
             position=int(request.POST.get("position") or 1),
             category=get_object_or_404(Category, pk=request.POST.get("category")),
         )
-        if product:
-            for k, v in data.items():
-                setattr(product, k, v)
-            product.save()
-            messages.success(request, "Product updated.")
-        else:
-            data["code"] = gen_code("PRD")
-            product = Product.objects.create(**data)
-            messages.success(request, "Product created.")
+        pos = data["position"]
+        try:
+            if product:
+                old_pos = product.position
+                for k, v in data.items():
+                    setattr(product, k, v)
+                product.save()
+                if pos != old_pos:
+                    move_to_position(Product, product.pk, pos, old_pos)
+                messages.success(request, "Product updated.")
+            else:
+                data["code"] = gen_code("PRD")
+                with transaction.atomic():
+                    if Product.objects.filter(position=pos).exists():
+                        insert_at_position(Product, pos)
+                    product = Product.objects.create(**data)
+                messages.success(request, "Product created.")
+        except IntegrityError:
+            slug = data.get("slug", "")
+            messages.error(request, f'The slug "{slug}" is already in use by another product. Please choose a different name or edit the slug manually.')
+            return render(request, "panel/product_form.html", _ctx(
+                "/admin-panel/products", product=product,
+                categories=Category.objects.order_by("position"),
+                statuses=Status.choices,
+                form_data=request.POST,
+                next_pos=next_position(Product) if not product else None,
+            ))
         return redirect("/admin-panel/products")
     return render(request, "panel/product_form.html", _ctx(
         "/admin-panel/products", product=product,
         categories=Category.objects.order_by("position"),
-        statuses=Status.choices))
+        statuses=Status.choices,
+        next_pos=next_position(Product) if not product else None))
 
 
 @admin_required
 def product_delete(request, pk):
     Product.objects.filter(pk=pk).delete()
+    repack_positions(Product)
     messages.success(request, "Product deleted.")
     return redirect("/admin-panel/products")
 
@@ -509,15 +534,22 @@ def categories_list(request):
             position=int(request.POST.get("position") or 1),
             status=request.POST.get("status", Status.ACTIVE),
         )
+        pos = data["position"]
         if pk:
             cat = get_object_or_404(Category, pk=pk)
+            old_pos = cat.position
             for k, v in data.items():
                 setattr(cat, k, v)
             cat.save()
+            if pos != old_pos:
+                move_to_position(Category, cat.pk, pos, old_pos)
             messages.success(request, f'Category "{name}" updated.')
         else:
             data["code"] = request.POST.get("code") or gen_code("CAT")
-            Category.objects.create(**data)
+            with transaction.atomic():
+                if Category.objects.filter(position=pos).exists():
+                    insert_at_position(Category, pos)
+                Category.objects.create(**data)
             messages.success(request, f'Category "{name}" added.')
         return redirect("/admin-panel/categories")
 
@@ -546,12 +578,14 @@ def categories_list(request):
         active_count=active_count, inactive_count=inactive_count,
         total_products=total_products, total_cats=total_cats,
         q=q, status_filter=status_filter, sort=sort,
+        next_pos=next_position(Category),
     ))
 
 
 @admin_required
 def category_delete(request, pk):
     Category.objects.filter(pk=pk).delete()
+    repack_positions(Category)
     messages.success(request, "Category deleted.")
     return redirect("/admin-panel/categories")
 
@@ -583,40 +617,103 @@ def category_export(request):
 def variants_list(request):
     if request.method == "POST":
         product = get_object_or_404(Product, pk=request.POST.get("product"))
-        ProductVariant.objects.create(
-            product=product, va_code=request.POST.get("va_code") or gen_code("VA"),
-            variant=request.POST.get("variant", ""),
-            short_name=request.POST.get("short_name") or request.POST.get("variant", ""),
-            selling_price=float(request.POST.get("selling_price") or 0),
-            mrp_price=float(request.POST.get("mrp_price") or 0),
-            stock=int(request.POST.get("stock") or 0),
-            position=int(request.POST.get("position") or 1))
+        raw_pos = request.POST.get("position", "").strip()
+        pos = int(raw_pos) if raw_pos.isdigit() else next_position(ProductVariant, product=product)
+        with transaction.atomic():
+            if ProductVariant.objects.filter(product=product, position=pos).exists():
+                insert_at_position(ProductVariant, pos, product=product)
+            ProductVariant.objects.create(
+                product=product, va_code=request.POST.get("va_code") or gen_code("VA"),
+                variant=request.POST.get("variant", ""),
+                short_name=request.POST.get("short_name") or request.POST.get("variant", ""),
+                selling_price=float(request.POST.get("selling_price") or 0),
+                mrp_price=float(request.POST.get("mrp_price") or 0),
+                stock=int(request.POST.get("stock") or 0),
+                position=pos)
         messages.success(request, "Variant added.")
         return redirect("/admin-panel/variants")
+
+    q              = request.GET.get("q", "").strip()
+    product_filter = request.GET.get("product", "").strip()
+    status_filter  = request.GET.get("status", "").strip()
+    page_num       = request.GET.get("page", 1)
+
     all_variants = (ProductVariant.objects
                     .select_related("product", "product__category")
                     .order_by("product__name", "position"))
-    total_v = all_variants.count()
-    in_stock_v = all_variants.filter(stock_status=StockStatus.IN_STOCK).count()
+
+    total_v     = all_variants.count()
+    in_stock_v  = all_variants.filter(stock_status=StockStatus.IN_STOCK).count()
     low_stock_v = all_variants.filter(stock_status=StockStatus.LOW_STOCK).count()
     out_stock_v = all_variants.filter(stock_status=StockStatus.OUT_OF_STOCK).count()
-    # Group by product
-    from itertools import groupby
-    grouped = []
-    for product, group in groupby(all_variants, key=lambda v: v.product_id):
-        variants_list_g = list(group)
-        grouped.append({"product": variants_list_g[0].product, "variants": variants_list_g})
+
+    if q:
+        all_variants = all_variants.filter(
+            Q(variant__icontains=q) | Q(va_code__icontains=q) | Q(product__name__icontains=q)
+        )
+    if product_filter:
+        all_variants = all_variants.filter(product_id=product_filter)
+    if status_filter:
+        all_variants = all_variants.filter(stock_status=status_filter)
+
+    filtered_total = all_variants.count()
+    paginator = Paginator(all_variants, 10)
+    page_obj  = paginator.get_page(page_num)
+
+    flat_rows = []
+    prev_pid  = None
+    for v in page_obj:
+        flat_rows.append({"variant": v, "is_first": v.product_id != prev_pid})
+        prev_pid = v.product_id
+
     return render(request, "panel/variants.html", _ctx(
         "/admin-panel/variants",
-        grouped=grouped, products=Product.objects.order_by("name"),
-        total_v=total_v, in_stock_v=in_stock_v, low_stock_v=low_stock_v, out_stock_v=out_stock_v))
+        flat_rows=flat_rows, page_obj=page_obj,
+        products=Product.objects.order_by("name"),
+        total_v=total_v, in_stock_v=in_stock_v,
+        low_stock_v=low_stock_v, out_stock_v=out_stock_v,
+        filtered_total=filtered_total,
+        q=q, product_filter=product_filter, status_filter=status_filter,
+        stock_statuses=StockStatus.choices,
+    ))
+
+
+@admin_required
+def variant_edit(request, pk):
+    if request.method != "POST":
+        return redirect("/admin-panel/variants")
+    v = get_object_or_404(ProductVariant, pk=pk)
+    old_pos = v.position
+    v.variant       = request.POST.get("variant", v.variant).strip() or v.variant
+    v.selling_price = float(request.POST.get("selling_price") or v.selling_price)
+    v.mrp_price     = float(request.POST.get("mrp_price") or v.mrp_price)
+    v.stock         = int(request.POST.get("stock") if request.POST.get("stock") != "" else v.stock)
+    new_pos         = int(request.POST.get("position") or old_pos)
+    v.position      = new_pos
+    v.save()
+    if new_pos != old_pos:
+        move_to_position(ProductVariant, v.pk, new_pos, old_pos, product=v.product)
+    messages.success(request, f'Variant "{v.variant}" updated.')
+    return redirect("/admin-panel/variants")
+
+
+@admin_required
+def variant_next_position(request):
+    product_id = request.GET.get("product", "").strip()
+    if product_id:
+        pos = next_position(ProductVariant, product_id=product_id)
+    else:
+        pos = next_position(ProductVariant)
+    return _JsonResponse({"next_pos": pos})
 
 
 @admin_required
 def variant_delete(request, pk):
     v = get_object_or_404(ProductVariant, pk=pk)
+    product_id = v.product_id
     redirect_url = "/admin-panel/products" if request.GET.get("from") == "products" else "/admin-panel/variants"
     v.delete()
+    repack_positions(ProductVariant, product_id=product_id)
     messages.success(request, "Variant deleted.")
     return redirect(redirect_url)
 
@@ -626,10 +723,12 @@ def variant_clone(request, pk):
     if request.method != "POST":
         return redirect("/admin-panel/products")
     v = get_object_or_404(ProductVariant, pk=pk)
+    product_id = v.product_id
     v.pk = None
     v.va_code = gen_code("SKU")
     v.variant = f"{v.variant} (Copy)"
     v.reserved_stock = 0
+    v.position = next_position(ProductVariant, product_id=product_id)
     v.save()
     messages.success(request, f'Variant cloned as "{v.variant}".')
     return redirect("/admin-panel/products")
@@ -850,14 +949,102 @@ def orders_list(request):
     ))
 
 
+def _log_event(order, title, description="", actor=None):
+    OrderEvent.objects.create(
+        order=order, title=title, description=description,
+        actor_name=actor.full_name if actor else "System",
+    )
+
+
+def _notify_customer(order, title, message):
+    Notification.objects.create(user=order.user, title=title, message=message)
+
+
+@admin_required
+def order_detail(request, pk):
+    order = get_object_or_404(
+        Order.objects.select_related("user", "coupon")
+             .prefetch_related("items__product", "items__variant", "items__combo",
+                               "notes", "events", "refunds"),
+        pk=pk,
+    )
+    items = list(order.items.all())
+
+    # Group combo items by combo_id for display
+    combos = {}
+    regular_items = []
+    for it in items:
+        if it.combo_id:
+            combos.setdefault(it.combo_id, {"combo": it.combo, "items": []})["items"].append(it)
+        else:
+            regular_items.append(it)
+
+    import json as _json
+    try:
+        addr = _json.loads(order.shipping_address)
+    except Exception:
+        addr = {"address": order.shipping_address}
+
+    status_labels = dict(OrderStatus.choices)
+    next_statuses = [
+        (s, status_labels.get(s, s))
+        for s in WORKFLOW_TRANSITIONS.get(order.status, [])
+    ]
+    user = order.user
+    user_orders_count = Order.objects.filter(user=user).count()
+    user_total_spend = Order.objects.filter(
+        user=user, payment_status=PaymentStatus.PAID
+    ).aggregate(total=Sum("grand_total"))["total"] or 0
+
+    return render(request, "panel/order_detail.html", _ctx(
+        "/admin-panel/orders",
+        order=order,
+        items=items,
+        combos=combos,
+        regular_items=regular_items,
+        addr=addr,
+        notes=list(order.notes.all()),
+        events=list(order.events.all()),
+        refunds=list(order.refunds.all()),
+        next_statuses=next_statuses,
+        order_statuses=OrderStatus.choices,
+        payment_statuses=PaymentStatus.choices,
+        refundable=order.status in (OrderStatus.DELIVERED, OrderStatus.CANCELLED),
+        cancellable=_valid_transition(order.status, OrderStatus.CANCELLED),
+        user_orders_count=user_orders_count,
+        user_total_spend=user_total_spend,
+        PaymentMode=PaymentMode,
+        OrderStatus=OrderStatus,
+        PaymentStatus=PaymentStatus,
+    ))
+
+
+@admin_required
+def order_note_add(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+    if request.method != "POST":
+        return redirect(f"/admin-panel/orders/{pk}")
+    text = request.POST.get("text", "").strip()
+    if text:
+        is_internal = request.POST.get("is_internal", "1") == "1"
+        OrderNote.objects.create(
+            order=order, text=text, is_internal=is_internal,
+            created_by_name=request.user.full_name,
+        )
+        _log_event(order, "Note Added", text[:80], actor=request.user)
+        messages.success(request, "Note added.")
+    return redirect(f"/admin-panel/orders/{pk}")
+
+
 @admin_required
 def order_update(request, pk):
     order = get_object_or_404(Order, pk=pk)
     if request.method != "POST":
-        return redirect("/admin-panel/orders")
+        return redirect(f"/admin-panel/orders/{pk}")
 
     new_status = request.POST.get("status", order.status)
     new_payment = request.POST.get("payment_status", order.payment_status)
+    prev_status = order.status
 
     # Validate workflow transition (allow no-op)
     if new_status != order.status and not _valid_transition(order.status, new_status):
@@ -866,7 +1053,7 @@ def order_update(request, pk):
             f"Invalid transition: {order.get_status_display()} → {new_status}. "
             f"Follow the fixed workflow.",
         )
-        return redirect("/admin-panel/orders")
+        return redirect(f"/admin-panel/orders/{pk}")
 
     # Stock side-effects
     if new_status != order.status:
@@ -878,8 +1065,18 @@ def order_update(request, pk):
     order.status = new_status
     order.payment_status = new_payment
     order.save()
+
+    if new_status != prev_status:
+        display = dict(OrderStatus.choices).get(new_status, new_status)
+        _log_event(order, f"Status → {display}", actor=request.user)
+        _notify_customer(
+            order,
+            f"Order {order.order_id} Update",
+            f"Your order {order.order_id} status has been updated to: {display}.",
+        )
+
     messages.success(request, f"Order {order.order_id} → {order.get_status_display()}.")
-    return redirect("/admin-panel/orders")
+    return redirect(f"/admin-panel/orders/{pk}")
 
 
 @admin_required
@@ -887,17 +1084,24 @@ def order_cancel(request, pk):
     """Cancel an order and restore stock if it was already deducted."""
     order = get_object_or_404(Order, pk=pk)
     if request.method != "POST":
-        return redirect("/admin-panel/orders")
+        return redirect(f"/admin-panel/orders/{pk}")
 
     if not _valid_transition(order.status, OrderStatus.CANCELLED):
         messages.error(request, f"Order {order.order_id} cannot be cancelled at this stage.")
-        return redirect("/admin-panel/orders")
+        return redirect(f"/admin-panel/orders/{pk}")
 
     _restore_stock_for_order(order)
     order.status = OrderStatus.CANCELLED
     order.save()
+
+    _log_event(order, "Order Cancelled", "Stock restored to inventory.", actor=request.user)
+    _notify_customer(
+        order,
+        f"Order {order.order_id} Cancelled",
+        f"Your order {order.order_id} has been cancelled. If you paid online, a refund will be initiated.",
+    )
     messages.success(request, f"Order {order.order_id} cancelled. Stock restored.")
-    return redirect("/admin-panel/orders")
+    return redirect(f"/admin-panel/orders/{pk}")
 
 
 @admin_required
@@ -905,7 +1109,7 @@ def order_refund(request, pk):
     """Issue a full or partial refund for an order."""
     order = get_object_or_404(Order, pk=pk)
     if request.method != "POST":
-        return redirect("/admin-panel/orders")
+        return redirect(f"/admin-panel/orders/{pk}")
 
     refund_type = request.POST.get("refund_type", OrderRefund.FULL)
     try:
@@ -915,30 +1119,321 @@ def order_refund(request, pk):
     amount = min(max(amount, 0), order.grand_total)
     reason = request.POST.get("reason", "").strip()
 
-    OrderRefund.objects.create(
-        order=order,
-        refund_type=refund_type,
-        amount=amount,
-        reason=reason,
-    )
+    OrderRefund.objects.create(order=order, refund_type=refund_type, amount=amount, reason=reason)
     order.payment_status = PaymentStatus.REFUNDED
     if refund_type == OrderRefund.FULL:
         order.status = OrderStatus.REFUNDED
     order.save()
+
     from core.utils import inr
+    _log_event(order, f"Refund Issued — ₹{amount:.0f} ({refund_type})", reason, actor=request.user)
+    _notify_customer(
+        order,
+        f"Refund for Order {order.order_id}",
+        f"A refund of ₹{amount:.0f} has been initiated for order {order.order_id}. "
+        f"It will reflect in your account within 5–7 business days.",
+    )
     messages.success(request, f"Refund of {inr(amount)} ({refund_type}) recorded for {order.order_id}.")
-    return redirect("/admin-panel/orders")
+    return redirect(f"/admin-panel/orders/{pk}")
+
+
+# --------------------------------------------------------------------------- #
+# Customer classification helpers
+# --------------------------------------------------------------------------- #
+# Thresholds — change these values to adjust automatic tagging logic.
+CUST_VIP_SPEND   = 15000   # lifetime spend ≥ this → VIP
+CUST_VIP_ORDERS  = 10      # order count ≥ this → VIP
+CUST_REPEAT_MIN  = 3       # order count ≥ this (and not VIP) → Repeat
+# orders < CUST_REPEAT_MIN and not VIP → New
+
+AVATAR_COLORS = [
+    "bg-brand-100 text-brand-700",
+    "bg-blue-100 text-blue-700",
+    "bg-purple-100 text-purple-700",
+    "bg-orange-100 text-orange-700",
+    "bg-teal-100 text-teal-700",
+    "bg-rose-100 text-rose-700",
+    "bg-indigo-100 text-indigo-700",
+    "bg-amber-100 text-amber-700",
+]
+
+
+def _classify(order_count, total_spend, manual_tags_str):
+    """Return list of tag strings for a customer."""
+    oc    = order_count or 0
+    spend = total_spend or 0
+    tags  = []
+    if spend >= CUST_VIP_SPEND or oc >= CUST_VIP_ORDERS:
+        tags.append("VIP")
+    if oc >= CUST_REPEAT_MIN:
+        tags.append("Repeat")
+    elif oc > 0:
+        tags.append("New")
+    # Manual tags (dedupe, preserve order)
+    for t in (manual_tags_str or "").split(","):
+        t = t.strip()
+        if t and t not in tags:
+            tags.append(t)
+    return tags
+
+
+def _decorate_users(page_iterable):
+    """Attach avatar_style, initials, tags to each user object in-place."""
+    for u in page_iterable:
+        u.avatar_style = AVATAR_COLORS[u.id % len(AVATAR_COLORS)]
+        u.initials = (
+            ((u.first_name or "")[:1] + (u.last_name or "")[:1]).upper()
+            or (u.email or "?")[:1].upper()
+        )
+        u.tags = _classify(
+            getattr(u, "order_count", 0),
+            getattr(u, "total_spend", 0),
+            u.manual_tags,
+        )
+    return page_iterable
+
+
+# --------------------------------------------------------------------------- #
+# Customer List
+# --------------------------------------------------------------------------- #
+@admin_required
+def users_list(request):
+    # ── Bulk POST actions ──────────────────────────────────────────────────
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+        ids    = request.POST.getlist("ids")
+        if ids:
+            if action == "activate":
+                User.objects.filter(pk__in=ids).update(status=Status.ACTIVE)
+            elif action == "deactivate":
+                User.objects.filter(pk__in=ids).update(status=Status.INACTIVE)
+            elif action == "delete":
+                User.objects.filter(pk__in=ids, user_type=UserType.USER).delete()
+                messages.success(request, f"Deleted {len(ids)} customer(s).")
+            elif action == "export_selected":
+                return _customer_csv(User.objects.filter(pk__in=ids))
+        return redirect("/admin-panel/users")
+
+    # ── Filters ────────────────────────────────────────────────────────────
+    q         = request.GET.get("q", "").strip()
+    segment   = request.GET.get("segment", "")   # all | vip | repeat | new
+    sort      = request.GET.get("sort", "orders")
+    status_f  = request.GET.get("status", "")
+
+    base_qs = (
+        User.objects.filter(user_type=UserType.USER)
+        .annotate(
+            order_count    = Count("orders", distinct=True),
+            total_spend    = Sum("orders__grand_total"),
+            last_order_date= Max("orders__created_at"),
+        )
+    )
+
+    if q:
+        base_qs = base_qs.filter(
+            Q(first_name__icontains=q) | Q(last_name__icontains=q) |
+            Q(email__icontains=q)      | Q(mobile__icontains=q) |
+            Q(city__icontains=q)
+        )
+    if status_f:
+        base_qs = base_qs.filter(status=status_f)
+
+    sort_map = {
+        "orders":   "-order_count",
+        "spend":    "-total_spend",
+        "newest":   "-created_at",
+        "oldest":   "created_at",
+        "last":     "-last_order_date",
+        "alpha":    "first_name",
+    }
+    base_qs = base_qs.order_by(sort_map.get(sort, "-order_count"))
+
+    # Segment filter: need classification → evaluate to list, then paginate
+    all_users  = list(base_qs)
+    _decorate_users(all_users)
+
+    if segment == "vip":
+        all_users = [u for u in all_users if "VIP" in u.tags]
+    elif segment == "repeat":
+        all_users = [u for u in all_users if "Repeat" in u.tags and "VIP" not in u.tags]
+    elif segment == "new":
+        all_users = [u for u in all_users if "New" in u.tags]
+
+    # ── Stats ──────────────────────────────────────────────────────────────
+    now         = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    total_cust  = User.objects.filter(user_type=UserType.USER).count()
+    new_month   = User.objects.filter(user_type=UserType.USER,
+                                      created_at__gte=month_start).count()
+    vip_count   = sum(1 for u in all_users if "VIP" in u.tags)
+    spends      = [u.total_spend for u in all_users if u.total_spend]
+    avg_clv     = round(sum(spends) / len(spends)) if spends else 0
+
+    paginator = Paginator(all_users, 10)
+    page_obj  = paginator.get_page(request.GET.get("page", 1))
+
+    return render(request, "panel/users.html", {
+        "active_path":   "/admin-panel/users",
+        "users":         page_obj,
+        "page_obj":      page_obj,
+        "filtered_total": len(all_users),
+        "q": q, "segment": segment, "sort": sort, "status_f": status_f,
+        "total_cust": total_cust,
+        "new_month":  new_month,
+        "vip_count":  vip_count,
+        "avg_clv":    avg_clv,
+        "vip_spend":  CUST_VIP_SPEND,
+        "vip_orders": CUST_VIP_ORDERS,
+        "repeat_min": CUST_REPEAT_MIN,
+    })
+
+
+def _customer_csv(qs):
+    """Return CSV HttpResponse for a queryset of User objects."""
+    resp = HttpResponse(content_type="text/csv")
+    resp["Content-Disposition"] = 'attachment; filename="customers.csv"'
+    w = csv.writer(resp)
+    w.writerow(["ID", "Name", "Email", "Mobile", "City", "Status",
+                "Orders", "Total Spend", "Joined"])
+    qs = qs.annotate(
+        order_count=Count("orders", distinct=True),
+        total_spend=Sum("orders__grand_total"),
+    )
+    for u in qs:
+        w.writerow([
+            u.pk, u.full_name, u.email, u.mobile, u.city or "",
+            u.status, u.order_count or 0,
+            round(u.total_spend or 0, 2),
+            u.created_at.strftime("%Y-%m-%d"),
+        ])
+    return resp
 
 
 @admin_required
-def users_list(request):
-    from django.db.models import Q
-    q = request.GET.get("q", "").strip()
-    qs = User.objects.filter(user_type=UserType.USER).order_by("-created_at")
-    if q:
-        qs = qs.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) |
-                       Q(email__icontains=q) | Q(mobile__icontains=q))
-    return render(request, "panel/users.html", _ctx("/admin-panel/users", users=qs, q=q))
+def user_export(request):
+    qs = User.objects.filter(user_type=UserType.USER)
+    return _customer_csv(qs)
+
+
+# --------------------------------------------------------------------------- #
+# Customer Detail
+# --------------------------------------------------------------------------- #
+@admin_required
+def user_detail(request, pk):
+    customer = get_object_or_404(User, pk=pk, user_type=UserType.USER)
+
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+
+        if action == "toggle_status":
+            customer.status = (
+                Status.INACTIVE if customer.status == Status.ACTIVE else Status.ACTIVE
+            )
+            customer.save(update_fields=["status"])
+            messages.success(request, f"Account {'activated' if customer.status == Status.ACTIVE else 'deactivated'}.")
+            return redirect(f"/admin-panel/users/{pk}")
+
+        if action == "update_tags":
+            customer.manual_tags = request.POST.get("manual_tags", "").strip()
+            customer.save(update_fields=["manual_tags"])
+            messages.success(request, "Tags updated.")
+            return redirect(f"/admin-panel/users/{pk}")
+
+        if action == "add_note":
+            note_text = request.POST.get("note", "").strip()
+            if note_text:
+                CustomerNote.objects.create(
+                    user=customer,
+                    note=note_text,
+                    author=request.user,
+                )
+                messages.success(request, "Note added.")
+            return redirect(f"/admin-panel/users/{pk}#notes")
+
+        if action == "delete_note":
+            note_id = request.POST.get("note_id")
+            CustomerNote.objects.filter(pk=note_id, user=customer).delete()
+            return redirect(f"/admin-panel/users/{pk}#notes")
+
+        if action == "update_info":
+            customer.first_name = request.POST.get("first_name", "").strip() or None
+            customer.last_name  = request.POST.get("last_name",  "").strip() or None
+            customer.mobile     = request.POST.get("mobile", "").strip() or None
+            customer.city       = request.POST.get("city", "").strip() or None
+            dob_str = request.POST.get("date_of_birth", "").strip()
+            if dob_str:
+                try:
+                    from datetime import date as _ddate
+                    customer.date_of_birth = _ddate.fromisoformat(dob_str)
+                except ValueError:
+                    pass
+            else:
+                customer.date_of_birth = None
+            gender = request.POST.get("gender", "").strip()
+            customer.gender = gender or None
+            try:
+                customer.loyalty_points = int(request.POST.get("loyalty_points", customer.loyalty_points))
+            except (ValueError, TypeError):
+                pass
+            try:
+                customer.wallet_balance = float(request.POST.get("wallet_balance", customer.wallet_balance))
+            except (ValueError, TypeError):
+                pass
+            customer.save(update_fields=[
+                "first_name", "last_name", "mobile", "city",
+                "date_of_birth", "gender", "loyalty_points", "wallet_balance", "updated_at",
+            ])
+            messages.success(request, "Customer info updated.")
+            return redirect(f"/admin-panel/users/{pk}")
+
+    # ── Aggregate data ─────────────────────────────────────────────────────
+    orders_qs = (Order.objects.filter(user=customer)
+                 .select_related("user")
+                 .order_by("-created_at"))
+    order_count  = orders_qs.count()
+    agg          = orders_qs.aggregate(total=Sum("grand_total"), avg=Avg("grand_total"))
+    total_spend  = round(agg["total"] or 0, 2)
+    avg_order    = round(agg["avg"] or 0, 2)
+    last_order   = orders_qs.first()
+    reviews_qs   = Review.objects.filter(user=customer).select_related("product").order_by("-created_at")
+    addresses_qs = customer.addresses.all()
+    notes_qs     = customer.customer_notes.select_related("author").all()
+
+    tags = _classify(order_count, total_spend, customer.manual_tags)
+    customer.avatar_style = AVATAR_COLORS[customer.id % len(AVATAR_COLORS)]
+    customer.initials = (
+        ((customer.first_name or "")[:1] + (customer.last_name or "")[:1]).upper()
+        or (customer.email or "?")[:1].upper()
+    )
+
+    paginator   = Paginator(orders_qs, 8)
+    orders_page = paginator.get_page(request.GET.get("opage", 1))
+
+    return render(request, "panel/user_detail.html", {
+        "active_path":  "/admin-panel/users",
+        "customer":     customer,
+        "tags":         tags,
+        "order_count":  order_count,
+        "total_spend":  total_spend,
+        "avg_order":    avg_order,
+        "last_order":   last_order,
+        "orders":       orders_page,
+        "orders_page":  orders_page,
+        "reviews":      reviews_qs[:10],
+        "addresses":    addresses_qs,
+        "notes":        notes_qs,
+    })
+
+
+@admin_required
+def user_toggle_status(request, pk):
+    from django.http import JsonResponse
+    customer = get_object_or_404(User, pk=pk, user_type=UserType.USER)
+    customer.status = Status.INACTIVE if customer.status == Status.ACTIVE else Status.ACTIVE
+    customer.save(update_fields=["status"])
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"ok": True, "status": customer.status})
+    return redirect("/admin-panel/users")
 
 
 @admin_required
@@ -951,114 +1446,237 @@ def loyalty_members(request):
 
 
 # --------------------------------------------------------------------------- #
+# Coming-soon helper
+# --------------------------------------------------------------------------- #
+def _wip(request, module_name, active_path=None):
+    return render(request, "panel/coming_soon.html",
+                  _ctx(active_path or "/admin-panel", module_name=module_name))
+
+
+@admin_required
+def newsletter_view(request):
+    return _wip(request, "Newsletter", "/admin-panel/marketing/newsletter")
+
+
+# --------------------------------------------------------------------------- #
 # Analytics views
 # --------------------------------------------------------------------------- #
 @admin_required
 def sales_reports(request):
-    now = timezone.now()
-    monthly = []
-    for i in range(12):
-        m = now.month - 11 + i
-        y = now.year + (m - 1) // 12
-        mm = (m - 1) % 12 + 1
-        start = now.replace(year=y, month=mm, day=1, hour=0, minute=0, second=0, microsecond=0)
-        last_day = calendar.monthrange(y, mm)[1]
-        end = start.replace(day=last_day, hour=23, minute=59, second=59)
-        rev = (Order.objects.filter(payment_status=PaymentStatus.PAID,
-                                    created_at__gte=start, created_at__lte=end)
-               .aggregate(s=Sum("grand_total"), c=Count("id")))
-        monthly.append({
-            "month": calendar.month_abbr[mm],
-            "month_full": start.strftime("%B"),
-            "revenue": rev["s"] or 0,
-            "orders": rev["c"] or 0,
-        })
-    max_rev = max([m["revenue"] for m in monthly] + [1])
-    for m in monthly:
-        m["pct"] = max(round(m["revenue"] / max_rev * 100), 4)
-
-    total_revenue = sum(m["revenue"] for m in monthly)
-    total_orders = Order.objects.filter(payment_status=PaymentStatus.PAID).count()
-    avg_order = (Order.objects.filter(payment_status=PaymentStatus.PAID)
-                 .aggregate(a=Avg("grand_total"))["a"] or 0)
-    best_month = max(monthly, key=lambda m: m["revenue"]) if monthly else None
-    avg_monthly = total_revenue / len(monthly) if monthly else 0
-
-    # Revenue by category
-    cat_revenue = (OrderItem.objects.values("product__category__name")
-                   .annotate(rev=Sum("net_total"), cnt=Count("id"))
-                   .order_by("-rev")[:8])
-    cat_total = sum(c["rev"] or 0 for c in cat_revenue) or 1
-    for c in cat_revenue:
-        c["pct"] = round((c["rev"] or 0) / cat_total * 100)
-
-    # Revenue by channel
-    channel_revenue = (Order.objects.filter(payment_status=PaymentStatus.PAID)
-                       .values("channel")
-                       .annotate(rev=Sum("grand_total"), cnt=Count("id"))
-                       .order_by("-rev"))
-    ch_total = sum(c["rev"] or 0 for c in channel_revenue) or 1
-    channels_display = []
-    ch_colors = {"WEBSITE": "#1f6b3a", "INSTAGRAM": "#e1306c", "WHATSAPP": "#25d366", "REFERRAL": "#f2c014"}
-    for c in channel_revenue:
-        channels_display.append({
-            "label": dict(OrderChannel.choices).get(c["channel"], c["channel"]),
-            "orders": c["cnt"],
-            "pct": round((c["rev"] or 0) / ch_total * 100),
-            "color": ch_colors.get(c["channel"], "#6b7280"),
-        })
-
-    new_customers = User.objects.filter(user_type=UserType.USER).count()
-    gross_profit = round(total_revenue * 0.35)
-    returns_value = (Order.objects.filter(status=OrderStatus.REFUNDED)
-                     .aggregate(s=Sum("grand_total"))["s"] or 0)
-
-    stat_cards = [
-        {"label": "Total Revenue", "value": total_revenue, "kind": "money", "growth": "+18.2% vs last year", "up": True},
-        {"label": "Total Orders", "value": total_orders, "kind": "num", "growth": "+8.1% vs last year", "up": True},
-        {"label": "Avg Order Value", "value": round(avg_order), "kind": "money", "growth": "-2.1% vs last year", "up": False},
-        {"label": "Gross Profit", "value": gross_profit, "kind": "money", "growth": "+21.4% vs last year", "up": True},
-        {"label": "Returns Value", "value": returns_value, "kind": "money", "growth": "-4.2% vs last year", "up": False},
-        {"label": "New Customers", "value": new_customers, "kind": "num", "growth": "+18.2% vs last year", "up": True},
-    ]
-    return render(request, "panel/sales_reports.html", _ctx(
-        "/admin-panel/reports",
-        monthly=monthly, total_revenue=total_revenue, total_orders=total_orders,
-        avg_order=round(avg_order), best_month=best_month, avg_monthly=avg_monthly,
-        cat_revenue=cat_revenue, channels_display=channels_display, stat_cards=stat_cards))
+    return _wip(request, "Sales Report", "/admin-panel/reports")
 
 
 @admin_required
 def revenue_view(request):
-    return redirect("/admin-panel/reports")
+    return _wip(request, "Revenue Analytics", "/admin-panel/revenue")
 
 
 @admin_required
 def performance_view(request):
-    total_orders = Order.objects.count()
-    delivered = Order.objects.filter(status=OrderStatus.DELIVERED).count()
-    cancelled = Order.objects.filter(status__in=[OrderStatus.CANCELLED, OrderStatus.REFUNDED]).count()
-    avg_order = (Order.objects.filter(payment_status=PaymentStatus.PAID)
-                 .aggregate(a=Avg("grand_total"))["a"] or 0)
-    total_customers = User.objects.filter(user_type=UserType.USER).count()
-    total_revenue = (Order.objects.filter(payment_status=PaymentStatus.PAID)
-                     .aggregate(s=Sum("grand_total"))["s"] or 0)
-    conversion = round(delivered / total_orders * 100, 1) if total_orders else 0
-    cancellation = round(cancelled / total_orders * 100, 1) if total_orders else 0
-    top_products = (OrderItem.objects.values("product__name", "product__image")
-                    .annotate(revenue=Sum("net_total"), qty=Sum("qty"))
-                    .order_by("-revenue")[:5])
-    return render(request, "panel/performance.html", _ctx(
-        "/admin-panel/performance",
-        total_orders=total_orders, delivered=delivered, cancelled=cancelled,
-        conversion=conversion, cancellation=cancellation,
-        avg_order=round(avg_order), total_customers=total_customers,
-        total_revenue=total_revenue, top_products=top_products))
+    return _wip(request, "Performance", "/admin-panel/performance")
 
 
 @admin_required
 def admin_settings(request):
-    return render(request, "panel/admin_settings.html", _ctx("/admin-panel/settings"))
+    from store.models import SiteSettings, IntegrationConfig
+    from accounts.models import User as _User, UserType as _UT
+
+    tab = request.GET.get("tab", "store")
+
+    if request.method == "POST":
+        section = request.POST.get("section", "")
+        cfg = SiteSettings.get()
+        P = request.POST
+
+        if section == "store_identity":
+            logo = request.FILES.get("logo")
+            if logo:
+                from core.cloudinary_storage import upload_file as _cl_up
+                url, err = _cl_up(logo.read(), logo.name, logo.content_type)
+                if url:
+                    cfg.logo_url = url
+                else:
+                    messages.warning(request, f"Logo upload failed: {err or 'Cloud storage is not configured.'}")
+            cfg.store_name    = P.get("store_name", cfg.store_name).strip()
+            cfg.store_tagline = P.get("store_tagline", cfg.store_tagline).strip()
+            cfg.business_email = P.get("business_email", cfg.business_email).strip()
+            cfg.support_phone  = P.get("support_phone", cfg.support_phone).strip()
+            cfg.store_address  = P.get("store_address", cfg.store_address).strip()
+            cfg.save()
+            messages.success(request, "Store identity saved.")
+            return redirect("/admin-panel/settings?tab=store")
+
+        if section == "regional":
+            cfg.currency        = P.get("currency", cfg.currency)
+            cfg.timezone        = P.get("timezone", cfg.timezone)
+            cfg.language        = P.get("language", cfg.language)
+            cfg.date_format     = P.get("date_format", cfg.date_format)
+            cfg.weight_unit     = P.get("weight_unit", cfg.weight_unit)
+            cfg.order_id_prefix = P.get("order_id_prefix", cfg.order_id_prefix).strip()
+            cfg.save()
+            messages.success(request, "Regional settings saved.")
+            return redirect("/admin-panel/settings?tab=store")
+
+        if section == "shipping":
+            try:
+                cfg.free_shipping_above     = int(P.get("free_shipping_above", cfg.free_shipping_above))
+                cfg.default_shipping_charge = int(P.get("default_shipping_charge", cfg.default_shipping_charge))
+            except ValueError:
+                pass
+            cfg.processing_time        = P.get("processing_time", cfg.processing_time).strip()
+            cfg.estimated_delivery     = P.get("estimated_delivery", cfg.estimated_delivery).strip()
+            cfg.cod_enabled            = "cod_enabled" in P
+            cfg.show_delivery_estimate = "show_delivery_estimate" in P
+            cfg.international_shipping = "international_shipping" in P
+            cfg.save()
+            messages.success(request, "Shipping & delivery settings saved.")
+            return redirect("/admin-panel/settings?tab=store")
+
+        if section == "tax":
+            cfg.gstin                   = P.get("gstin", cfg.gstin).strip()
+            cfg.default_gst_rate        = P.get("default_gst_rate", cfg.default_gst_rate)
+            cfg.prices_inclusive_of_gst = "prices_inclusive_of_gst" in P
+            cfg.show_gst_in_invoice     = "show_gst_in_invoice" in P
+            cfg.save()
+            messages.success(request, "Tax configuration saved.")
+            return redirect("/admin-panel/settings?tab=store")
+
+        if section == "notif_store":
+            cfg.notif_new_order       = "notif_new_order" in P
+            cfg.notif_order_cancelled = "notif_order_cancelled" in P
+            cfg.notif_refund_request  = "notif_refund_request" in P
+            cfg.notif_order_delivered = "notif_order_delivered" in P
+            cfg.notif_low_stock       = "notif_low_stock" in P
+            cfg.notif_out_of_stock    = "notif_out_of_stock" in P
+            cfg.notif_restock         = "notif_restock" in P
+            cfg.notif_new_review      = "notif_new_review" in P
+            cfg.save()
+            messages.success(request, "Notification preferences saved.")
+            return redirect("/admin-panel/settings?tab=store")
+
+        if section == "notif_full":
+            cfg.notif_new_order           = "notif_new_order" in P
+            cfg.notif_order_cancelled     = "notif_order_cancelled" in P
+            cfg.notif_refund_request      = "notif_refund_request" in P
+            cfg.notif_order_delivered     = "notif_order_delivered" in P
+            cfg.notif_low_stock           = "notif_low_stock" in P
+            cfg.notif_out_of_stock        = "notif_out_of_stock" in P
+            cfg.notif_restock             = "notif_restock" in P
+            cfg.notif_new_review          = "notif_new_review" in P
+            cfg.notif_customer_registered = "notif_customer_registered" in P
+            cfg.notif_payment_success     = "notif_payment_success" in P
+            cfg.notif_payment_failed      = "notif_payment_failed" in P
+            cfg.notif_promotional         = "notif_promotional" in P
+            cfg.save()
+            messages.success(request, "Notification preferences saved.")
+            return redirect("/admin-panel/settings?tab=notifications")
+
+        if section == "account_profile":
+            u = request.user
+            u.first_name = P.get("first_name", u.first_name or "").strip() or None
+            u.last_name  = P.get("last_name",  u.last_name  or "").strip() or None
+            u.mobile     = P.get("mobile",     u.mobile     or "").strip() or None
+            u.save(update_fields=["first_name", "last_name", "mobile"])
+            messages.success(request, "Profile updated.")
+            return redirect("/admin-panel/settings?tab=account")
+
+        if section == "account_password":
+            cur = P.get("current_password", "")
+            new = P.get("new_password", "").strip()
+            cnf = P.get("confirm_password", "").strip()
+            if not request.user.check_password(cur):
+                messages.error(request, "Current password is incorrect.")
+            elif len(new) < 6:
+                messages.error(request, "New password must be at least 6 characters.")
+            elif new != cnf:
+                messages.error(request, "Passwords do not match.")
+            else:
+                request.user.set_password(new)
+                request.user.save()
+                messages.success(request, "Password changed. Please log in again.")
+                return redirect("/admin-login")
+            return redirect("/admin-panel/settings?tab=account")
+
+        if section == "payments":
+            known = ["key_id", "key_secret", "webhook_secret", "environment", "enabled"]
+            secret_keys = {"key_secret", "webhook_secret"}
+            for key in known:
+                value = P.get(key, "").strip()
+                IntegrationConfig.set_value("RAZORPAY", key, value, key in secret_keys)
+            messages.success(request, "Razorpay settings saved.")
+            return redirect("/admin-panel/settings?tab=payments")
+
+        if section == "integrations":
+            known = ["cloud_name", "api_key", "api_secret", "folder",
+                     "upload_preset", "max_size_mb", "allowed_types", "enabled"]
+            secret_keys = {"api_secret"}
+            for key in known:
+                value = P.get(key, "").strip()
+                IntegrationConfig.set_value("CLOUDINARY", key, value, key in secret_keys)
+            messages.success(request, "Cloudinary settings saved.")
+            return redirect("/admin-panel/settings?tab=integrations")
+
+        if section == "team_add":
+            email    = P.get("email", "").strip().lower()
+            fname    = P.get("first_name", "").strip()
+            lname    = P.get("last_name", "").strip()
+            password = P.get("password", "").strip()
+            if not email or not password:
+                messages.error(request, "Email and password are required.")
+            elif _User.objects.filter(email=email).exists():
+                messages.error(request, "An account with this email already exists.")
+            else:
+                _User.objects.create_superuser(
+                    email=email, password=password,
+                    first_name=fname or None, last_name=lname or None,
+                )
+                messages.success(request, f"Team member {email} added.")
+            return redirect("/admin-panel/settings?tab=team")
+
+        if section == "team_toggle":
+            uid = P.get("user_id")
+            member = get_object_or_404(_User, pk=uid, user_type=_UT.ADMIN)
+            if member.pk == request.user.pk:
+                messages.error(request, "You cannot disable your own account.")
+            else:
+                from accounts.models import Status as _St
+                member.status = _St.INACTIVE if member.status == _St.ACTIVE else _St.ACTIVE
+                member.save(update_fields=["status"])
+                messages.success(request, f"Account {'disabled' if member.status == _St.INACTIVE else 'enabled'}.")
+            return redirect("/admin-panel/settings?tab=team")
+
+        messages.warning(request, "Unknown settings section.")
+        return redirect(f"/admin-panel/settings?tab={tab}")
+
+    # ── GET ──
+    cfg = SiteSettings.get()
+
+    def _ic(integration, key, default=""):
+        return IntegrationConfig.get(integration, key, default)
+
+    rz = {
+        "key_id":         _ic("RAZORPAY", "key_id"),
+        "key_secret":     _ic("RAZORPAY", "key_secret"),
+        "webhook_secret": _ic("RAZORPAY", "webhook_secret"),
+        "environment":    _ic("RAZORPAY", "environment", "test"),
+        "enabled":        _ic("RAZORPAY", "enabled", "false") == "true",
+    }
+    cl = {
+        "cloud_name":    _ic("CLOUDINARY", "cloud_name"),
+        "api_key":       _ic("CLOUDINARY", "api_key"),
+        "api_secret":    _ic("CLOUDINARY", "api_secret"),
+        "folder":        _ic("CLOUDINARY", "folder", "products"),
+        "upload_preset": _ic("CLOUDINARY", "upload_preset"),
+        "max_size_mb":   _ic("CLOUDINARY", "max_size_mb", "5"),
+        "allowed_types": _ic("CLOUDINARY", "allowed_types", "jpg,jpeg,png,webp"),
+        "enabled":       _ic("CLOUDINARY", "enabled", "false") == "true",
+    }
+    team = list(_User.objects.filter(user_type=_UT.ADMIN).order_by("first_name", "email"))
+
+    return render(request, "panel/settings.html", _ctx(
+        "/admin-panel/settings",
+        cfg=cfg, tab=tab, rz=rz, cl=cl, team=team,
+    ))
 
 
 # --------------------------------------------------------------------------- #
@@ -1071,10 +1689,13 @@ def archived_products(request):
         ids = request.POST.getlist("product_ids")
         if ids:
             if action == "restore":
-                Product.objects.filter(pk__in=ids).update(status=Status.ACTIVE)
+                Product.objects.filter(pk__in=ids).update(
+                    status=Status.ACTIVE, position=next_position(Product)
+                )
                 messages.success(request, f"Restored {len(ids)} product(s).")
             elif action == "delete":
                 Product.objects.filter(pk__in=ids).delete()
+                repack_positions(Product)
                 messages.success(request, f"Permanently deleted {len(ids)} product(s).")
         return redirect("/admin-panel/products/archived")
 
@@ -1096,7 +1717,8 @@ def product_restore(request, pk):
         return redirect("/admin-panel/products?show=archived")
     product = get_object_or_404(Product, pk=pk)
     product.status = Status.ACTIVE
-    product.save(update_fields=["status"])
+    product.position = next_position(Product)
+    product.save(update_fields=["status", "position"])
     messages.success(request, f"'{product.name}' restored to active.")
     return redirect("/admin-panel/products?show=archived")
 
@@ -1249,13 +1871,11 @@ def product_import(request):
 
 
 # --------------------------------------------------------------------------- #
-# Media / image upload (Firebase → local fallback)
+# Media / image upload (Cloudinary only — no local fallback)
 # --------------------------------------------------------------------------- #
 @admin_required
 def media_upload(request):
     import json as _json
-    from django.core.files.storage import default_storage
-    from django.core.files.base import ContentFile
 
     if request.method != "POST":
         return HttpResponse(status=405)
@@ -1292,19 +1912,16 @@ def media_upload(request):
     unique_name = f"{_uuid.uuid4().hex}.{ext}"
     file_bytes = f.read()
 
-    # Try Cloudinary first
     from core.cloudinary_storage import upload_file as cl_upload
     url, err = cl_upload(file_bytes, unique_name, f.content_type)
     if url:
-        return HttpResponse(_json.dumps({"url": url, "storage": "cloudinary"}),
+        return HttpResponse(_json.dumps({"url": url}),
                             content_type="application/json")
 
-    # Fallback to local MEDIA_ROOT
-    path = default_storage.save(f"products/{unique_name}", ContentFile(file_bytes))
-    from django.conf import settings as django_settings
-    url = request.build_absolute_uri(django_settings.MEDIA_URL + path)
-    return HttpResponse(_json.dumps({"url": url, "storage": "local"}),
-                        content_type="application/json")
+    return HttpResponse(
+        _json.dumps({"error": err or "Cloud storage is not configured. Please enable Cloudinary in Settings → Integrations."}),
+        content_type="application/json", status=503,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -1316,7 +1933,7 @@ def integrations_view(request):
 
     if request.method == "POST":
         integration = request.POST.get("integration", "").upper()
-        if integration not in ("RAZORPAY", "CLOUDINARY"):
+        if integration not in ("RAZORPAY", "CLOUDINARY", "EMAIL", "SMS"):
             messages.error(request, "Unknown integration.")
             return redirect("/admin-panel/integrations")
 
@@ -1325,8 +1942,10 @@ def integrations_view(request):
             "RAZORPAY":   ["key_id", "key_secret", "webhook_secret", "environment", "enabled"],
             "CLOUDINARY": ["cloud_name", "api_key", "api_secret", "folder", "upload_preset",
                            "max_size_mb", "allowed_types", "enabled"],
+            "EMAIL":      ["host", "port", "username", "password", "use_tls", "from_email", "enabled"],
+            "SMS":        ["provider", "api_key", "account_sid", "sender_id", "enabled"],
         }
-        secret_keys = {"key_secret", "webhook_secret", "api_secret"}
+        secret_keys = {"key_secret", "webhook_secret", "api_secret", "password", "api_key"}
 
         for key in known_keys[integration]:
             value = request.POST.get(key, "").strip()
@@ -1358,6 +1977,22 @@ def integrations_view(request):
             "allowed_types":  cfg("CLOUDINARY", "allowed_types", "jpg,jpeg,png,webp,gif"),
             "enabled":        cfg("CLOUDINARY", "enabled", "false") == "true",
         },
+        "em": {
+            "host":       cfg("EMAIL", "host", ""),
+            "port":       cfg("EMAIL", "port", "587"),
+            "username":   cfg("EMAIL", "username", ""),
+            "password":   cfg("EMAIL", "password", ""),
+            "use_tls":    cfg("EMAIL", "use_tls", "true") == "true",
+            "from_email": cfg("EMAIL", "from_email", ""),
+            "enabled":    cfg("EMAIL", "enabled", "false") == "true",
+        },
+        "sm": {
+            "provider":    cfg("SMS", "provider", "fast2sms"),
+            "api_key":     cfg("SMS", "api_key", ""),
+            "account_sid": cfg("SMS", "account_sid", ""),
+            "sender_id":   cfg("SMS", "sender_id", ""),
+            "enabled":     cfg("SMS", "enabled", "false") == "true",
+        },
     }
     return render(request, "panel/integrations.html",
                   _ctx("/admin-panel/integrations", **ctx))
@@ -1375,6 +2010,10 @@ def integration_test(request, integration):
         ok, msg = test_connection()
     elif integration == "RAZORPAY":
         ok, msg = _test_razorpay()
+    elif integration == "EMAIL":
+        ok, msg = _test_email()
+    elif integration == "SMS":
+        ok, msg = _test_sms()
     else:
         ok, msg = False, "Unknown integration."
 
@@ -1401,6 +2040,90 @@ def _test_razorpay():
         if "401" in err or "authentication" in err.lower():
             return False, "Authentication failed — check your Key ID and Key Secret."
         return False, f"Connection error: {err}"
+
+
+def _test_email():
+    from store.models import IntegrationConfig
+    host       = IntegrationConfig.get("EMAIL", "host", "")
+    port       = IntegrationConfig.get("EMAIL", "port", "587")
+    username   = IntegrationConfig.get("EMAIL", "username", "")
+    password   = IntegrationConfig.get("EMAIL", "password", "")
+    use_tls    = IntegrationConfig.get("EMAIL", "use_tls", "true") == "true"
+    from_email = IntegrationConfig.get("EMAIL", "from_email", "") or username
+    if not host or not username:
+        return False, "SMTP host and username are required."
+    try:
+        from django.core.mail import get_connection
+        conn = get_connection(
+            backend="django.core.mail.backends.smtp.EmailBackend",
+            host=host, port=int(port or "587"),
+            username=username, password=password,
+            use_tls=use_tls, fail_silently=False,
+        )
+        conn.open()
+        conn.close()
+        return True, f"SMTP connection successful ({username} via {host}:{port})"
+    except Exception as e:
+        err = str(e)
+        if "authentication" in err.lower() or "535" in err or "534" in err:
+            return False, "Authentication failed — check your username and password (or App Password for Gmail)."
+        if "timed out" in err.lower() or "connection refused" in err.lower():
+            return False, f"Cannot reach {host}:{port} — check host, port, and firewall."
+        return False, f"SMTP error: {err}"
+
+
+def _test_sms():
+    from store.models import IntegrationConfig
+    provider    = IntegrationConfig.get("SMS", "provider", "")
+    api_key     = IntegrationConfig.get("SMS", "api_key", "")
+    account_sid = IntegrationConfig.get("SMS", "account_sid", "")
+    if not provider or not api_key:
+        return False, "Provider and API Key are required."
+    try:
+        import requests as _req
+
+        if provider == "fast2sms":
+            resp = _req.get(
+                "https://www.fast2sms.com/dev/wallet",
+                headers={"authorization": api_key, "cache-control": "no-cache"},
+                timeout=10,
+            )
+            data = resp.json()
+            if data.get("return"):
+                bal = data.get("wallet", {}).get("wallet", "?")
+                return True, f"Fast2SMS connected. Wallet balance: ₹{bal}"
+            msg = data.get("message", "Authentication failed")
+            return False, (msg[0] if isinstance(msg, list) else str(msg))
+
+        elif provider == "msg91":
+            resp = _req.get(
+                "https://api.msg91.com/api/balance.php",
+                params={"authkey": api_key, "type": "json"},
+                timeout=10,
+            )
+            data = resp.json()
+            if "Balance" in data:
+                return True, f"MSG91 connected. SMS balance: {data['Balance']}"
+            return False, data.get("message", "Authentication failed")
+
+        elif provider == "twilio":
+            if not account_sid:
+                return False, "Account SID is required for Twilio."
+            import base64
+            creds = base64.b64encode(f"{account_sid}:{api_key}".encode()).decode()
+            resp = _req.get(
+                f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}.json",
+                headers={"Authorization": f"Basic {creds}"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return True, f"Twilio connected. Account: {data.get('friendly_name', account_sid)}"
+            return False, resp.json().get("message", "Authentication failed")
+
+        return False, f"Unknown provider: {provider}"
+    except Exception as e:
+        return False, f"Connection error: {e}"
 
 
 # --------------------------------------------------------------------------- #
@@ -1524,9 +2247,12 @@ def combo_edit(request, pk=None):
             messages.error(request, "Combo name is required.")
             return redirect(request.path)
 
-        if not combo:
+        is_new = not combo
+        if is_new:
             combo = ComboPackage()
             combo.code = gen_code("CMB")
+        else:
+            old_pos = combo.position
 
         combo.name              = name
         combo.slug              = slugify(name)
@@ -1547,13 +2273,27 @@ def combo_edit(request, pk=None):
         combo.available_until   = request.POST.get("available_until") or None
         combo.max_qty_per_order = int(request.POST.get("max_qty_per_order", "10") or "10")
 
+        raw_pos = request.POST.get("position", "").strip()
+        new_pos = int(raw_pos) if raw_pos.isdigit() else (
+            next_position(ComboPackage) if is_new else old_pos
+        )
+        combo.position = new_pos
+
         base_slug = combo.slug
         counter = 1
         while ComboPackage.objects.filter(slug=combo.slug).exclude(pk=combo.pk or 0).exists():
             combo.slug = f"{base_slug}-{counter}"
             counter += 1
 
-        combo.save()
+        if is_new:
+            with transaction.atomic():
+                if ComboPackage.objects.filter(position=new_pos).exists():
+                    insert_at_position(ComboPackage, new_pos)
+                combo.save()
+        else:
+            combo.save()
+            if new_pos != old_pos:
+                move_to_position(ComboPackage, combo.pk, new_pos, old_pos)
 
         variant_ids = request.POST.getlist("item_variant_id")
         quantities  = request.POST.getlist("item_qty")
@@ -1593,6 +2333,7 @@ def combo_edit(request, pk=None):
             ("28", "28%"),
         ],
         "status_choices": ComboPackage.Status.choices,
+        "next_pos":       next_position(ComboPackage) if not combo else None,
     })
 
 
@@ -1601,6 +2342,7 @@ def combo_delete(request, pk):
     combo = get_object_or_404(ComboPackage, pk=pk)
     name = combo.name
     combo.delete()
+    repack_positions(ComboPackage)
     messages.success(request, f'Combo "{name}" deleted.')
     return redirect("/admin-panel/combos")
 
@@ -1631,17 +2373,30 @@ def reviews_list(request):
         action = request.POST.get("action", "")
         ids = request.POST.getlist("ids")
         if ids:
+            affected = list(Review.objects.filter(pk__in=ids).select_related("user", "product"))
             if action == "delete":
                 Review.objects.filter(pk__in=ids).delete()
                 messages.success(request, f"Deleted {len(ids)} review(s).")
             elif action == "approve":
-                Review.objects.filter(pk__in=ids).update(status=ReviewStatus.APPROVED)
+                Review.objects.filter(pk__in=ids).update(status=ReviewStatus.APPROVED, is_flagged=False)
+                for r in affected:
+                    Notification.objects.create(
+                        user=r.user,
+                        title="Your review has been approved",
+                        message=f"Your review for \"{r.product.name}\" is now live. Thank you!",
+                    )
                 messages.success(request, f"Approved {len(ids)} review(s).")
             elif action == "reject":
                 Review.objects.filter(pk__in=ids).update(status=ReviewStatus.REJECTED)
+                for r in affected:
+                    Notification.objects.create(
+                        user=r.user,
+                        title="Your review was not approved",
+                        message=f"Unfortunately your review for \"{r.product.name}\" did not meet our guidelines and was not published.",
+                    )
                 messages.success(request, f"Rejected {len(ids)} review(s).")
             elif action == "unflag":
-                Review.objects.filter(pk__in=ids).update(is_flagged=False)
+                Review.objects.filter(pk__in=ids).update(is_flagged=False, flag_reason="")
                 messages.success(request, f"Unflagged {len(ids)} review(s).")
         return redirect("/admin-panel/reviews")
 
@@ -1709,14 +2464,18 @@ def reviews_list(request):
     else:
         avg_response_hrs = 0
 
+    # Pending count (always global, not period-restricted)
+    pending_count = Review.objects.filter(status=ReviewStatus.PENDING).count()
+
     # Filters
     q = request.GET.get("q", "").strip()
     product_filter = request.GET.get("product", "")
     rating_filter = request.GET.get("rating", "")
     reply_filter = request.GET.get("replied", "")
+    status_filter = request.GET.get("status", "")
     sort = request.GET.get("sort", "-created_at")
 
-    qs = period_qs.select_related("user", "product")
+    qs = period_qs.select_related("user", "product").prefetch_related("images")
 
     if q:
         qs = qs.filter(
@@ -1737,6 +2496,12 @@ def reviews_list(request):
         qs = qs.filter(reply="")
     elif reply_filter == "flagged":
         qs = qs.filter(is_flagged=True)
+
+    if status_filter in ("PENDING", "APPROVED", "REJECTED", "FLAGGED"):
+        if status_filter == "FLAGGED":
+            qs = qs.filter(is_flagged=True)
+        else:
+            qs = qs.filter(status=status_filter)
 
     sort_map = {
         "-created_at": "-created_at",
@@ -1774,12 +2539,14 @@ def reviews_list(request):
         "breakdown_list": breakdown_list,
         "response_rate": response_rate,
         "pending_replies": pending_replies,
+        "pending_count": pending_count,
         "flagged_count": flagged_count,
         "avg_response_hrs": avg_response_hrs,
         "q": q,
         "product_filter": product_filter,
         "rating_filter": rating_filter,
         "reply_filter": reply_filter,
+        "status_filter": status_filter,
         "sort": sort,
         "products_with_reviews": products_with_reviews,
     })
@@ -1805,6 +2572,45 @@ def review_reply(request, pk):
 
 
 @admin_required
+def review_approve(request, pk):
+    if request.method != "POST":
+        return redirect("/admin-panel/reviews")
+    review = get_object_or_404(Review, pk=pk)
+    review.status = ReviewStatus.APPROVED
+    review.is_flagged = False
+    review.save(update_fields=["status", "is_flagged"])
+    Notification.objects.create(
+        user=review.user,
+        title="Your review has been approved",
+        message=f"Your review for \"{review.product.name}\" is now live. Thank you!",
+    )
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        from django.http import JsonResponse
+        return JsonResponse({"ok": True})
+    messages.success(request, "Review approved.")
+    return redirect(request.POST.get("next", "/admin-panel/reviews"))
+
+
+@admin_required
+def review_reject(request, pk):
+    if request.method != "POST":
+        return redirect("/admin-panel/reviews")
+    review = get_object_or_404(Review, pk=pk)
+    review.status = ReviewStatus.REJECTED
+    review.save(update_fields=["status"])
+    Notification.objects.create(
+        user=review.user,
+        title="Your review was not approved",
+        message=f"Your review for \"{review.product.name}\" did not meet our guidelines and was not published.",
+    )
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        from django.http import JsonResponse
+        return JsonResponse({"ok": True})
+    messages.success(request, "Review rejected.")
+    return redirect(request.POST.get("next", "/admin-panel/reviews"))
+
+
+@admin_required
 def review_flag(request, pk):
     from django.http import JsonResponse
 
@@ -1812,9 +2618,19 @@ def review_flag(request, pk):
         return JsonResponse({"error": "Method not allowed"}, status=405)
 
     review = get_object_or_404(Review, pk=pk)
-    review.is_flagged = not review.is_flagged
-    review.save(update_fields=["is_flagged"])
-
+    reason = request.POST.get("reason", "").strip()
+    if review.is_flagged:
+        review.is_flagged = False
+        review.flag_reason = ""
+    else:
+        review.is_flagged = True
+        review.flag_reason = reason
+        Notification.objects.create(
+            user=review.user,
+            title="Your review has been flagged",
+            message=f"Your review for \"{review.product.name}\" has been flagged for the following reason: {reason or 'Policy violation'}. It is no longer publicly visible.",
+        )
+    review.save(update_fields=["is_flagged", "flag_reason"])
     return JsonResponse({"ok": True, "flagged": review.is_flagged})
 
 
@@ -1934,6 +2750,7 @@ def banner_edit(request, pk=None):
             return redirect(request.path)
 
         if banner:
+            old_pos = banner.position
             banner.name        = name
             banner.description = description
             banner.image       = image
@@ -1942,13 +2759,18 @@ def banner_edit(request, pk=None):
             banner.position    = position
             banner.status      = status_val
             banner.save()
+            if position != old_pos:
+                move_to_position(Banner, banner.pk, position, old_pos)
             messages.success(request, f'Banner "{name}" updated.')
         else:
-            Banner.objects.create(
-                name=name, description=description, image=image,
-                video_url=video_url or None, type=btype,
-                position=position, status=status_val,
-            )
+            with transaction.atomic():
+                if Banner.objects.filter(position=position).exists():
+                    insert_at_position(Banner, position)
+                Banner.objects.create(
+                    name=name, description=description, image=image,
+                    video_url=video_url or None, type=btype,
+                    position=position, status=status_val,
+                )
             messages.success(request, f'Banner "{name}" created.')
         return redirect("/admin-panel/banners")
 
@@ -1957,6 +2779,7 @@ def banner_edit(request, pk=None):
         "banner": banner,
         "type_choices": BannerType.choices,
         "status_choices": Status.choices,
+        "next_pos": next_position(Banner) if not banner else None,
     })
 
 
@@ -1965,6 +2788,7 @@ def banner_delete(request, pk):
     banner = get_object_or_404(Banner, pk=pk)
     name = banner.name
     banner.delete()
+    repack_positions(Banner)
     messages.success(request, f'Banner "{name}" deleted.')
     return redirect("/admin-panel/banners")
 
@@ -1981,14 +2805,29 @@ def banner_toggle(request, pk):
 
 
 # --------------------------------------------------------------------------- #
-# Coupons
+# Coupons / Offers
 # --------------------------------------------------------------------------- #
+
+def _coupon_classify(coupons_qs, status_filter, channel_filter, q):
+    """Evaluate all coupons, attach revenue + status_tag, apply filters."""
+    from django.db.models import Sum as _Sum
+    qs = coupons_qs.annotate(revenue=_Sum("coupon_orders__grand_total"))
+    if q:
+        qs = qs.filter(Q(code__icontains=q) | Q(name__icontains=q) | Q(description__icontains=q))
+    all_c = list(qs)
+    if channel_filter:
+        all_c = [c for c in all_c if channel_filter.upper() in c.channel_list]
+    if status_filter in ("active", "scheduled", "expired", "inactive"):
+        tgt = status_filter.capitalize()
+        all_c = [c for c in all_c if c.status_tag == tgt]
+    return all_c
+
 
 @admin_required
 def coupons_list(request):
     if request.method == "POST":
         action = request.POST.get("action", "")
-        ids = request.POST.getlist("ids")
+        ids    = request.POST.getlist("ids")
         if ids:
             if action == "delete":
                 Coupon.objects.filter(pk__in=ids).delete()
@@ -1999,51 +2838,55 @@ def coupons_list(request):
                 Coupon.objects.filter(pk__in=ids).update(is_active=False)
         return redirect("/admin-panel/coupons")
 
-    q            = request.GET.get("q", "").strip()
-    type_filter  = request.GET.get("type", "")
-    status_filter= request.GET.get("status", "")
-    sort         = request.GET.get("sort", "-created_at")
+    q              = request.GET.get("q", "").strip()
+    status_filter  = request.GET.get("status", "").lower()
+    channel_filter = request.GET.get("channel", "")
+    sort           = request.GET.get("sort", "-created_at")
+    sort_map = {"-created_at":"-created_at","created_at":"created_at",
+                "-used_count":"-used_count","code":"code"}
+    base_qs = Coupon.objects.all().order_by(sort_map.get(sort, "-created_at"))
 
-    qs = Coupon.objects.all()
-    if q:
-        qs = qs.filter(Q(code__icontains=q) | Q(description__icontains=q))
-    if type_filter:
-        qs = qs.filter(coupon_type=type_filter)
-    if status_filter == "active":
-        qs = qs.filter(is_active=True)
-    elif status_filter == "inactive":
-        qs = qs.filter(is_active=False)
+    all_coupons = _coupon_classify(base_qs, status_filter, channel_filter, q)
 
-    sort_map = {
-        "-created_at": "-created_at", "created_at": "created_at",
-        "-used_count": "-used_count", "code": "code",
-    }
-    qs = qs.order_by(sort_map.get(sort, "-created_at"))
+    # Stats
+    all_for_stats = list(Coupon.objects.all())
+    stat_active    = sum(1 for c in all_for_stats if c.status_tag == "Active")
+    stat_scheduled = sum(1 for c in all_for_stats if c.status_tag == "Scheduled")
+    stat_expired   = sum(1 for c in all_for_stats if c.status_tag == "Expired")
 
     now = timezone.now()
-    total     = Coupon.objects.count()
-    active    = Coupon.objects.filter(is_active=True).count()
-    expired   = sum(1 for c in Coupon.objects.all() if c.is_expired)
-    total_uses = Coupon.objects.aggregate(s=Sum("used_count"))["s"] or 0
+    month_ago = now - __import__("datetime").timedelta(days=30)
+    revenue_30d = Order.objects.filter(
+        coupon__isnull=False, created_at__gte=month_ago
+    ).aggregate(s=Sum("grand_total"))["s"] or 0
 
-    paginator = Paginator(qs, 15)
+    paginator = Paginator(all_coupons, 10)
     page_obj  = paginator.get_page(request.GET.get("page", 1))
 
+    def _chip(val, label):
+        active_cls = "bg-brand-600 text-white"
+        idle_cls   = "text-gray-600 hover:bg-gray-100"
+        return (val, label, active_cls if status_filter == val else idle_cls)
+
+    status_chips = [
+        _chip("",           "All"),
+        _chip("active",     "Active"),
+        _chip("scheduled",  "Scheduled"),
+        _chip("expired",    "Expired"),
+    ]
+
     return render(request, "panel/coupons.html", {
-        "active_path": "/admin-panel/coupons",
-        "coupons": page_obj,
-        "page_obj": page_obj,
-        "filtered_total": qs.count(),
-        "total": total,
-        "active_count": active,
-        "expired_count": expired,
-        "total_uses": total_uses,
-        "type_choices": CouponType.choices,
-        "q": q,
-        "type_filter": type_filter,
-        "status_filter": status_filter,
-        "sort": sort,
-        "now": now,
+        "active_path":    "/admin-panel/coupons",
+        "coupons":        page_obj,
+        "page_obj":       page_obj,
+        "filtered_total": len(all_coupons),
+        "stat_active":    stat_active,
+        "stat_scheduled": stat_scheduled,
+        "stat_expired":   stat_expired,
+        "revenue_30d":    revenue_30d,
+        "type_choices":   CouponType.choices,
+        "status_chips":   status_chips,
+        "q": q, "status_filter": status_filter, "channel_filter": channel_filter, "sort": sort,
     })
 
 
@@ -2052,60 +2895,61 @@ def coupon_edit(request, pk=None):
     coupon = get_object_or_404(Coupon, pk=pk) if pk else None
 
     if request.method == "POST":
-        code            = request.POST.get("code", "").strip().upper()
-        description     = request.POST.get("description", "").strip()
-        coupon_type     = request.POST.get("coupon_type", CouponType.PERCENT)
+        from django.utils.dateparse import parse_datetime
+
+        code         = request.POST.get("code", "").strip().upper()
+        name         = request.POST.get("name", "").strip()
+        description  = request.POST.get("description", "").strip()
+        coupon_type  = request.POST.get("coupon_type", CouponType.PERCENT)
+        channels_raw = request.POST.getlist("channels")
+        channels     = ",".join(channels_raw) if channels_raw else "WEBSITE"
+
         try:
             discount_value  = float(request.POST.get("discount_value", 0) or 0)
             min_order_value = float(request.POST.get("min_order_value", 0) or 0)
             max_uses        = int(request.POST.get("max_uses", 0) or 0)
+            per_user_limit  = int(request.POST.get("per_user_limit", 0) or 0)
         except ValueError:
             discount_value = min_order_value = 0
-            max_uses = 0
+            max_uses = per_user_limit = 0
 
         max_disc_raw = request.POST.get("max_discount", "").strip()
         max_discount = float(max_disc_raw) if max_disc_raw else None
 
-        valid_from_raw  = request.POST.get("valid_from", "").strip()
-        valid_until_raw = request.POST.get("valid_until", "").strip()
-        from django.utils.dateparse import parse_datetime
-        valid_from  = parse_datetime(valid_from_raw) if valid_from_raw else None
-        valid_until = parse_datetime(valid_until_raw) if valid_until_raw else None
-
-        is_active = request.POST.get("is_active") == "1"
+        valid_from  = parse_datetime(request.POST.get("valid_from", "").strip()) if request.POST.get("valid_from") else None
+        valid_until = parse_datetime(request.POST.get("valid_until", "").strip()) if request.POST.get("valid_until") else None
+        is_active   = request.POST.get("is_active") == "1"
 
         if not code:
             messages.error(request, "Coupon code is required.")
             return redirect(request.path)
 
+        fields = dict(
+            code=code, name=name, description=description, coupon_type=coupon_type,
+            channels=channels, discount_value=discount_value,
+            min_order_value=min_order_value, max_discount=max_discount,
+            max_uses=max_uses, per_user_limit=per_user_limit,
+            valid_from=valid_from, valid_until=valid_until, is_active=is_active,
+        )
         if coupon:
-            # Check uniqueness (excluding self)
             if Coupon.objects.exclude(pk=coupon.pk).filter(code=code).exists():
                 messages.error(request, f'Code "{code}" is already in use.')
                 return redirect(request.path)
-            coupon.code = code; coupon.description = description
-            coupon.coupon_type = coupon_type; coupon.discount_value = discount_value
-            coupon.min_order_value = min_order_value; coupon.max_discount = max_discount
-            coupon.max_uses = max_uses; coupon.valid_from = valid_from
-            coupon.valid_until = valid_until; coupon.is_active = is_active
+            for k, v in fields.items():
+                setattr(coupon, k, v)
             coupon.save()
-            messages.success(request, f'Coupon "{code}" updated.')
+            messages.success(request, f'Offer "{code}" updated.')
         else:
             if Coupon.objects.filter(code=code).exists():
                 messages.error(request, f'Code "{code}" already exists.')
                 return redirect(request.path)
-            Coupon.objects.create(
-                code=code, description=description, coupon_type=coupon_type,
-                discount_value=discount_value, min_order_value=min_order_value,
-                max_discount=max_discount, max_uses=max_uses,
-                valid_from=valid_from, valid_until=valid_until, is_active=is_active,
-            )
-            messages.success(request, f'Coupon "{code}" created.')
+            Coupon.objects.create(**fields)
+            messages.success(request, f'Offer "{code}" created.')
         return redirect("/admin-panel/coupons")
 
     return render(request, "panel/coupon_form.html", {
-        "active_path": "/admin-panel/coupons",
-        "coupon": coupon,
+        "active_path":  "/admin-panel/coupons",
+        "coupon":       coupon,
         "type_choices": CouponType.choices,
     })
 
@@ -2115,16 +2959,573 @@ def coupon_delete(request, pk):
     coupon = get_object_or_404(Coupon, pk=pk)
     code = coupon.code
     coupon.delete()
-    messages.success(request, f'Coupon "{code}" deleted.')
+    messages.success(request, f'Offer "{code}" deleted.')
+    return redirect("/admin-panel/coupons")
+
+
+@admin_required
+def coupon_duplicate(request, pk):
+    src = get_object_or_404(Coupon, pk=pk)
+    new_code = src.code + "_COPY"
+    i = 1
+    while Coupon.objects.filter(code=new_code).exists():
+        new_code = f"{src.code}_COPY{i}"; i += 1
+    Coupon.objects.create(
+        code=new_code, name=src.name,
+        description=src.description, coupon_type=src.coupon_type,
+        channels=src.channels, discount_value=src.discount_value,
+        min_order_value=src.min_order_value, max_discount=src.max_discount,
+        max_uses=src.max_uses, per_user_limit=src.per_user_limit,
+        valid_from=src.valid_from, valid_until=src.valid_until,
+        is_active=False,
+    )
+    messages.success(request, f'Offer duplicated as "{new_code}" (inactive by default).')
     return redirect("/admin-panel/coupons")
 
 
 @admin_required
 def coupon_toggle(request, pk):
-    from django.http import JsonResponse
     coupon = get_object_or_404(Coupon, pk=pk)
     coupon.is_active = not coupon.is_active
     coupon.save(update_fields=["is_active"])
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return JsonResponse({"ok": True, "active": coupon.is_active})
+        return _JsonResponse({"ok": True, "active": coupon.is_active,
+                              "status": coupon.status_tag})
     return redirect("/admin-panel/coupons")
+
+
+@admin_required
+def coupon_detail(request, pk):
+    coupon = get_object_or_404(Coupon, pk=pk)
+    orders_qs = (Order.objects.filter(coupon=coupon)
+                 .select_related("user").order_by("-created_at"))
+    order_count  = orders_qs.count()
+    total_rev    = orders_qs.aggregate(s=Sum("grand_total"))["s"] or 0
+    total_saved  = orders_qs.aggregate(s=Sum("coupon_discount"))["s"] or 0
+    conv_rate    = round(coupon.used_count / max(coupon.max_uses, coupon.used_count, 1) * 100) \
+                   if coupon.max_uses > 0 else 0
+
+    paginator   = Paginator(orders_qs, 10)
+    orders_page = paginator.get_page(request.GET.get("page", 1))
+
+    return render(request, "panel/coupon_detail.html", {
+        "active_path":  "/admin-panel/coupons",
+        "coupon":       coupon,
+        "orders":       orders_page,
+        "orders_page":  orders_page,
+        "order_count":  order_count,
+        "total_rev":    total_rev,
+        "total_saved":  total_saved,
+        "conv_rate":    conv_rate,
+    })
+
+
+def coupon_validate_api(request):
+    """Public AJAX endpoint — validates a coupon code against a cart total."""
+    if request.method != "POST":
+        return _JsonResponse({"valid": False, "error": "Method not allowed"}, status=405)
+
+    code       = request.POST.get("code", "").strip().upper()
+    try:
+        cart_total = float(request.POST.get("cart_total", 0) or 0)
+    except ValueError:
+        cart_total = 0
+
+    try:
+        coupon = Coupon.objects.get(code=code)
+    except Coupon.DoesNotExist:
+        return _JsonResponse({"valid": False, "error": "Invalid coupon code."})
+
+    tag = coupon.status_tag
+    if tag == "Inactive":
+        return _JsonResponse({"valid": False, "error": "This coupon is inactive."})
+    if tag == "Scheduled":
+        return _JsonResponse({"valid": False, "error": "This coupon is not active yet."})
+    if tag == "Expired":
+        return _JsonResponse({"valid": False, "error": "This coupon has expired."})
+
+    if cart_total < coupon.min_order_value:
+        return _JsonResponse({
+            "valid": False,
+            "error": f"Minimum cart value of ₹{coupon.min_order_value:.0f} required."
+        })
+
+    discount = coupon.compute_discount(cart_total)
+    return _JsonResponse({
+        "valid": True,
+        "code":       coupon.code,
+        "name":       coupon.name or coupon.code,
+        "type":       coupon.coupon_type,
+        "discount":   discount,
+        "free_ship":  coupon.coupon_type == CouponType.FREE_SHIPPING,
+        "message":    f'"{coupon.code}" applied! You save ₹{discount:.0f}.',
+    })
+
+
+# ============================================================================ #
+#  CMS â€” Content Management System                                              #
+# ============================================================================ #
+
+_CMS_PAGES = [
+    ("ABOUT_US", "About Us",               "/about-us",         "about"),
+    ("TERMS",    "Terms & Conditions",      "/terms",            "terms"),
+    ("PRIVACY",  "Privacy Policy",          "/privacy-policy",   "privacy"),
+    ("SHIPPING", "Shipping Policy",         "/shipping-policy",  "shipping"),
+    ("RETURNS",  "Return & Refund Policy",  "/returns",          "returns"),
+    ("CONTACT",  "Contact Us",              "/help-support",     "contact"),
+]
+
+
+@admin_required
+def cms_dashboard(request):
+    pages = {p.type: p for p in Policy.objects.all()}
+    cards = []
+    for ptype, label, url, icon in _CMS_PAGES:
+        p = pages.get(ptype)
+        cards.append({
+            "type":       ptype,
+            "label":      label,
+            "url":        url,
+            "icon":       icon,
+            "published":  p.is_published if p else False,
+            "updated_at": p.updated_at if p else None,
+        })
+    faq_count      = Faq.objects.count()
+    enquiry_unread = Enquiry.objects.filter(is_read=False).count()
+    team_count     = TeamMember.objects.count()
+    return render(request, "panel/cms_index.html",
+                  _ctx("/admin-panel/cms",
+                       cards=cards,
+                       faq_count=faq_count,
+                       enquiry_unread=enquiry_unread,
+                       team_count=team_count))
+
+
+@admin_required
+def cms_page_edit(request, page_type):
+    page_type = page_type.upper()
+    label = dict((k, v) for k, v, *_ in _CMS_PAGES).get(page_type, page_type)
+
+    page, _ = Policy.objects.get_or_create(
+        type=page_type,
+        defaults={"title": label, "content": ""}
+    )
+
+    if request.method == "POST":
+        action = request.POST.get("action", "save")
+        if page.content:
+            CMSRevision.objects.create(
+                page_type=page_type,
+                title=page.title,
+                content=page.content,
+                saved_by=request.user,
+                note=f"Auto-snapshot before {action}",
+            )
+        page.title            = request.POST.get("title", page.title).strip()
+        page.content          = request.POST.get("content", "")
+        page.meta_title       = request.POST.get("meta_title", "").strip()
+        page.meta_description = request.POST.get("meta_description", "").strip()
+        page.meta_keywords    = request.POST.get("meta_keywords", "").strip()
+        page.is_published     = (action == "publish")
+        og_file = request.FILES.get("og_image")
+        if og_file:
+            from core.cloudinary_storage import upload_file as _cl_up
+            url, err = _cl_up(og_file.read(), og_file.name, og_file.content_type)
+            if url:
+                page.og_image = url
+            else:
+                messages.warning(request, f"OG image upload failed: {err or 'Cloud storage is not configured.'}")
+        page.save()
+        verb = "Published" if page.is_published else "Saved as draft"
+        messages.success(request, f"{verb} â€” {page.title}")
+        return redirect(f"/admin-panel/cms/page/{page_type.lower()}")
+
+    revisions = CMSRevision.objects.filter(page_type=page_type)[:10]
+    return render(request, "panel/cms_page_edit.html",
+                  _ctx("/admin-panel/cms",
+                       page=page,
+                       page_type=page_type,
+                       label=label,
+                       revisions=revisions))
+
+
+@admin_required
+def cms_revision_restore(request, pk):
+    rev  = get_object_or_404(CMSRevision, pk=pk)
+    page, _ = Policy.objects.get_or_create(
+        type=rev.page_type, defaults={"title": rev.title, "content": ""}
+    )
+    CMSRevision.objects.create(
+        page_type=rev.page_type, title=page.title, content=page.content,
+        saved_by=request.user, note="Auto-snapshot before restore"
+    )
+    page.title   = rev.title
+    page.content = rev.content
+    page.save()
+    messages.success(request, "Revision restored.")
+    return redirect(f"/admin-panel/cms/page/{rev.page_type.lower()}")
+
+
+# â”€â”€ FAQ Manager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@admin_required
+def cms_faq(request):
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+
+        if action == "add_category":
+            name = request.POST.get("name", "").strip()
+            if name:
+                pos = (FaqCategory.objects.aggregate(m=Max("position"))["m"] or 0) + 1
+                FaqCategory.objects.create(name=name, position=pos)
+            messages.success(request, "Category added.")
+            return redirect("/admin-panel/cms/faq")
+
+        if action == "add_faq":
+            cat_id   = request.POST.get("category_id") or None
+            question = request.POST.get("question", "").strip()
+            answer   = request.POST.get("answer", "").strip()
+            if question and answer:
+                pos = (Faq.objects.aggregate(m=Max("position"))["m"] or 0) + 1
+                Faq.objects.create(
+                    category_id=cat_id,
+                    question=question,
+                    answer=answer,
+                    position=pos,
+                )
+            messages.success(request, "FAQ added.")
+            return redirect("/admin-panel/cms/faq")
+
+        if action == "edit_faq":
+            faq = get_object_or_404(Faq, pk=request.POST.get("pk"))
+            faq.question    = request.POST.get("question", faq.question).strip()
+            faq.answer      = request.POST.get("answer", faq.answer).strip()
+            faq.category_id = request.POST.get("category_id") or None
+            faq.save()
+            messages.success(request, "FAQ updated.")
+            return redirect("/admin-panel/cms/faq")
+
+        if action == "toggle_faq":
+            faq = get_object_or_404(Faq, pk=request.POST.get("pk"))
+            from accounts.models import Status as _S
+            faq.status = _S.INACTIVE if faq.status == _S.ACTIVE else _S.ACTIVE
+            faq.save()
+            return redirect("/admin-panel/cms/faq")
+
+        if action == "delete_faq":
+            Faq.objects.filter(pk=request.POST.get("pk")).delete()
+            repack_positions(Faq)
+            messages.success(request, "FAQ deleted.")
+            return redirect("/admin-panel/cms/faq")
+
+        if action == "delete_category":
+            FaqCategory.objects.filter(pk=request.POST.get("pk")).delete()
+            repack_positions(FaqCategory)
+            messages.success(request, "Category deleted.")
+            return redirect("/admin-panel/cms/faq")
+
+    cats = FaqCategory.objects.filter(is_active=True).prefetch_related("items")
+    faqs = Faq.objects.select_related("category").order_by("position")
+    return render(request, "panel/cms_faq.html",
+                  _ctx("/admin-panel/cms/faq", cats=cats, faqs=faqs))
+
+
+@admin_required
+def cms_faq_reorder(request):
+    if request.method == "POST":
+        import json as _json
+        from django.http import JsonResponse as _JR
+        try:
+            order = _json.loads(request.body).get("order", [])
+            for pos, pk in enumerate(order):
+                Faq.objects.filter(pk=pk).update(position=pos)
+        except Exception:
+            pass
+        return _JR({"ok": True})
+    return redirect("/admin-panel/cms/faq")
+
+
+# â”€â”€ About Us â€” rich content + team members â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@admin_required
+def cms_about(request):
+    if request.method == "POST":
+        action = request.POST.get("action", "")
+
+        if action == "save_content":
+            page, _ = Policy.objects.get_or_create(
+                type=PolicyType.ABOUT_US, defaults={"title": "About Us", "content": ""}
+            )
+            if page.content:
+                CMSRevision.objects.create(
+                    page_type="ABOUT_US", title=page.title, content=page.content,
+                    saved_by=request.user, note="Auto-snapshot"
+                )
+            page.title            = request.POST.get("title", page.title).strip()
+            page.content          = request.POST.get("content", "")
+            page.meta_title       = request.POST.get("meta_title", "").strip()
+            page.meta_description = request.POST.get("meta_description", "").strip()
+            page.is_published     = True
+            page.save()
+            messages.success(request, "About Us content saved.")
+            return redirect("/admin-panel/cms/about")
+
+        if action == "add_member":
+            photo_url = ""
+            photo = request.FILES.get("photo")
+            if photo:
+                from core.cloudinary_storage import upload_file as _cl_up
+                url, err = _cl_up(photo.read(), photo.name, photo.content_type)
+                if url:
+                    photo_url = url
+                else:
+                    messages.warning(request, f"Photo upload failed: {err or 'Cloud storage is not configured.'}")
+            pos = (TeamMember.objects.aggregate(m=Max("position"))["m"] or 0) + 1
+            TeamMember.objects.create(
+                name=request.POST.get("name", "").strip(),
+                role=request.POST.get("role", "").strip(),
+                bio=request.POST.get("bio", "").strip(),
+                photo_url=photo_url,
+                position=pos,
+            )
+            messages.success(request, "Team member added.")
+            return redirect("/admin-panel/cms/about")
+
+        if action == "delete_member":
+            TeamMember.objects.filter(pk=request.POST.get("pk")).delete()
+            repack_positions(TeamMember)
+            messages.success(request, "Team member removed.")
+            return redirect("/admin-panel/cms/about")
+
+        if action == "toggle_member":
+            m = get_object_or_404(TeamMember, pk=request.POST.get("pk"))
+            m.is_active = not m.is_active
+            m.save(update_fields=["is_active"])
+            return redirect("/admin-panel/cms/about")
+
+    page      = Policy.objects.filter(type=PolicyType.ABOUT_US).first()
+    team      = TeamMember.objects.all()
+    revisions = CMSRevision.objects.filter(page_type="ABOUT_US")[:8]
+    return render(request, "panel/cms_about.html",
+                  _ctx("/admin-panel/cms/about", page=page, team=team, revisions=revisions))
+
+
+@admin_required
+def cms_team_reorder(request):
+    if request.method == "POST":
+        import json as _json
+        from django.http import JsonResponse as _JR
+        try:
+            order = _json.loads(request.body).get("order", [])
+            for pos, pk in enumerate(order):
+                TeamMember.objects.filter(pk=pk).update(position=pos)
+        except Exception:
+            pass
+        return _JR({"ok": True})
+    return redirect("/admin-panel/cms/about")
+
+
+# â”€â”€ Enquiry / Contact inbox â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@admin_required
+def cms_enquiries(request):
+    status_f   = request.GET.get("status", "")
+    qs = Enquiry.objects.select_related("user").prefetch_related("replies")
+    if status_f:
+        qs = qs.filter(status=status_f)
+    paginator  = Paginator(qs, 25)
+    page_obj   = paginator.get_page(request.GET.get("page"))
+    unread_cnt = Enquiry.objects.filter(is_read=False).count()
+    return render(request, "panel/cms_enquiries.html",
+                  _ctx("/admin-panel/cms/enquiries",
+                       enquiries=page_obj,
+                       status_f=status_f,
+                       unread_cnt=unread_cnt,
+                       EnquiryStatus=EnquiryStatus))
+
+
+@admin_required
+def cms_enquiry_detail(request, pk):
+    enq = get_object_or_404(Enquiry, pk=pk)
+    if not enq.is_read:
+        enq.is_read = True
+        enq.save(update_fields=["is_read"])
+
+    if request.method == "POST":
+        action = request.POST.get("action", "reply")
+        if action == "reply":
+            msg = request.POST.get("message", "").strip()
+            if msg:
+                EnquiryReply.objects.create(enquiry=enq, message=msg, sent_by=request.user)
+                enq.status = EnquiryStatus.IN_PROGRESS
+                enq.save(update_fields=["status"])
+                messages.success(request, "Reply saved.")
+        elif action == "close":
+            enq.status = EnquiryStatus.CLOSED
+            enq.save(update_fields=["status"])
+            messages.success(request, "Enquiry closed.")
+        elif action == "reopen":
+            enq.status = EnquiryStatus.OPEN
+            enq.save(update_fields=["status"])
+        return redirect(f"/admin-panel/cms/enquiries/{pk}")
+
+    replies = enq.replies.select_related("sent_by").order_by("created_at")
+    return render(request, "panel/cms_enquiry_detail.html",
+                  _ctx(f"/admin-panel/cms/enquiries",
+                       enq=enq,
+                       replies=replies,
+                       EnquiryStatus=EnquiryStatus))
+
+
+# ============================================================================ #
+#  Testimonials admin                                                           #
+# ============================================================================ #
+
+@admin_required
+def testimonials_admin(request):
+    qs = Testimonial.objects.select_related("user", "order").order_by("-created_at")
+    q = request.GET.get("q", "").strip()
+    status_f = request.GET.get("status", "")
+    if q:
+        qs = qs.filter(Q(name__icontains=q) | Q(comment__icontains=q) | Q(title__icontains=q))
+    if status_f:
+        qs = qs.filter(approval_status=status_f)
+    pending_count = Testimonial.objects.filter(approval_status=ReviewStatus.PENDING).count()
+    from django.core.paginator import Paginator
+    page = Paginator(qs, 20).get_page(request.GET.get("page", 1))
+    return render(request, "panel/testimonials.html",
+                  _ctx("/admin-panel/testimonials",
+                       testimonials=page, q=q, status_f=status_f,
+                       pending_count=pending_count,
+                       ReviewStatus=ReviewStatus))
+
+
+@admin_required
+def testimonial_approve(request, pk):
+    t = get_object_or_404(Testimonial, pk=pk)
+    t.approval_status = ReviewStatus.APPROVED
+    t.admin_note = ""
+    t.save(update_fields=["approval_status", "admin_note"])
+    messages.success(request, f"Testimonial by {t.name} approved.")
+    return redirect(request.META.get("HTTP_REFERER", "/admin-panel/testimonials"))
+
+
+@admin_required
+def testimonial_reject(request, pk):
+    t = get_object_or_404(Testimonial, pk=pk)
+    t.approval_status = ReviewStatus.REJECTED
+    t.admin_note = request.POST.get("note", "").strip()
+    t.save(update_fields=["approval_status", "admin_note"])
+    messages.success(request, f"Testimonial by {t.name} rejected.")
+    return redirect(request.META.get("HTTP_REFERER", "/admin-panel/testimonials"))
+
+
+@admin_required
+def testimonial_feature(request, pk):
+    t = get_object_or_404(Testimonial, pk=pk)
+    t.is_featured = not t.is_featured
+    t.save(update_fields=["is_featured"])
+    return redirect(request.META.get("HTTP_REFERER", "/admin-panel/testimonials"))
+
+
+@admin_required
+def testimonial_delete_admin(request, pk):
+    t = get_object_or_404(Testimonial, pk=pk)
+    t.delete()
+    messages.success(request, "Testimonial deleted.")
+    return redirect("/admin-panel/testimonials")
+
+
+@admin_required
+def order_invoice(request, pk):
+    """Standalone print-ready invoice page for an order."""
+    import json as _json
+
+    order = get_object_or_404(
+        Order.objects.select_related("user", "coupon")
+             .prefetch_related("items__product", "items__variant", "items__combo", "refunds"),
+        pk=pk,
+    )
+    cfg = SiteSettings.get()
+
+    try:
+        addr = _json.loads(order.shipping_address)
+    except Exception:
+        addr = {"address": order.shipping_address}
+
+    default_gst = float(cfg.default_gst_rate or 5)
+    show_gst    = cfg.show_gst_in_invoice
+    prices_incl = cfg.prices_inclusive_of_gst
+
+    # Enrich each item with GST figures
+    enriched = []
+    total_gst = 0.0
+    total_taxable = 0.0
+    for it in order.items.all():
+        gst_rate = float(it.combo.gst_rate if it.combo else default_gst)
+        line = float(it.net_total)
+        if prices_incl:
+            gst_amt = round(line * gst_rate / (100 + gst_rate), 2)
+        else:
+            gst_amt = round(line * gst_rate / 100, 2)
+        taxable = round(line - gst_amt if prices_incl else line, 2)
+        total_gst     += gst_amt
+        total_taxable += taxable
+        enriched.append({"item": it, "gst_rate": gst_rate, "gst_amt": gst_amt, "taxable": taxable})
+
+    # Split regular vs combo items
+    combos_map = {}
+    regular_items = []
+    for eitem in enriched:
+        it = eitem["item"]
+        if it.combo_id:
+            if it.combo_id not in combos_map:
+                combos_map[it.combo_id] = {"combo": it.combo, "items": []}
+            combos_map[it.combo_id]["items"].append(eitem)
+        else:
+            regular_items.append(eitem)
+
+    refunds = list(order.refunds.all())
+    total_refunded = sum(r.amount for r in refunds)
+
+    return render(request, "panel/invoice.html", {
+        "order":         order,
+        "addr":          addr,
+        "cfg":           cfg,
+        "regular_items": regular_items,
+        "combos":        list(combos_map.values()),
+        "refunds":       refunds,
+        "total_refunded": round(total_refunded, 2),
+        "show_gst":       show_gst,
+        "prices_incl":    prices_incl,
+        "total_gst":      round(total_gst, 2),
+        "total_taxable":  round(total_taxable, 2),
+        "PaymentMode":    PaymentMode,
+        "OrderStatus":    OrderStatus,
+        "PaymentStatus":  PaymentStatus,
+    })
+
+
+@admin_required
+def admin_change_password(request):
+    if request.method == "POST":
+        current  = request.POST.get("current_password", "")
+        new_pw   = request.POST.get("new_password", "")
+        confirm  = request.POST.get("confirm_password", "")
+
+        if not request.user.check_password(current):
+            messages.error(request, "Current password is incorrect.")
+        elif len(new_pw) < 6:
+            messages.error(request, "New password must be at least 6 characters.")
+        elif new_pw != confirm:
+            messages.error(request, "Passwords do not match.")
+        elif new_pw == current:
+            messages.error(request, "New password must differ from the current one.")
+        else:
+            request.user.set_password(new_pw)
+            request.user.save()
+            update_session_auth_hash(request, request.user)
+            messages.success(request, "Password changed successfully.")
+            return redirect("/admin-panel/change-password")
+
+    return render(request, "panel/change_password.html", _ctx("settings"))

@@ -69,29 +69,29 @@ WSGI_APPLICATION = "spicearog.wsgi.application"
 # out-of-the-box, and switch to MySQL automatically if DATABASE_URL is set to a
 # mysql:// DSN (matching the original Prisma DATABASE_URL env var).
 # ---------------------------------------------------------------------------
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-if DATABASE_URL.startswith("mysql"):
-    # mysql://user:pass@host:port/dbname
-    from urllib.parse import urlparse
-    p = urlparse(DATABASE_URL)
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.mysql",
-            "NAME": p.path.lstrip("/"),
-            "USER": p.username or "root",
-            "PASSWORD": p.password or "",
-            "HOST": p.hostname or "127.0.0.1",
-            "PORT": str(p.port or 3306),
-            "OPTIONS": {"charset": "utf8mb4"},
+# Database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
+        'CONN_MAX_AGE': 60,
+        'OPTIONS': {
+        'options': '-c search_path=public',
+        'connect_timeout': 10
         }
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
+# else:
+#     DATABASES = {
+#         "default": {
+#             "ENGINE": "django.db.backends.sqlite3",
+#             "NAME": BASE_DIR / "db.sqlite3",
+#         }
+#     }
 
 AUTH_USER_MODEL = "accounts.User"
 

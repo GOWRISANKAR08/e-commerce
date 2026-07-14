@@ -3,7 +3,7 @@
 {% block title %}My Orders · {{ SITE_NAME }}{% endblock %}
 {% block content %}
 <section class="mx-auto max-w-5xl px-4 py-10 lg:px-8">
-  <h1 class="font-display text-3xl font-semibold text-ink">My Orders</h1>
+  <h1 class="font-display text-2xl sm:text-3xl font-semibold text-ink">My Orders</h1>
 
   {% if orders %}
     <div class="mt-8 space-y-5">
@@ -25,17 +25,40 @@
               <span class="rounded-full bg-ink/5 px-3 py-1 text-xs font-medium text-ink/60">{{ o.get_payment_mode_display }}</span>
             </div>
           </div>
-          <div class="mt-4 space-y-2">
+          <div class="mt-4 space-y-3">
             {% for it in o.items.all %}
-              <div class="flex items-center justify-between text-sm">
-                <span class="text-ink/80">{{ it.name }} <span class="text-ink/40">({{ it.variant_label }}) × {{ it.qty }}</span></span>
-                <span class="font-medium">{{ it.net_total|inr }}</span>
+              <div class="flex items-center justify-between gap-3 text-sm">
+                <div class="flex items-center gap-3 min-w-0">
+                  {% if it.product %}
+                  <a href="/product/{{ it.product.slug }}" class="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-brand-50">
+                    <img src="{{ it.product.image }}" alt="{{ it.name }}" class="h-full w-full object-cover" onerror="this.style.display='none'" />
+                  </a>
+                  {% endif %}
+                  <span class="text-ink/80 min-w-0 line-clamp-1">{{ it.name }} <span class="text-ink/40">({{ it.variant_label }}) × {{ it.qty }}</span></span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <span class="font-medium">{{ it.net_total|inr }}</span>
+                  {% if o.status == 'DELIVERED' and it.product %}
+                    {% if it.product.id in reviewed_ids %}
+                    <a href="/my-reviews" class="rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700 whitespace-nowrap">✓ Reviewed</a>
+                    {% else %}
+                    <a href="/product/{{ it.product.slug }}#write-review"
+                       class="rounded-full border border-gold-500 bg-gold-400/10 px-2.5 py-1 text-[10px] font-bold text-ink whitespace-nowrap hover:bg-gold-400/20 transition">✏️ Review</a>
+                    {% endif %}
+                  {% endif %}
+                </div>
               </div>
             {% endfor %}
           </div>
-          <div class="mt-4 flex items-center justify-between border-t border-black/5 pt-3">
+          <div class="mt-4 flex items-center justify-between border-t border-black/5 pt-3 gap-3 flex-wrap">
             <span class="text-sm text-ink/60">Payment: {{ o.get_payment_status_display }}</span>
-            <span class="font-display text-lg font-bold text-brand-700">{{ o.grand_total|inr }}</span>
+            <div class="flex items-center gap-3">
+              <span class="font-display text-lg font-bold text-brand-700">{{ o.grand_total|inr }}</span>
+              <a href="/orders/{{ o.order_id }}"
+                 class="rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 hover:bg-brand-100 transition">
+                View Details →
+              </a>
+            </div>
           </div>
         </div>
       {% endfor %}

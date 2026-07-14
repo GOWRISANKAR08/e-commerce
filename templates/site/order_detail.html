@@ -1,0 +1,661 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Order {{ order.order_id }} · {{ SITE_NAME }}{% endblock %}
+
+{% block styles %}
+<style>
+/* ── Progress stepper ── */
+.step-line { flex:1; height:3px; transition:background .3s; }
+.step-circle {
+  width:32px; height:32px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.7rem; font-weight:700; flex-shrink:0; transition:all .3s;
+}
+.step-done   { background:#1f6b3a; color:#fff; }
+.step-active { background:#1f6b3a; color:#fff; box-shadow:0 0 0 4px rgba(31,107,58,.15); }
+.step-future { background:#e5e7eb; color:#9ca3af; }
+.step-line-done   { background:#1f6b3a; }
+.step-line-future { background:#e5e7eb; }
+
+/* ── Timeline ── */
+.tl-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.tl-line { width:2px; flex:1; min-height:16px; margin:3px 0 3px 4px; background:#e5e7eb; }
+
+/* ── Cancelled / refunded banner ── */
+.status-banner {
+  display:flex; align-items:center; gap:10px;
+  border-radius:12px; padding:12px 16px; margin-bottom:20px;
+  font-size:.85rem; font-weight:600;
+}
+
+/* ── Product image ── */
+.prod-img { width:56px; height:56px; border-radius:10px; object-fit:cover; flex-shrink:0; background:#f3f4f6; }
+
+/* ── Action buttons ── */
+.act-btn {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:9px 14px; border-radius:10px; font-size:.8rem; font-weight:600;
+  width:100%; text-align:center; transition:all .2s; cursor:pointer; border:none;
+  text-decoration:none;
+}
+.act-primary { background:#1b2420; color:#fff; }
+.act-primary:hover { background:#2e3d36; }
+.act-outline { background:#fff; color:#1b2420; border:1.5px solid #d1d5db; }
+.act-outline:hover { background:#f9fafb; border-color:#9ca3af; }
+.act-danger { background:#fff; color:#dc2626; border:1.5px solid #fecaca; }
+.act-danger:hover { background:#fff7f7; }
+.act-green { background:#f0fdf4; color:#15803d; border:1.5px solid #bbf7d0; }
+.act-green:hover { background:#dcfce7; }
+
+/* ── Summary rows ── */
+.sum-row { display:flex; justify-content:space-between; align-items:center; padding:5px 0; font-size:.82rem; }
+.sum-row-sep { border-top:1px solid #e5e7eb; margin-top:6px; padding-top:8px; }
+.sum-discount { color:#15803d; }
+.sum-total { font-size:1rem; font-weight:800; color:#1b2420; }
+
+/* ── Info grid (address / payment) ── */
+.info-row { display:flex; gap:8px; margin-bottom:5px; font-size:.8rem; }
+.info-label { color:#9ca3af; font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600; min-width:72px; }
+.info-val { color:#374151; font-weight:500; }
+
+/* ── Badge ── */
+.pill { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.pill-green  { background:#dcfce7; color:#15803d; }
+.pill-amber  { background:#fef3c7; color:#b45309; }
+.pill-red    { background:#fee2e2; color:#dc2626; }
+.pill-blue   { background:#dbeafe; color:#1d4ed8; }
+.pill-purple { background:#ede9fe; color:#7c3aed; }
+.pill-gray   { background:#f3f4f6; color:#4b5563; }
+.pill-cyan   { background:#cffafe; color:#0e7490; }
+
+/* ── Refund / Note box ── */
+.note-box { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; margin-bottom:8px; font-size:.8rem; }
+.refund-box { background:#fff7f7; border:1px solid #fecaca; border-radius:10px; padding:12px 14px; margin-bottom:8px; font-size:.8rem; }
+
+/* ── Combo header ── */
+.combo-hdr { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.combo-hdr-name { font-weight:700; font-size:.85rem; color:#166534; }
+
+/* ── Modal ── */
+.modal-bg { position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.45); backdrop-filter:blur(4px); padding:16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="mx-auto max-w-6xl px-4 py-8 lg:px-8">
+
+  <!-- Breadcrumb -->
+  <nav class="mb-5 flex items-center gap-1.5 text-sm text-ink/45 flex-wrap">
+    <a href="/" class="hover:text-ink transition">Home</a>
+    <span>/</span>
+    <a href="/orders" class="hover:text-ink transition">My Orders</a>
+    <span>/</span>
+    <span class="text-ink font-medium">{{ order.order_id }}</span>
+  </nav>
+
+  <!-- ══ ORDER HEADER ════════════════════════════════════════════════════ -->
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+    <div>
+      <h1 class="font-display text-2xl font-bold text-ink leading-tight">{{ order.order_id }}</h1>
+      <p class="mt-1 text-sm text-ink/50">
+        Invoice&nbsp;#&nbsp;<span class="font-mono">{{ order.invoice_no }}</span>
+        &nbsp;·&nbsp;Placed {{ order.created_at|date:"d M Y, g:i A" }}
+      </p>
+      <div class="mt-2 flex flex-wrap gap-1.5">
+        <!-- Order status -->
+        {% if order.status == 'DELIVERED' %}<span class="pill pill-green">{{ order.get_status_display }}</span>
+        {% elif order.status == 'CANCELLED' %}<span class="pill pill-red">{{ order.get_status_display }}</span>
+        {% elif order.status == 'REFUNDED' %}<span class="pill pill-purple">{{ order.get_status_display }}</span>
+        {% elif order.status == 'DISPATCHED' %}<span class="pill pill-blue">{{ order.get_status_display }}</span>
+        {% elif order.status == 'PACKED' %}<span class="pill pill-cyan">{{ order.get_status_display }}</span>
+        {% elif order.status == 'ORDER_CONFIRMED' %}<span class="pill pill-cyan">{{ order.get_status_display }}</span>
+        {% else %}<span class="pill pill-amber">{{ order.get_status_display }}</span>{% endif %}
+        <!-- Payment status -->
+        {% if order.payment_status == 'PAID' %}<span class="pill pill-green">{{ order.get_payment_status_display }}</span>
+        {% elif order.payment_status == 'REFUNDED' %}<span class="pill pill-purple">{{ order.get_payment_status_display }}</span>
+        {% elif order.payment_status == 'FAILED' %}<span class="pill pill-red">{{ order.get_payment_status_display }}</span>
+        {% elif order.payment_status == 'CANCELLED' %}<span class="pill pill-red">{{ order.get_payment_status_display }}</span>
+        {% else %}<span class="pill pill-amber">{{ order.get_payment_status_display }}</span>{% endif %}
+      </div>
+    </div>
+    <!-- Quick invoice links -->
+    <div class="flex gap-2 flex-wrap">
+      <a href="/orders/{{ order.order_id }}/invoice" target="_blank"
+         class="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white px-4 py-2 text-xs font-semibold text-ink hover:bg-gray-50 transition shadow-sm">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print Invoice
+      </a>
+      <a href="/orders/{{ order.order_id }}/invoice" target="_blank"
+         class="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-4 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-100 transition shadow-sm">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- ══ CANCELLED / REFUNDED BANNER ════════════════════════════════════ -->
+  {% if order.status == 'CANCELLED' %}
+  <div class="status-banner bg-red-50 border border-red-200 text-red-700 mb-6">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    This order was cancelled.{% if total_refunded %} A refund of {{ total_refunded|inr }} has been processed.{% endif %}
+  </div>
+  {% elif order.status == 'REFUNDED' %}
+  <div class="status-banner bg-purple-50 border border-purple-200 text-purple-700 mb-6">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/></svg>
+    This order has been refunded.{% if total_refunded %} Total refunded: {{ total_refunded|inr }}.{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ══ PROGRESS TRACKER (active orders only) ═══════════════════════════ -->
+  {% if order.status != 'CANCELLED' and order.status != 'REFUNDED' %}
+  <div class="card p-5 mb-6">
+    <p class="text-[11px] font-bold text-ink/40 uppercase tracking-widest mb-5">Order Progress</p>
+    <div class="flex items-start gap-0">
+
+      {% with s=status_step %}
+
+      <!-- Step 1: Processing -->
+      <div class="flex flex-col items-center gap-1 min-w-0">
+        <div class="step-circle {% if s >= 1 %}{% if s > 1 %}step-done{% else %}step-active{% endif %}{% else %}step-future{% endif %}">
+          {% if s > 1 %}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          {% else %}1{% endif %}
+        </div>
+        <span class="text-[10px] font-semibold mt-1 text-center {% if s >= 1 %}text-brand-700{% else %}text-ink/30{% endif %}">Processing</span>
+      </div>
+      <div class="step-line mt-4 {% if s >= 2 %}step-line-done{% else %}step-line-future{% endif %}"></div>
+
+      <!-- Step 2: Confirmed -->
+      <div class="flex flex-col items-center gap-1 min-w-0">
+        <div class="step-circle {% if s >= 2 %}{% if s > 2 %}step-done{% else %}step-active{% endif %}{% else %}step-future{% endif %}">
+          {% if s > 2 %}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          {% else %}2{% endif %}
+        </div>
+        <span class="text-[10px] font-semibold mt-1 text-center {% if s >= 2 %}text-brand-700{% else %}text-ink/30{% endif %}">Confirmed</span>
+      </div>
+      <div class="step-line mt-4 {% if s >= 3 %}step-line-done{% else %}step-line-future{% endif %}"></div>
+
+      <!-- Step 3: Packed -->
+      <div class="flex flex-col items-center gap-1 min-w-0">
+        <div class="step-circle {% if s >= 3 %}{% if s > 3 %}step-done{% else %}step-active{% endif %}{% else %}step-future{% endif %}">
+          {% if s > 3 %}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          {% else %}3{% endif %}
+        </div>
+        <span class="text-[10px] font-semibold mt-1 text-center {% if s >= 3 %}text-brand-700{% else %}text-ink/30{% endif %}">Packed</span>
+      </div>
+      <div class="step-line mt-4 {% if s >= 4 %}step-line-done{% else %}step-line-future{% endif %}"></div>
+
+      <!-- Step 4: Dispatched -->
+      <div class="flex flex-col items-center gap-1 min-w-0">
+        <div class="step-circle {% if s >= 4 %}{% if s > 4 %}step-done{% else %}step-active{% endif %}{% else %}step-future{% endif %}">
+          {% if s > 4 %}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          {% else %}4{% endif %}
+        </div>
+        <span class="text-[10px] font-semibold mt-1 text-center {% if s >= 4 %}text-brand-700{% else %}text-ink/30{% endif %}">Dispatched</span>
+      </div>
+      <div class="step-line mt-4 {% if s >= 5 %}step-line-done{% else %}step-line-future{% endif %}"></div>
+
+      <!-- Step 5: Delivered -->
+      <div class="flex flex-col items-center gap-1 min-w-0">
+        <div class="step-circle {% if s >= 5 %}step-done{% else %}step-future{% endif %}">
+          {% if s >= 5 %}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          {% else %}5{% endif %}
+        </div>
+        <span class="text-[10px] font-semibold mt-1 text-center {% if s >= 5 %}text-brand-700{% else %}text-ink/30{% endif %}">Delivered</span>
+      </div>
+
+      {% endwith %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══ MAIN TWO-COLUMN LAYOUT ══════════════════════════════════════════ -->
+  <div class="grid gap-5 lg:grid-cols-[1fr_308px] lg:items-start">
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━━ LEFT COLUMN ━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="space-y-5">
+
+      <!-- PRODUCTS -->
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-4">
+          Products
+          <span class="text-sm font-normal text-ink/40 ml-1">({{ order.no_of_product }} item{{ order.no_of_product|pluralize }})</span>
+        </h2>
+
+        <div class="space-y-0 divide-y divide-black/[.05]">
+
+          {% for it in regular_items %}
+          <div class="flex gap-3 py-4 first:pt-0 last:pb-0">
+            <!-- Image -->
+            {% if it.product %}
+            <a href="/product/{{ it.product.slug }}" class="shrink-0">
+              <img src="{{ it.product.image }}" alt="{{ it.name }}"
+                   class="prod-img" onerror="this.src='';this.style.background='#f3f4f6'">
+            </a>
+            {% endif %}
+            <!-- Details -->
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div class="min-w-0">
+                  {% if it.product %}
+                  <a href="/product/{{ it.product.slug }}" class="font-semibold text-ink hover:text-brand-700 transition line-clamp-2 text-sm leading-snug">{{ it.name }}</a>
+                  {% else %}
+                  <p class="font-semibold text-ink text-sm">{{ it.name }}</p>
+                  {% endif %}
+                  <p class="text-xs text-ink/50 mt-0.5">{{ it.variant_label }}</p>
+                  <p class="text-[10px] text-ink/35 mt-0.5 font-mono">SKU: {{ it.variant.va_code }}</p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="font-bold text-ink text-sm">{{ it.net_total|inr }}</p>
+                  <p class="text-xs text-ink/40 mt-0.5">{{ it.qty }} × {{ it.price|inr }}</p>
+                  {% if it.variant.mrp_price and it.variant.mrp_price > it.price %}
+                  <p class="text-[10px] text-ink/30 line-through mt-0.5">MRP {{ it.variant.mrp_price|inr }}</p>
+                  {% endif %}
+                </div>
+              </div>
+              <!-- Review action for delivered orders -->
+              {% if order.status == 'DELIVERED' and it.product %}
+              <div class="mt-2">
+                {% if it.product.id in reviewed_ids %}
+                <a href="/my-reviews" class="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  Reviewed
+                </a>
+                {% else %}
+                <a href="/product/{{ it.product.slug }}#write-review"
+                   class="inline-flex items-center gap-1 rounded-full border border-gold-500 bg-gold-400/10 px-2.5 py-1 text-[10px] font-bold text-ink hover:bg-gold-400/20 transition">
+                  Write a Review
+                </a>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+
+          {% for cgroup in combos %}
+          <!-- Combo bundle header -->
+          <div class="pt-4 first:pt-0">
+            <div class="combo-hdr mb-3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+              <div>
+                <span class="combo-hdr-name">{{ cgroup.combo.name }}</span>
+                <span class="text-xs text-brand-600/60 font-normal ml-1">Bundle</span>
+              </div>
+            </div>
+            <div class="divide-y divide-black/[.04] pl-3 border-l-2 border-brand-200">
+              {% for it in cgroup.items %}
+              <div class="flex gap-3 py-3 first:pt-0 last:pb-0">
+                {% if it.product %}
+                <a href="/product/{{ it.product.slug }}" class="shrink-0">
+                  <img src="{{ it.product.image }}" alt="{{ it.name }}"
+                       class="prod-img" style="width:44px;height:44px" onerror="this.src='';this.style.background='#f3f4f6'">
+                </a>
+                {% endif %}
+                <div class="flex-1 min-w-0">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      {% if it.product %}
+                      <a href="/product/{{ it.product.slug }}" class="font-semibold text-sm text-ink hover:text-brand-700 transition line-clamp-1">{{ it.name }}</a>
+                      {% else %}
+                      <p class="font-semibold text-sm text-ink">{{ it.name }}</p>
+                      {% endif %}
+                      <p class="text-xs text-ink/50 mt-0.5">{{ it.variant_label }}</p>
+                      <p class="text-[10px] text-ink/35 font-mono">{{ it.variant.va_code }}</p>
+                    </div>
+                    <div class="text-right shrink-0">
+                      <p class="font-bold text-sm text-ink">{{ it.net_total|inr }}</p>
+                      <p class="text-xs text-ink/40">{{ it.qty }} × {{ it.price|inr }}</p>
+                    </div>
+                  </div>
+                  {% if order.status == 'DELIVERED' and it.product %}
+                  <div class="mt-1.5">
+                    {% if it.product.id in reviewed_ids %}
+                    <a href="/my-reviews" class="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2.5 py-1 text-[10px] font-bold text-brand-700">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                      Reviewed
+                    </a>
+                    {% else %}
+                    <a href="/product/{{ it.product.slug }}#write-review"
+                       class="inline-flex items-center gap-1 rounded-full border border-gold-500 bg-gold-400/10 px-2.5 py-1 text-[10px] font-bold text-ink hover:bg-gold-400/20 transition">
+                      Write a Review
+                    </a>
+                    {% endif %}
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- ORDER TIMELINE -->
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-4">Order Timeline</h2>
+        <div>
+          {% if events %}
+          {% for event in events %}
+          <div class="flex gap-3">
+            <div class="flex flex-col items-center">
+              <div class="tl-dot {% if forloop.first %}bg-brand-600{% else %}bg-brand-300{% endif %}"></div>
+              {% if not forloop.last %}<div class="tl-line"></div>{% endif %}
+            </div>
+            <div class="pb-4 {% if not forloop.last %}border-b-0{% endif %} min-w-0">
+              <p class="text-sm font-semibold text-ink leading-snug">{{ event.title }}</p>
+              {% if event.description %}<p class="text-xs text-ink/60 mt-0.5">{{ event.description }}</p>{% endif %}
+              {% if event.actor_name %}<p class="text-[10px] text-ink/35 mt-0.5">By {{ event.actor_name }}</p>{% endif %}
+              <p class="text-[11px] text-ink/40 mt-1">{{ event.created_at|date:"d M Y, g:i A" }}</p>
+            </div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <!-- Synthesised from order status -->
+          <div class="flex gap-3">
+            <div class="flex flex-col items-center">
+              <div class="tl-dot bg-brand-600"></div>
+              {% if order.status != 'PROCESSING' %}<div class="tl-line"></div>{% endif %}
+            </div>
+            <div class="pb-4 min-w-0">
+              <p class="text-sm font-semibold text-ink">Order Placed</p>
+              <p class="text-[11px] text-ink/40 mt-1">{{ order.created_at|date:"d M Y, g:i A" }}</p>
+            </div>
+          </div>
+          {% if order.status != 'PROCESSING' %}
+          <div class="flex gap-3">
+            <div class="flex flex-col items-center">
+              <div class="tl-dot bg-brand-500"></div>
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-ink">{{ order.get_status_display }}</p>
+              <p class="text-[11px] text-ink/40 mt-1">{{ order.updated_at|date:"d M Y, g:i A" }}</p>
+            </div>
+          </div>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- CUSTOMER-VISIBLE NOTES -->
+      {% if notes %}
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-3">Notes from Store</h2>
+        <div class="space-y-2">
+          {% for note in notes %}
+          <div class="note-box">
+            <p class="text-ink/80">{{ note.text }}</p>
+            <p class="text-[11px] text-ink/35 mt-1.5">{{ note.created_at|date:"d M Y, g:i A" }}{% if note.created_by_name %} · {{ note.created_by_name }}{% endif %}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- REFUND HISTORY -->
+      {% if refunds %}
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-3">Refund History</h2>
+        <div class="space-y-2">
+          {% for r in refunds %}
+          <div class="refund-box">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-semibold text-red-700 text-sm">{{ r.get_refund_type_display }}</p>
+                {% if r.reason %}<p class="text-xs text-red-600/70 mt-0.5">{{ r.reason }}</p>{% endif %}
+              </div>
+              <p class="font-bold text-red-700 text-base shrink-0">−{{ r.amount|inr }}</p>
+            </div>
+            <p class="text-[11px] text-red-500/50 mt-1.5">{{ r.created_at|date:"d M Y, g:i A" }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div><!-- /left column -->
+
+    <!-- ━━━━━━━━━━━━━━━━━━━━ RIGHT COLUMN ━━━━━━━━━━━━━━━━━━━━━ -->
+    <div class="space-y-4">
+
+      <!-- ORDER SUMMARY -->
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-4">Order Summary</h2>
+        <div>
+          <div class="sum-row">
+            <span class="text-ink/60">Subtotal</span>
+            <span>{{ order.sub_total|inr }}</span>
+          </div>
+          {% if savings %}
+          <div class="sum-row sum-discount">
+            <span>Product Savings</span>
+            <span>−{{ savings|inr }}</span>
+          </div>
+          {% endif %}
+          {% if order.coupon_discount %}
+          <div class="sum-row sum-discount">
+            <span>Coupon {% if order.coupon %}({{ order.coupon.code }}){% endif %}</span>
+            <span>−{{ order.coupon_discount|inr }}</span>
+          </div>
+          {% endif %}
+          <div class="sum-row">
+            <span class="text-ink/60">Shipping</span>
+            <span>{% if order.shipping_amount %}{{ order.shipping_amount|inr }}{% else %}<span class="text-brand-600 font-semibold">FREE</span>{% endif %}</span>
+          </div>
+          {% if show_gst and total_gst %}
+          <div class="sum-row text-ink/50">
+            <span>GST (included)</span>
+            <span>{{ total_gst|inr }}</span>
+          </div>
+          {% endif %}
+          <div class="sum-row sum-row-sep sum-total">
+            <span>Total Paid</span>
+            <span class="text-brand-700">{{ order.grand_total|inr }}</span>
+          </div>
+          {% if total_refunded %}
+          <div class="sum-row" style="color:#dc2626;font-size:.8rem">
+            <span>Refunded</span>
+            <span>−{{ total_refunded|inr }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- PAYMENT DETAILS -->
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-3">Payment</h2>
+        <div class="space-y-2">
+          <div class="info-row">
+            <span class="info-label">Method</span>
+            <span class="info-val">{{ order.get_payment_mode_display }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Status</span>
+            <span class="info-val">
+              {% if order.payment_status == 'PAID' %}<span class="pill pill-green">Paid</span>
+              {% elif order.payment_status == 'REFUNDED' %}<span class="pill pill-purple">Refunded</span>
+              {% elif order.payment_status == 'FAILED' %}<span class="pill pill-red">Failed</span>
+              {% else %}<span class="pill pill-amber">{{ order.get_payment_status_display }}</span>
+              {% endif %}
+            </span>
+          </div>
+          {% if order.razorpay_payment_id %}
+          <div class="info-row">
+            <span class="info-label">Txn ID</span>
+            <span class="info-val font-mono" style="font-size:.7rem;word-break:break-all">{{ order.razorpay_payment_id }}</span>
+          </div>
+          {% endif %}
+          {% if order.razorpay_order_id %}
+          <div class="info-row">
+            <span class="info-label">RZ Order</span>
+            <span class="info-val font-mono" style="font-size:.7rem;word-break:break-all">{{ order.razorpay_order_id }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- DELIVERY ADDRESS -->
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-3">Delivery Address</h2>
+        <div class="space-y-1 text-sm text-ink/70 leading-relaxed">
+          {% if shipping.name %}<p class="font-semibold text-ink">{{ shipping.name }}</p>{% endif %}
+          {% if shipping.address %}<p>{{ shipping.address }}</p>{% endif %}
+          {% if shipping.city %}
+          <p>{{ shipping.city }}{% if shipping.state %}, {{ shipping.state }}{% endif %}{% if shipping.pinCode %} — {{ shipping.pinCode }}{% endif %}</p>
+          {% endif %}
+          {% if shipping.mobile %}<p class="text-ink/50">Phone: {{ shipping.mobile }}</p>{% endif %}
+        </div>
+      </div>
+
+      <!-- ACTION BUTTONS -->
+      <div class="card p-5">
+        <h2 class="font-display font-semibold text-base text-ink mb-4">Actions</h2>
+        <div class="space-y-2">
+
+          <!-- Print / Download -->
+          <a href="/orders/{{ order.order_id }}/invoice" target="_blank" class="act-btn act-outline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print / Download Invoice
+          </a>
+
+          <!-- Reorder -->
+          {% if order.status != 'CANCELLED' %}
+          <form method="POST" action="/orders/{{ order.order_id }}/reorder">
+            {% csrf_token %}
+            <button type="submit" class="act-btn act-outline">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/></svg>
+              Reorder
+            </button>
+          </form>
+          {% endif %}
+
+          <!-- Cancel Order -->
+          {% if cancellable %}
+          <button onclick="document.getElementById('cancel-modal').classList.remove('hidden')"
+                  class="act-btn act-danger">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Cancel Order
+          </button>
+          {% endif %}
+
+          <!-- Request Return/Refund -->
+          {% if returnable %}
+          <button onclick="document.getElementById('return-modal').classList.remove('hidden')"
+                  class="act-btn act-green">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/></svg>
+            Request Return / Refund
+          </button>
+          {% endif %}
+
+          <!-- Continue shopping -->
+          <a href="/products" class="act-btn act-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            Continue Shopping
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /right column -->
+  </div><!-- /grid -->
+
+</section>
+
+<!-- ══ CANCEL ORDER MODAL ════════════════════════════════════════════════ -->
+<div id="cancel-modal" class="hidden modal-bg">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h3 class="font-display font-bold text-lg text-ink">Cancel Order?</h3>
+        <p class="text-sm text-ink/50 mt-0.5">{{ order.order_id }}</p>
+      </div>
+      <button onclick="document.getElementById('cancel-modal').classList.add('hidden')"
+              class="text-ink/30 hover:text-ink text-2xl leading-none ml-2">&times;</button>
+    </div>
+    <p class="text-sm text-ink/70 mb-5">
+      Are you sure you want to cancel this order? Stock will be restored automatically.
+      {% if order.payment_status == 'PAID' %}
+      Your payment will be refunded to the original payment method within 5–7 business days.
+      {% endif %}
+    </p>
+    <div class="flex gap-2">
+      <button onclick="document.getElementById('cancel-modal').classList.add('hidden')"
+              class="flex-1 rounded-xl border border-black/10 py-2.5 text-sm font-semibold text-ink hover:bg-gray-50 transition">
+        Keep Order
+      </button>
+      <form method="POST" action="/orders/{{ order.order_id }}/cancel" class="flex-1">
+        {% csrf_token %}
+        <button type="submit" class="w-full rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition">
+          Yes, Cancel
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RETURN REQUEST MODAL ══════════════════════════════════════════════ -->
+<div id="return-modal" class="hidden modal-bg">
+  <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h3 class="font-display font-bold text-lg text-ink">Request Return / Refund</h3>
+        <p class="text-sm text-ink/50 mt-0.5">Order {{ order.order_id }}</p>
+      </div>
+      <button onclick="document.getElementById('return-modal').classList.add('hidden')"
+              class="text-ink/30 hover:text-ink text-2xl leading-none ml-2">&times;</button>
+    </div>
+    <form method="POST" action="/help-support" id="return-form">
+      {% csrf_token %}
+      <input type="hidden" name="name" value="{{ request.user.full_name }}">
+      <input type="hidden" name="email" value="{{ request.user.email }}">
+      <input type="hidden" name="subject" value="Return/Refund Request — {{ order.order_id }}">
+      <div class="space-y-3 mb-5">
+        <div>
+          <label class="block text-xs font-semibold text-ink/50 uppercase tracking-wide mb-1.5">Reason</label>
+          <select name="reason_type" class="w-full rounded-xl border border-black/10 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="defective">Product damaged / defective</option>
+            <option value="wrong">Wrong item received</option>
+            <option value="missing">Item missing from order</option>
+            <option value="quality">Quality not as expected</option>
+            <option value="other">Other reason</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-ink/50 uppercase tracking-wide mb-1.5">Additional Details</label>
+          <textarea name="message" rows="3" required
+                    placeholder="Please describe the issue and which items are affected…"
+                    class="w-full rounded-xl border border-black/10 bg-gray-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none"></textarea>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button type="button" onclick="document.getElementById('return-modal').classList.add('hidden')"
+                class="flex-1 rounded-xl border border-black/10 py-2.5 text-sm font-semibold text-ink hover:bg-gray-50 transition">
+          Cancel
+        </button>
+        <button type="submit" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 transition">
+          Submit Request
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Close modals on backdrop click
+['cancel-modal','return-modal'].forEach(function(id){
+  document.getElementById(id).addEventListener('click', function(e){
+    if(e.target === this) this.classList.add('hidden');
+  });
+});
+
+// Pre-fill return form message with order ID + selected reason
+var returnForm = document.getElementById('return-form');
+if(returnForm){
+  returnForm.addEventListener('submit', function(){
+    var sel = returnForm.querySelector('[name=reason_type]').value;
+    var msg = returnForm.querySelector('[name=message]').value;
+    var full = 'Order: {{ order.order_id }}\nReason: ' + sel + '\n\n' + msg;
+    returnForm.querySelector('[name=message]').value = full;
+  });
+}
+</script>
+{% endblock %}

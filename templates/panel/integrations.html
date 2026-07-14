@@ -190,6 +190,199 @@
     </form>
   </div>
 
+  <!-- ── Email / SMTP ────────────────────────────────────────────── -->
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-black/5 px-6 py-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#1f6b3a] text-white">
+          <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="font-semibold text-ink">Email (SMTP)</p>
+          <p class="text-xs text-ink/40">OTP delivery · Email change · Account deletion</p>
+        </div>
+      </div>
+      <span class="rounded-full px-3 py-1 text-xs font-semibold
+            {% if em.enabled %}bg-green-100 text-green-700{% else %}bg-ink/8 text-ink/40{% endif %}">
+        {% if em.enabled %}Enabled{% else %}Disabled{% endif %}
+      </span>
+    </div>
+
+    <form method="post" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="integration" value="EMAIL" />
+
+      <!-- Setup guide -->
+      <div class="rounded-xl bg-brand-50 border border-brand-100 px-4 py-3 text-xs text-brand-800 space-y-0.5">
+        <p class="font-semibold text-brand-900 text-sm mb-1">Quick Gmail setup (recommended)</p>
+        <p>1. Enable <strong>2-Step Verification</strong> on your Google account</p>
+        <p>2. Go to <strong>Google Account → Security → App Passwords</strong></p>
+        <p>3. Generate a new App Password for "Mail" and paste it in the Password field below</p>
+        <p>4. Use <strong>smtp.gmail.com</strong> · port <strong>587</strong> · TLS <strong>on</strong></p>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="text-sm">
+          <span class="text-ink/60">SMTP Host</span>
+          <input name="host" value="{{ em.host }}" placeholder="smtp.gmail.com"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">SMTP Port</span>
+          <input name="port" type="number" value="{{ em.port }}" placeholder="587"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Username / Email</span>
+          <input name="username" type="email" value="{{ em.username }}" placeholder="you@gmail.com"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">Password / App Password</span>
+          <div class="relative mt-1">
+            <input name="password" type="password" value="{{ em.password }}" placeholder="••••••••••••••••"
+                   id="emPassword"
+                   class="w-full rounded-lg border border-black/10 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+            <button type="button" onclick="toggleSecret('emPassword')"
+                    class="absolute inset-y-0 right-2 flex items-center text-ink/30 hover:text-ink">
+              {% include "panel/_icon.html" with icon="eye" %}
+            </button>
+          </div>
+        </label>
+        <label class="text-sm">
+          <span class="text-ink/60">From Address <span class="text-ink/30">(optional)</span></span>
+          <input name="from_email" value="{{ em.from_email }}" placeholder="Spicearog &lt;noreply@spicearog.com&gt;"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 text-sm" />
+          <p class="mt-1 text-[10px] text-ink/35">Defaults to username if left blank</p>
+        </label>
+        <div class="text-sm flex items-center gap-3 mt-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="use_tls" value="true" {% if em.use_tls %}checked{% endif %}
+                   class="h-4 w-4 rounded accent-brand-600" />
+            <span class="text-ink/70">Use TLS (recommended)</span>
+          </label>
+        </div>
+      </div>
+
+      <label class="flex items-center gap-2.5 text-sm font-medium cursor-pointer">
+        <input type="checkbox" name="enabled" value="true" {% if em.enabled %}checked{% endif %}
+               class="h-4 w-4 rounded accent-brand-600" />
+        Enable email delivery for OTPs and notifications
+      </label>
+
+      <div class="flex flex-wrap items-center gap-3 border-t border-black/5 pt-4">
+        <button class="btn-primary">Save Email settings</button>
+        <button type="button" onclick="testIntegration('EMAIL','emTestResult')"
+                class="btn-outline">Test connection</button>
+        <span id="emTestResult" class="text-sm"></span>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Mobile OTP / SMS ───────────────────────────────────────────── -->
+  <div class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-black/5 px-6 py-4">
+      <div class="flex items-center gap-3">
+        <div class="grid h-10 w-10 place-items-center rounded-xl bg-[#1a5f9e] text-white">
+          <svg width="20" height="20" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <p class="font-semibold text-ink">Mobile OTP (SMS)</p>
+          <p class="text-xs text-ink/40">OTP via SMS · Phone number verification</p>
+        </div>
+      </div>
+      <span class="rounded-full px-3 py-1 text-xs font-semibold
+            {% if sm.enabled %}bg-green-100 text-green-700{% else %}bg-ink/8 text-ink/40{% endif %}">
+        {% if sm.enabled %}Enabled{% else %}Disabled{% endif %}
+      </span>
+    </div>
+
+    <form method="post" class="p-6 space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="integration" value="SMS" />
+
+      <!-- Setup guide per provider -->
+      <div id="smsGuide_fast2sms" class="rounded-xl bg-brand-50 border border-brand-100 px-4 py-3 text-xs text-brand-800 space-y-0.5
+           {% if sm.provider != 'fast2sms' %}hidden{% endif %}">
+        <p class="font-semibold text-brand-900 text-sm mb-1">Fast2SMS setup</p>
+        <p>1. Register at <strong>fast2sms.com</strong> and top up your wallet (₹10 minimum)</p>
+        <p>2. Go to <strong>Dev API → API Key</strong> and copy your key</p>
+        <p>3. Paste the API key below — no Account SID needed</p>
+        <p>4. Sender ID is optional (leave blank to use Fast2SMS default)</p>
+      </div>
+      <div id="smsGuide_msg91" class="rounded-xl bg-brand-50 border border-brand-100 px-4 py-3 text-xs text-brand-800 space-y-0.5
+           {% if sm.provider != 'msg91' %}hidden{% endif %}">
+        <p class="font-semibold text-brand-900 text-sm mb-1">MSG91 setup</p>
+        <p>1. Register at <strong>msg91.com</strong> and recharge your account</p>
+        <p>2. Copy your <strong>Auth Key</strong> from the dashboard — paste it as API Key</p>
+        <p>3. Create an OTP template; note the <strong>Template ID</strong> and set a 6-digit OTP variable</p>
+        <p>4. Set your <strong>Sender ID</strong> (6-character DLT-registered sender ID)</p>
+      </div>
+      <div id="smsGuide_twilio" class="rounded-xl bg-brand-50 border border-brand-100 px-4 py-3 text-xs text-brand-800 space-y-0.5
+           {% if sm.provider != 'twilio' %}hidden{% endif %}">
+        <p class="font-semibold text-brand-900 text-sm mb-1">Twilio setup</p>
+        <p>1. Sign up at <strong>twilio.com</strong> and get a phone number</p>
+        <p>2. From the console, copy your <strong>Account SID</strong> and <strong>Auth Token</strong></p>
+        <p>3. Paste Auth Token as <strong>API Key / Auth Token</strong> and Account SID in its field</p>
+        <p>4. Set Sender ID to your Twilio phone number (e.g. <strong>+919876543210</strong>)</p>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <label class="text-sm sm:col-span-2">
+          <span class="text-ink/60">Provider</span>
+          <select name="provider" id="smsProvider" onchange="onSmsProviderChange(this.value)"
+                  class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 text-sm bg-white">
+            <option value="fast2sms" {% if sm.provider == 'fast2sms' %}selected{% endif %}>Fast2SMS</option>
+            <option value="msg91"    {% if sm.provider == 'msg91'    %}selected{% endif %}>MSG91</option>
+            <option value="twilio"   {% if sm.provider == 'twilio'   %}selected{% endif %}>Twilio</option>
+          </select>
+        </label>
+
+        <label class="text-sm">
+          <span class="text-ink/60" id="smsApiKeyLabel">API Key</span>
+          <div class="relative mt-1">
+            <input name="api_key" type="password" value="{{ sm.api_key }}" placeholder="••••••••••••••••"
+                   id="smsApiKey"
+                   class="w-full rounded-lg border border-black/10 px-3 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+            <button type="button" onclick="toggleSecret('smsApiKey')"
+                    class="absolute inset-y-0 right-2 flex items-center text-ink/30 hover:text-ink">
+              {% include "panel/_icon.html" with icon="eye" %}
+            </button>
+          </div>
+        </label>
+
+        <label class="text-sm" id="smsAccountSidRow">
+          <span class="text-ink/60">Account SID</span>
+          <input name="account_sid" value="{{ sm.account_sid }}" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+
+        <label class="text-sm">
+          <span class="text-ink/60">Sender ID <span class="text-ink/30">(optional)</span></span>
+          <input name="sender_id" value="{{ sm.sender_id }}" placeholder="SPICRO"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-200 font-mono text-sm" />
+        </label>
+      </div>
+
+      <label class="flex items-center gap-2.5 text-sm font-medium cursor-pointer">
+        <input type="checkbox" name="enabled" value="true" {% if sm.enabled %}checked{% endif %}
+               class="h-4 w-4 rounded accent-brand-600" />
+        Enable SMS delivery for mobile OTPs
+      </label>
+
+      <div class="flex flex-wrap items-center gap-3 border-t border-black/5 pt-4">
+        <button class="btn-primary">Save SMS settings</button>
+        <button type="button" onclick="testIntegration('SMS','smTestResult')"
+                class="btn-outline">Test connection</button>
+        <span id="smTestResult" class="text-sm"></span>
+      </div>
+    </form>
+  </div>
+
   <!-- How it works -->
   <div class="rounded-xl bg-brand-50 border border-brand-100 px-5 py-4 text-sm text-brand-800 space-y-1.5">
     <p class="font-semibold text-brand-900">How image storage works</p>
@@ -224,5 +417,25 @@ function toggleSecret(id) {
   const el = document.getElementById(id);
   el.type = el.type === 'password' ? 'text' : 'password';
 }
+
+function onSmsProviderChange(val) {
+  // Setup guide visibility
+  ['fast2sms','msg91','twilio'].forEach(p => {
+    const g = document.getElementById('smsGuide_' + p);
+    if (g) g.classList.toggle('hidden', p !== val);
+  });
+  // Account SID only needed for Twilio
+  const sidRow = document.getElementById('smsAccountSidRow');
+  if (sidRow) sidRow.classList.toggle('hidden', val !== 'twilio');
+  // Label adjustment
+  const lbl = document.getElementById('smsApiKeyLabel');
+  if (lbl) lbl.textContent = val === 'twilio' ? 'Auth Token' : 'API Key';
+}
+
+// Run on page load to match saved provider
+document.addEventListener('DOMContentLoaded', function() {
+  const sel = document.getElementById('smsProvider');
+  if (sel) onSmsProviderChange(sel.value);
+});
 </script>
 {% endblock %}

@@ -50,8 +50,10 @@ class OrderChannel(models.TextChoices):
 
 
 class ReviewStatus(models.TextChoices):
+    PENDING  = "PENDING",  "Pending"
     APPROVED = "APPROVED", "Approved"
     REJECTED = "REJECTED", "Rejected"
+    FLAGGED  = "FLAGGED",  "Flagged"
 
 
 class BannerType(models.TextChoices):
@@ -62,8 +64,11 @@ class BannerType(models.TextChoices):
 
 class PolicyType(models.TextChoices):
     ABOUT_US = "ABOUT_US", "About Us"
-    TERMS = "TERMS", "Terms"
-    PRIVACY = "PRIVACY", "Privacy"
+    TERMS    = "TERMS",    "Terms & Conditions"
+    PRIVACY  = "PRIVACY",  "Privacy Policy"
+    SHIPPING = "SHIPPING", "Shipping Policy"
+    RETURNS  = "RETURNS",  "Return & Refund Policy"
+    CONTACT  = "CONTACT",  "Contact Us"
 
 
 class EnquiryStatus(models.TextChoices):
@@ -150,8 +155,12 @@ class Product(models.Model):
 
     @property
     def avg_rating(self):
-        rs = [r.rating for r in self.reviews.all()]
+        rs = [r.rating for r in self.reviews.filter(status=ReviewStatus.APPROVED)]
         return round(sum(rs) / len(rs), 1) if rs else 0
+
+    @property
+    def review_count(self):
+        return self.reviews.filter(status=ReviewStatus.APPROVED).count()
 
 
 class ProductVariant(models.Model):
@@ -311,6 +320,11 @@ class CartItem(models.Model):
     qty = models.IntegerField(default=1)
     price = models.FloatField(default=0)
 
+    combo = models.ForeignKey(
+        'ComboPackage', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='cart_items',
+    )
+
     class Meta:
         db_table = "product_cart_items"
         unique_together = ("cart", "variant")
@@ -352,9 +366,13 @@ class Order(models.Model):
                                      default=PaymentMode.COD)
     channel = models.CharField(max_length=12, choices=OrderChannel.choices,
                                default=OrderChannel.WEBSITE)
-    razorpay_order_id = models.CharField(max_length=120, null=True, blank=True)
+    razorpay_order_id   = models.CharField(max_length=120, null=True, blank=True)
     razorpay_payment_id = models.CharField(max_length=120, null=True, blank=True)
-    shipping_address = models.TextField()
+    coupon              = models.ForeignKey("Coupon", null=True, blank=True,
+                                            on_delete=models.SET_NULL,
+                                            related_name="coupon_orders")
+    coupon_discount     = models.FloatField(default=0)
+    shipping_address    = models.TextField()
     no_of_product = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -372,6 +390,10 @@ class OrderItem(models.Model):
                               to_field="order_id", db_column="order_id")
     product = models.ForeignKey(Product, on_delete=models.CASCADE, db_column="product_id")
     variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, db_column="varient_id")
+    combo = models.ForeignKey(
+        'ComboPackage', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='order_items',
+    )
     name = models.CharField(max_length=200)
     variant_label = models.CharField(max_length=60, db_column="variant")
     price = models.FloatField()
@@ -394,18 +416,36 @@ class Review(models.Model):
     title = models.CharField(max_length=200, blank=True, default="")
     comment = models.TextField()
     status = models.CharField(max_length=10, choices=ReviewStatus.choices,
-                              default=ReviewStatus.APPROVED)
+                              default=ReviewStatus.PENDING)
     reply = models.TextField(blank=True, default="")
     replied_at = models.DateTimeField(null=True, blank=True)
     is_flagged = models.BooleanField(default=False)
+    flag_reason = models.CharField(max_length=500, blank=True, default="")
     helpful_count = models.PositiveIntegerField(default=0)
     is_verified = models.BooleanField(default=True)
+    is_anonymous = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "reviews"
         unique_together = ("user", "product")
         ordering = ["-created_at"]
+
+    @property
+    def can_edit(self):
+        from django.utils import timezone
+        return (timezone.now() - self.created_at).total_seconds() < 86400
+
+
+class ReviewImage(models.Model):
+    review = models.ForeignKey(Review, related_name="images", on_delete=models.CASCADE)
+    image_url = models.CharField(max_length=500)
+    public_id = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "review_images"
 
 
 # --------------------------------------------------------------------------- #
@@ -448,28 +488,45 @@ class Blog(models.Model):
 
 
 class Testimonial(models.Model):
-    name = models.CharField(max_length=150)
-    city = models.CharField(max_length=120, null=True, blank=True)
-    image = models.CharField(max_length=255, null=True, blank=True)
-    rating = models.IntegerField(default=5)
-    comment = models.TextField()
-    position = models.IntegerField(default=1)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    # Core fields (original)
+    name     = models.CharField(max_length=150)
+    city     = models.CharField(max_length=120, null=True, blank=True)
+    image    = models.CharField(max_length=500, null=True, blank=True)
+    rating   = models.IntegerField(default=5)
+    comment  = models.TextField()
+    position = models.IntegerField(default=0)
+    status   = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    # Customer-submission fields
+    user            = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                        on_delete=models.SET_NULL, related_name="testimonials")
+    email           = models.EmailField(blank=True)
+    order           = models.ForeignKey("Order", null=True, blank=True,
+                                        on_delete=models.SET_NULL, related_name="+")
+    title           = models.CharField(max_length=200, blank=True)
+    consent         = models.BooleanField(default=True)
+    is_featured     = models.BooleanField(default=False)
+    admin_note      = models.TextField(blank=True)
+    approval_status = models.CharField(max_length=10, choices=ReviewStatus.choices,
+                                       default=ReviewStatus.APPROVED)
 
     class Meta:
         db_table = "testimonials"
-        ordering = ["position"]
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.name
 
 
 class Faq(models.Model):
-    question = models.TextField()
-    answer = models.TextField()
-    position = models.IntegerField(default=0)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    category  = models.ForeignKey("FaqCategory", null=True, blank=True,
+                                  on_delete=models.SET_NULL, related_name="items")
+    question  = models.TextField()
+    answer    = models.TextField()
+    position  = models.IntegerField(default=0)
+    status    = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -505,16 +562,19 @@ class CouponType(models.TextChoices):
 
 class Coupon(models.Model):
     code            = models.CharField(max_length=30, unique=True)
-    description     = models.CharField(max_length=200, blank=True, default="")
+    name            = models.CharField(max_length=200, blank=True, default="")
+    description     = models.CharField(max_length=500, blank=True, default="")
     coupon_type     = models.CharField(max_length=15, choices=CouponType.choices,
                                        default=CouponType.PERCENT)
     discount_value  = models.FloatField(default=0)
     min_order_value = models.FloatField(default=0)
     max_discount    = models.FloatField(null=True, blank=True)
     max_uses        = models.PositiveIntegerField(default=0)
+    per_user_limit  = models.PositiveIntegerField(default=0)
     used_count      = models.PositiveIntegerField(default=0)
     valid_from      = models.DateTimeField(null=True, blank=True)
     valid_until     = models.DateTimeField(null=True, blank=True)
+    channels        = models.CharField(max_length=100, blank=True, default="WEBSITE")
     is_active       = models.BooleanField(default=True)
     created_at      = models.DateTimeField(auto_now_add=True)
     updated_at      = models.DateTimeField(auto_now=True)
@@ -527,20 +587,26 @@ class Coupon(models.Model):
         return self.code
 
     @property
-    def is_expired(self):
-        if self.valid_until and timezone.now() > self.valid_until:
-            return True
+    def status_tag(self):
+        """Returns Active / Scheduled / Expired / Inactive."""
+        now = timezone.now()
+        if not self.is_active:
+            return "Inactive"
         if self.max_uses > 0 and self.used_count >= self.max_uses:
-            return True
-        return False
+            return "Expired"
+        if self.valid_until and now > self.valid_until:
+            return "Expired"
+        if self.valid_from and now < self.valid_from:
+            return "Scheduled"
+        return "Active"
+
+    @property
+    def is_expired(self):
+        return self.status_tag == "Expired"
 
     @property
     def status_label(self):
-        if not self.is_active:
-            return "Inactive"
-        if self.is_expired:
-            return "Expired"
-        return "Active"
+        return self.status_tag
 
     @property
     def usage_pct(self):
@@ -548,12 +614,36 @@ class Coupon(models.Model):
             return round(self.used_count / self.max_uses * 100)
         return 0
 
+    @property
+    def channel_list(self):
+        return [c.strip() for c in self.channels.split(",") if c.strip()]
+
+    def compute_discount(self, cart_total):
+        """Return the discount amount for a given cart total."""
+        if self.coupon_type == CouponType.PERCENT:
+            d = cart_total * self.discount_value / 100
+            if self.max_discount:
+                d = min(d, self.max_discount)
+            return round(d, 2)
+        if self.coupon_type == CouponType.FLAT:
+            return round(min(self.discount_value, cart_total), 2)
+        if self.coupon_type == CouponType.FREE_SHIPPING:
+            return 0  # handled separately in checkout
+        return 0
+
 
 class Policy(models.Model):
-    type = models.CharField(max_length=12, choices=PolicyType.choices, unique=True)
-    title = models.CharField(max_length=200)
+    type    = models.CharField(max_length=12, choices=PolicyType.choices, unique=True)
+    title   = models.CharField(max_length=200)
     content = models.TextField()
-    updated_at = models.DateTimeField(auto_now=True)
+    # SEO
+    meta_title       = models.CharField(max_length=200, blank=True)
+    meta_description = models.TextField(blank=True)
+    meta_keywords    = models.CharField(max_length=500, blank=True)
+    og_image         = models.CharField(max_length=500, blank=True)
+    # Lifecycle
+    is_published = models.BooleanField(default=True)
+    updated_at   = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "company_policies"
@@ -567,13 +657,14 @@ class Enquiry(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
                              on_delete=models.SET_NULL, related_name="enquiries",
                              db_column="user_id")
-    name = models.CharField(max_length=150)
-    email = models.EmailField()
-    mobile = models.CharField(max_length=20, null=True, blank=True)
+    name    = models.CharField(max_length=150)
+    email   = models.EmailField()
+    mobile  = models.CharField(max_length=20, null=True, blank=True)
     subject = models.CharField(max_length=200, null=True, blank=True)
     message = models.TextField()
-    status = models.CharField(max_length=12, choices=EnquiryStatus.choices,
-                              default=EnquiryStatus.OPEN)
+    status  = models.CharField(max_length=12, choices=EnquiryStatus.choices,
+                               default=EnquiryStatus.OPEN)
+    is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -583,6 +674,21 @@ class Enquiry(models.Model):
 
     def __str__(self):
         return f"{self.name} — {self.subject or 'Enquiry'}"
+
+
+class EnquiryReply(models.Model):
+    enquiry    = models.ForeignKey(Enquiry, on_delete=models.CASCADE, related_name="replies")
+    message    = models.TextField()
+    sent_by    = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name="enquiry_replies")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "enquiry_replies"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Reply to {self.enquiry_id} @ {self.created_at:%Y-%m-%d}"
 
 
 class Notification(models.Model):
@@ -670,6 +776,38 @@ class OrderRefund(models.Model):
         return f"Refund {self.refund_type} ₹{self.amount} for {self.order_id}"
 
 
+class OrderNote(models.Model):
+    """Internal or customer-visible notes on an order."""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="notes")
+    text = models.TextField()
+    is_internal = models.BooleanField(default=True)
+    created_by_name = models.CharField(max_length=120, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "order_notes"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Note on {self.order_id} at {self.created_at:%Y-%m-%d}"
+
+
+class OrderEvent(models.Model):
+    """Immutable timeline log for an order (status changes, notes, payments, etc.)."""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="events")
+    title = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    actor_name = models.CharField(max_length=120, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "order_events"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.title} — {self.order_id}"
+
+
 class StockStatusHistory(models.Model):
     """Audit log of every stock status change on a product variant."""
     variant = models.ForeignKey(
@@ -698,6 +836,7 @@ class IntegrationConfig(models.Model):
     class Integration(models.TextChoices):
         RAZORPAY   = "RAZORPAY",   "Razorpay"
         CLOUDINARY = "CLOUDINARY", "Cloudinary"
+        EMAIL      = "EMAIL",      "Email (SMTP)"
 
     integration = models.CharField(max_length=20, choices=Integration.choices)
     key         = models.CharField(max_length=100)
@@ -728,4 +867,203 @@ class IntegrationConfig(models.Model):
         obj.value = value
         obj.is_secret = is_secret
         obj.save(update_fields=["value", "is_secret", "updated_at"])
+
+
+# --------------------------------------------------------------------------- #
+# Site-wide settings (singleton — only one row, pk=1)
+# --------------------------------------------------------------------------- #
+class SiteSettings(models.Model):
+    """Singleton: call SiteSettings.get() — never instantiate directly."""
+
+    # Store Identity
+    store_name     = models.CharField(max_length=100, default="Spicearog")
+    store_tagline  = models.CharField(max_length=200, blank=True, default="Pure · Natural · Authentic")
+    business_email = models.EmailField(blank=True, default="")
+    support_phone  = models.CharField(max_length=20, blank=True, default="")
+    store_address  = models.TextField(blank=True, default="")
+    logo_url       = models.CharField(max_length=500, blank=True, default="")
+
+    # Regional Settings
+    currency        = models.CharField(max_length=50, default="INR — Indian Rupee (₹)")
+    timezone        = models.CharField(max_length=60, default="IST — Asia/Kolkata (UTC+5:30)")
+    language        = models.CharField(max_length=40, default="English (India)")
+    date_format     = models.CharField(max_length=30, default="DD MMM YYYY")
+    weight_unit     = models.CharField(max_length=20, default="Grams (g)")
+    order_id_prefix = models.CharField(max_length=10, default="ORD-")
+
+    # Shipping & Delivery
+    free_shipping_above     = models.IntegerField(default=499)
+    default_shipping_charge = models.IntegerField(default=49)
+    processing_time         = models.CharField(max_length=20, default="1-2")
+    estimated_delivery      = models.CharField(max_length=20, default="3-7")
+    cod_enabled             = models.BooleanField(default=True)
+    show_delivery_estimate  = models.BooleanField(default=True)
+    international_shipping  = models.BooleanField(default=False)
+
+    # Tax Configuration
+    gstin                   = models.CharField(max_length=20, blank=True, default="")
+    default_gst_rate        = models.CharField(max_length=10, default="5")
+    prices_inclusive_of_gst = models.BooleanField(default=True)
+    show_gst_in_invoice     = models.BooleanField(default=True)
+
+    # Notification Preferences — Orders
+    notif_new_order       = models.BooleanField(default=True)
+    notif_order_cancelled = models.BooleanField(default=True)
+    notif_refund_request  = models.BooleanField(default=True)
+    notif_order_delivered = models.BooleanField(default=False)
+    # Notification Preferences — Inventory
+    notif_low_stock    = models.BooleanField(default=True)
+    notif_out_of_stock = models.BooleanField(default=True)
+    notif_restock      = models.BooleanField(default=False)
+    notif_new_review   = models.BooleanField(default=True)
+    # Notification Preferences — Marketing
+    notif_customer_registered = models.BooleanField(default=True)
+    notif_payment_success     = models.BooleanField(default=True)
+    notif_payment_failed      = models.BooleanField(default=True)
+    notif_promotional         = models.BooleanField(default=False)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "site_settings"
+
+    @classmethod
+    def get(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+# --------------------------------------------------------------------------- #
+# CMS — FAQ categories
+# --------------------------------------------------------------------------- #
+class FaqCategory(models.Model):
+    name      = models.CharField(max_length=100)
+    position  = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "faq_categories"
+        ordering = ["position"]
+
+    def __str__(self):
+        return self.name
+
+
+# --------------------------------------------------------------------------- #
+# CMS — Team members (About Us)
+# --------------------------------------------------------------------------- #
+class TeamMember(models.Model):
+    name      = models.CharField(max_length=100)
+    role      = models.CharField(max_length=100)
+    bio       = models.TextField(blank=True)
+    photo_url = models.CharField(max_length=500, blank=True)
+    position  = models.IntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "team_members"
+        ordering = ["position"]
+
+    def __str__(self):
+        return f"{self.name} — {self.role}"
+
+
+# --------------------------------------------------------------------------- #
+# CMS — Revision history for Policy pages
+# --------------------------------------------------------------------------- #
+class CMSRevision(models.Model):
+    page_type  = models.CharField(max_length=20)
+    title      = models.CharField(max_length=200)
+    content    = models.TextField()
+    saved_by   = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name="cms_revisions")
+    note       = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cms_revisions"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.page_type} — {self.created_at:%Y-%m-%d %H:%M}"
+
+
+# --------------------------------------------------------------------------- #
+# Razorpay payment — pending orders and audit log
+# --------------------------------------------------------------------------- #
+class PendingOrderStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    PAID    = "PAID",    "Paid"
+    FAILED  = "FAILED",  "Failed"
+    EXPIRED = "EXPIRED", "Expired"
+
+
+class PaymentAttemptStatus(models.TextChoices):
+    INITIATED = "INITIATED",  "Initiated"
+    SUCCESS   = "SUCCESS",    "Success"
+    FAILED    = "FAILED",     "Failed"
+    CANCELLED = "CANCELLED",  "Cancelled"
+
+
+class RazorpayPendingOrder(models.Model):
+    """
+    Created when Razorpay checkout is initiated. Holds cart/address snapshot
+    so the real Order can be created only after payment is confirmed.
+    """
+    order_code        = models.CharField(max_length=64, unique=True)
+    razorpay_order_id = models.CharField(max_length=120, unique=True)
+    user              = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                          on_delete=models.CASCADE,
+                                          related_name="pending_rzp_orders")
+    status            = models.CharField(max_length=12,
+                                         choices=PendingOrderStatus.choices,
+                                         default=PendingOrderStatus.PENDING)
+    sub_total         = models.FloatField()
+    coupon_discount   = models.FloatField(default=0)
+    shipping_amount   = models.FloatField(default=0)
+    grand_total       = models.FloatField()
+    coupon            = models.ForeignKey("Coupon", null=True, blank=True,
+                                          on_delete=models.SET_NULL)
+    shipping_address  = models.TextField()
+    cart_snapshot     = models.TextField()
+    created_at        = models.DateTimeField(auto_now_add=True)
+    expires_at        = models.DateTimeField()
+
+    class Meta:
+        db_table = "razorpay_pending_orders"
+
+    def __str__(self):
+        return f"{self.order_code} ({self.status})"
+
+    def is_expired(self):
+        from django.utils import timezone
+        return timezone.now() > self.expires_at
+
+
+class PaymentAttempt(models.Model):
+    """Audit log for every Razorpay payment attempt (success and failure)."""
+    pending_order       = models.ForeignKey(RazorpayPendingOrder,
+                                             on_delete=models.CASCADE,
+                                             related_name="attempts",
+                                             null=True, blank=True)
+    user                = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                            on_delete=models.CASCADE,
+                                            related_name="payment_attempts")
+    razorpay_order_id   = models.CharField(max_length=120)
+    razorpay_payment_id = models.CharField(max_length=120, blank=True, default="")
+    amount              = models.FloatField()
+    status              = models.CharField(max_length=12,
+                                           choices=PaymentAttemptStatus.choices,
+                                           default=PaymentAttemptStatus.INITIATED)
+    failure_reason      = models.CharField(max_length=500, blank=True, default="")
+    created_at          = models.DateTimeField(auto_now_add=True)
+    updated_at          = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "payment_attempts"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.razorpay_order_id} — {self.status}"

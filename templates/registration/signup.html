@@ -1,12 +1,12 @@
 {% extends "registration/_auth_base.html" %}
 {% block title %}Sign up · {{ SITE_NAME }}{% endblock %}
 {% block form %}
-<h1 class="font-display text-3xl font-semibold text-ink">Create your account</h1>
+<h1 class="font-display text-2xl sm:text-3xl font-semibold text-ink">Create your account</h1>
 <p class="mt-2 text-ink/55">Join us and start shopping organic.</p>
 
 <form method="post" action="/signup" class="mt-8 space-y-4">
   {% csrf_token %}
-  <div class="grid grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <label class="block text-sm"><span class="text-ink/60">First name</span>
       <input name="first_name" value="{{ form.first_name|default:'' }}" required
              class="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>

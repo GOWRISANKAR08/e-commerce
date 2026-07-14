@@ -1,0 +1,443 @@
+{% load store_extras %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invoice {{ order.invoice_no }} · {{ cfg.store_name }}</title>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;color:#1b2420;background:#fff;line-height:1.55}
+
+/* ── Screen wrapper ── */
+@media screen{
+  body{background:#e5e7eb;padding:24px 16px}
+  .page{width:210mm;min-height:297mm;margin:0 auto;background:#fff;box-shadow:0 4px 32px rgba(0,0,0,.14)}
+  .action-bar{width:210mm;margin:0 auto 12px;display:flex;gap:8px;justify-content:flex-end}
+  .action-btn{padding:8px 20px;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:700;letter-spacing:.01em;display:inline-flex;align-items:center;gap:6px}
+  .btn-print{background:#1b2420;color:#fff}
+  .btn-print:hover{background:#2e3d36}
+  .btn-close{background:#fff;color:#1b2420;border:1px solid #d1d5db}
+  .btn-close:hover{background:#f3f4f6}
+}
+@media print{
+  body{background:#fff;padding:0}
+  .action-bar{display:none!important}
+  .page{width:100%;box-shadow:none}
+}
+
+/* ── A4 page margins ── */
+@page{size:A4 portrait;margin:14mm 13mm 18mm}
+
+/* ── Layout ── */
+.page{padding:12mm 13mm 16mm}
+
+/* ── Header ── */
+.inv-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:11px;border-bottom:2.5px solid #1b2420;margin-bottom:18px;gap:16px}
+.store-logo{height:52px;width:52px;border-radius:50%;object-fit:cover;display:block;margin-bottom:7px}
+.store-name{font-size:1.2rem;font-weight:800;color:#1b2420;line-height:1.2}
+.store-meta{font-size:.72rem;color:#6b7280;line-height:1.75;margin-top:5px}
+.store-meta strong{color:#4b5563}
+.inv-title{text-align:right;flex-shrink:0}
+.inv-label{font-size:1.75rem;font-weight:900;letter-spacing:.06em;color:#1b2420;text-transform:uppercase;line-height:1}
+.inv-number{font-size:.75rem;color:#6b7280;margin-top:7px;line-height:1.8}
+.inv-number strong{color:#374151}
+
+/* ── Status badge ── */
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-top:6px}
+.b-green{background:#dcfce7;color:#15803d}
+.b-amber{background:#fef3c7;color:#b45309}
+.b-red{background:#fee2e2;color:#dc2626}
+.b-blue{background:#dbeafe;color:#1d4ed8}
+.b-purple{background:#ede9fe;color:#7c3aed}
+.b-gray{background:#f3f4f6;color:#4b5563}
+.b-cyan{background:#cffafe;color:#0e7490}
+
+/* ── Address grid ── */
+.addr-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px}
+.addr-box{}
+.addr-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;margin-bottom:4px}
+.addr-box p{font-size:.78rem;line-height:1.7;color:#374151}
+.addr-box strong{font-size:.82rem;color:#1b2420;font-weight:700}
+
+/* ── Order meta strip ── */
+.order-meta{display:flex;gap:0;border:1px solid #e5e7eb;border-radius:7px;overflow:hidden;margin-bottom:18px;font-size:.72rem}
+.order-meta-item{flex:1;padding:8px 12px;border-right:1px solid #e5e7eb}
+.order-meta-item:last-child{border-right:none}
+.oml{color:#9ca3af;font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.omv{font-weight:600;color:#1b2420}
+
+/* ── Items table ── */
+.items-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-bottom:0}
+.items-table thead tr{background:#1b2420;color:#fff}
+.items-table thead th{padding:7px 9px;text-align:left;font-weight:600;font-size:.63rem;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.items-table thead th.r{text-align:right}
+.items-table thead th.c{text-align:center}
+.items-table tbody tr{border-bottom:1px solid #f3f4f6}
+.items-table tbody tr:nth-child(even){background:#fafafa}
+.items-table tbody td{padding:8px 9px;vertical-align:middle;color:#374151}
+.items-table tbody td.r{text-align:right}
+.items-table tbody td.c{text-align:center}
+.pname{font-weight:600;color:#1b2420;font-size:.78rem}
+.psku{font-size:.65rem;color:#9ca3af;margin-top:1px;font-family:'Courier New',monospace}
+.ptag{display:inline-block;background:#f0fdf4;color:#15803d;font-size:.6rem;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle}
+
+/* Combo rows */
+.combo-header-row td{background:#f0fdf4;color:#166534;font-weight:700;font-size:.72rem;padding:5px 9px;border-top:1px solid #bbf7d0}
+.combo-item-row td{padding-left:22px!important;background:#f9fffe}
+.combo-item-row td.pname{font-weight:500;color:#374151;font-size:.75rem}
+
+/* ── Table divider ── */
+.table-wrap{border:1px solid #e5e7eb;border-radius:7px;overflow:hidden;margin-bottom:0}
+
+/* ── Totals ── */
+.totals-row{display:flex;justify-content:flex-end;margin-top:0;border-top:1px solid #e5e7eb}
+.totals-table{width:264px;border-collapse:collapse;font-size:.76rem;padding:12px 0}
+.totals-table td{padding:3.5px 8px;color:#374151}
+.totals-table td:last-child{text-align:right;font-family:'Courier New',monospace;color:#1b2420}
+.totals-table .t-sep td{border-top:1px dashed #e5e7eb;padding-top:7px;margin-top:2px}
+.totals-table .t-grand td{border-top:2px solid #1b2420;padding-top:8px;font-size:.9rem;font-weight:800;color:#1b2420}
+.totals-table .t-discount td{color:#15803d}
+.totals-table .t-refund td{color:#dc2626}
+.totals-table .t-muted td:first-child{color:#9ca3af;font-size:.7rem}
+
+/* ── Payment bar ── */
+.payment-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f9fafb;border:1px solid #e5e7eb;border-radius:7px;padding:10px 14px;margin-top:16px}
+.pay-item{flex:1;min-width:100px}
+.pay-item-right{text-align:right}
+.pyl{color:#9ca3af;font-size:.62rem;text-transform:uppercase;letter-spacing:.07em}
+.pyv{font-weight:700;color:#1b2420;margin-top:2px;font-size:.78rem}
+.amount-big{font-size:1.05rem;font-weight:800}
+.txn-mono{font-family:'Courier New',monospace;font-size:.68rem}
+
+/* ── Refund section ── */
+.refund-section{margin-top:14px;border:1px solid #fecaca;background:#fff7f7;border-radius:7px;padding:10px 14px}
+.refund-section h4{color:#dc2626;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.refund-row{display:flex;justify-content:space-between;align-items:center;font-size:.74rem;padding:3px 0;border-bottom:1px dashed #fecaca;color:#7f1d1d}
+.refund-row:last-child{border-bottom:none}
+
+/* ── GST note ── */
+.gst-note{margin-top:12px;border:1px solid #e5e7eb;border-radius:7px;padding:8px 14px;font-size:.7rem;color:#6b7280;line-height:1.65}
+.gst-note strong{color:#374151}
+
+/* ── Footer ── */
+.inv-footer{margin-top:24px;padding-top:11px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.footer-left{font-size:.67rem;color:#9ca3af;line-height:1.7}
+.footer-right{font-size:.67rem;color:#9ca3af;text-align:right;line-height:1.7}
+.footer-note{font-size:.68rem;color:#9ca3af;font-style:italic}
+
+/* ── Utilities ── */
+.mono{font-family:'Courier New',monospace}
+.fw7{font-weight:700}
+.clr-muted{color:#6b7280}
+</style>
+</head>
+<body>
+
+<!-- Screen-only action bar -->
+<div class="action-bar">
+  <button class="action-btn btn-close" onclick="window.close()">&#10005; Close</button>
+  <button class="action-btn btn-print" onclick="window.print()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Print / Save PDF
+  </button>
+</div>
+
+<div class="page">
+
+  <!-- ══════════════════════════════════
+       HEADER — store branding + invoice meta
+  ══════════════════════════════════ -->
+  <div class="inv-header">
+    <div>
+      {% if cfg.logo_url %}
+      <img src="{{ cfg.logo_url }}" alt="{{ cfg.store_name }}" class="store-logo">
+      {% endif %}
+      <div class="store-name">{{ cfg.store_name }}</div>
+      <div class="store-meta">
+        {% if cfg.store_address %}{{ cfg.store_address|linebreaksbr }}{% endif %}
+        {% if cfg.support_phone %}<br>&#128222; {{ cfg.support_phone }}{% endif %}
+        {% if cfg.business_email %}<br>&#9993; {{ cfg.business_email }}{% endif %}
+        {% if cfg.gstin %}<br><strong>GSTIN:</strong> {{ cfg.gstin }}{% endif %}
+      </div>
+    </div>
+    <div class="inv-title">
+      <div class="inv-label">Tax Invoice</div>
+      <div class="inv-number">
+        <strong>Invoice&nbsp;#</strong>&nbsp;{{ order.invoice_no }}<br>
+        <strong>Order&nbsp;ID:</strong>&nbsp;<span class="mono">{{ order.order_id }}</span><br>
+        <strong>Date:</strong>&nbsp;{{ order.created_at|date:"d M Y" }}&nbsp;&nbsp;<strong>Time:</strong>&nbsp;{{ order.created_at|date:"g:i A" }}
+      </div>
+      <div>
+        <!-- Order status badge -->
+        {% if order.status == 'DELIVERED' %}<span class="badge b-green">Delivered</span>
+        {% elif order.status == 'CANCELLED' %}<span class="badge b-red">Cancelled</span>
+        {% elif order.status == 'REFUNDED' %}<span class="badge b-purple">Refunded</span>
+        {% elif order.status == 'DISPATCHED' %}<span class="badge b-blue">Dispatched</span>
+        {% elif order.status == 'PACKED' %}<span class="badge b-cyan">Packed</span>
+        {% elif order.status == 'ORDER_CONFIRMED' %}<span class="badge b-cyan">Confirmed</span>
+        {% else %}<span class="badge b-amber">{{ order.get_status_display }}</span>
+        {% endif %}
+        <!-- Payment status badge -->
+        {% if order.payment_status == 'PAID' %}<span class="badge b-green">Paid</span>
+        {% elif order.payment_status == 'REFUNDED' %}<span class="badge b-purple">Refunded</span>
+        {% elif order.payment_status == 'FAILED' %}<span class="badge b-red">Failed</span>
+        {% elif order.payment_status == 'CANCELLED' %}<span class="badge b-red">Cancelled</span>
+        {% else %}<span class="badge b-amber">{{ order.get_payment_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       ORDER META STRIP
+  ══════════════════════════════════ -->
+  <div class="order-meta">
+    <div class="order-meta-item">
+      <div class="oml">Order Date</div>
+      <div class="omv">{{ order.created_at|date:"d M Y" }}</div>
+    </div>
+    <div class="order-meta-item">
+      <div class="oml">Payment</div>
+      <div class="omv">{{ order.get_payment_mode_display }}</div>
+    </div>
+    <div class="order-meta-item">
+      <div class="oml">Channel</div>
+      <div class="omv">{{ order.get_channel_display }}</div>
+    </div>
+    {% if order.razorpay_payment_id %}
+    <div class="order-meta-item">
+      <div class="oml">Transaction ID</div>
+      <div class="omv mono" style="font-size:.68rem">{{ order.razorpay_payment_id }}</div>
+    </div>
+    {% endif %}
+    <div class="order-meta-item">
+      <div class="oml">Items</div>
+      <div class="omv">{{ order.no_of_product }}</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       BILLING / SHIPPING ADDRESSES
+  ══════════════════════════════════ -->
+  <div class="addr-grid">
+    <div class="addr-box">
+      <div class="addr-label">Bill To / Customer</div>
+      <strong>{{ order.user.full_name }}</strong>
+      <p>{{ order.user.email }}</p>
+      {% if order.user.mobile %}<p>{{ order.user.mobile }}</p>{% endif %}
+    </div>
+    <div class="addr-box">
+      <div class="addr-label">Ship To</div>
+      {% if addr.name %}<strong>{{ addr.name }}</strong>{% endif %}
+      {% if addr.address %}<p>{{ addr.address }}</p>{% endif %}
+      {% if addr.city or addr.state %}
+        <p>{% if addr.city %}{{ addr.city }}{% endif %}{% if addr.state %}, {{ addr.state }}{% endif %}{% if addr.pinCode %} — {{ addr.pinCode }}{% endif %}</p>
+      {% endif %}
+      {% if addr.mobile %}<p>Ph: {{ addr.mobile }}</p>{% endif %}
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       LINE ITEMS
+  ══════════════════════════════════ -->
+  <div class="table-wrap">
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width:38%">Product</th>
+          <th>Variant / SKU</th>
+          <th class="c">Qty</th>
+          <th class="r">Unit Price</th>
+          <th class="r">Line Total</th>
+          {% if show_gst %}<th class="r">GST</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+
+        {% for eitem in regular_items %}
+        {% with it=eitem.item %}
+        <tr>
+          <td><span class="pname">{{ it.name }}</span></td>
+          <td>
+            <div>{{ it.variant_label }}</div>
+            <div class="psku">{{ it.variant.va_code }}</div>
+          </td>
+          <td class="c fw7">{{ it.qty }}</td>
+          <td class="r">{{ it.price|inr }}</td>
+          <td class="r fw7">{{ it.net_total|inr }}</td>
+          {% if show_gst %}
+          <td class="r clr-muted" style="font-size:.7rem">{{ eitem.gst_rate|floatformat:0 }}%<br>{{ eitem.gst_amt|inr }}</td>
+          {% endif %}
+        </tr>
+        {% endwith %}
+        {% endfor %}
+
+        {% for cgroup in combos %}
+        <tr class="combo-header-row">
+          <td colspan="{% if show_gst %}6{% else %}5{% endif %}">
+            &#128230; Combo Bundle &mdash; <strong>{{ cgroup.combo.name }}</strong>
+          </td>
+        </tr>
+        {% for eitem in cgroup.items %}
+        {% with it=eitem.item %}
+        <tr class="combo-item-row">
+          <td><span class="pname">{{ it.name }}</span></td>
+          <td>
+            <div>{{ it.variant_label }}</div>
+            <div class="psku">{{ it.variant.va_code }}</div>
+          </td>
+          <td class="c fw7">{{ it.qty }}</td>
+          <td class="r">{{ it.price|inr }}</td>
+          <td class="r fw7">{{ it.net_total|inr }}</td>
+          {% if show_gst %}
+          <td class="r clr-muted" style="font-size:.7rem">{{ eitem.gst_rate|floatformat:0 }}%<br>{{ eitem.gst_amt|inr }}</td>
+          {% endif %}
+        </tr>
+        {% endwith %}
+        {% endfor %}
+        {% endfor %}
+
+      </tbody>
+    </table>
+
+    <!-- ── TOTALS ── -->
+    <div class="totals-row">
+      <table class="totals-table">
+        <tr>
+          <td class="clr-muted">Subtotal</td>
+          <td>{{ order.sub_total|inr }}</td>
+        </tr>
+        {% if order.discount %}
+        <tr class="t-discount">
+          <td>Product Discount</td>
+          <td>&minus;{{ order.discount|inr }}</td>
+        </tr>
+        {% endif %}
+        {% if order.coupon_discount %}
+        <tr class="t-discount">
+          <td>Coupon {% if order.coupon %}({{ order.coupon.code }}){% endif %}</td>
+          <td>&minus;{{ order.coupon_discount|inr }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td class="clr-muted">Shipping</td>
+          <td>{% if order.shipping_amount %}{{ order.shipping_amount|inr }}{% else %}FREE{% endif %}</td>
+        </tr>
+        {% if show_gst %}
+        <tr class="t-sep t-muted">
+          <td>Taxable Amount</td>
+          <td>{{ total_taxable|inr }}</td>
+        </tr>
+        <tr class="t-muted">
+          <td>GST (included)</td>
+          <td>{{ total_gst|inr }}</td>
+        </tr>
+        {% endif %}
+        <tr class="t-grand">
+          <td>Total Payable</td>
+          <td>{{ order.grand_total|inr }}</td>
+        </tr>
+        {% if total_refunded %}
+        <tr class="t-refund">
+          <td>Refunded</td>
+          <td>&minus;{{ total_refunded|inr }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+  </div><!-- /.table-wrap -->
+
+  <!-- ══════════════════════════════════
+       PAYMENT INFO
+  ══════════════════════════════════ -->
+  <div class="payment-bar">
+    <div class="pay-item">
+      <div class="pyl">Payment Method</div>
+      <div class="pyv">{{ order.get_payment_mode_display }}</div>
+    </div>
+    <div class="pay-item">
+      <div class="pyl">Payment Status</div>
+      <div class="pyv">
+        {% if order.payment_status == 'PAID' %}<span class="badge b-green">Paid</span>
+        {% elif order.payment_status == 'REFUNDED' %}<span class="badge b-purple">Refunded</span>
+        {% elif order.payment_status == 'FAILED' %}<span class="badge b-red">Failed</span>
+        {% elif order.payment_status == 'CANCELLED' %}<span class="badge b-red">Cancelled</span>
+        {% else %}<span class="badge b-amber">{{ order.get_payment_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% if order.razorpay_order_id %}
+    <div class="pay-item">
+      <div class="pyl">Razorpay Order</div>
+      <div class="pyv txn-mono">{{ order.razorpay_order_id }}</div>
+    </div>
+    {% endif %}
+    {% if order.razorpay_payment_id %}
+    <div class="pay-item">
+      <div class="pyl">Transaction ID</div>
+      <div class="pyv txn-mono">{{ order.razorpay_payment_id }}</div>
+    </div>
+    {% endif %}
+    <div class="pay-item pay-item-right">
+      <div class="pyl">Amount Due</div>
+      <div class="pyv amount-big">{{ order.grand_total|inr }}</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       REFUND HISTORY (if any)
+  ══════════════════════════════════ -->
+  {% if refunds %}
+  <div class="refund-section">
+    <h4>Refund History</h4>
+    {% for r in refunds %}
+    <div class="refund-row">
+      <span>{{ r.get_refund_type_display }} &mdash; {{ r.created_at|date:"d M Y" }}{% if r.reason %} &mdash; {{ r.reason }}{% endif %}</span>
+      <strong>&minus;{{ r.amount|inr }}</strong>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════
+       GST BREAKDOWN NOTE
+  ══════════════════════════════════ -->
+  {% if show_gst %}
+  <div class="gst-note">
+    {% if cfg.gstin %}<strong>GSTIN:</strong> {{ cfg.gstin }} &nbsp;&bull;&nbsp; {% endif %}
+    {% if prices_incl %}Prices shown are <strong>inclusive of GST</strong>. Total GST collected: <strong>{{ total_gst|inr }}</strong>.
+    {% else %}GST is charged <strong>additionally</strong> on taxable value. Total GST: <strong>{{ total_gst|inr }}</strong>.
+    {% endif %}
+    Default GST Rate: {{ cfg.default_gst_rate }}%
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════
+       FOOTER
+  ══════════════════════════════════ -->
+  <div class="inv-footer">
+    <div class="footer-left">
+      <div>{{ cfg.store_name }}{% if cfg.store_address %} &bull; {{ cfg.store_address }}{% endif %}</div>
+      {% if cfg.business_email or cfg.support_phone %}
+      <div>{% if cfg.business_email %}{{ cfg.business_email }}{% endif %}{% if cfg.support_phone %} &nbsp;&bull;&nbsp; {{ cfg.support_phone }}{% endif %}</div>
+      {% endif %}
+      <div class="footer-note">This is a computer-generated document. No signature required.</div>
+    </div>
+    <div class="footer-right">
+      <div>Order: <span class="mono">{{ order.order_id }}</span></div>
+      <div>Printed: {% now "d M Y, g:i A" %}</div>
+      <div style="margin-top:4px;font-size:.78rem;font-weight:700;color:#1b2420">Thank you for shopping with us!</div>
+    </div>
+  </div>
+
+</div><!-- /.page -->
+
+<script>
+  window.addEventListener('load', function() {
+    setTimeout(function() { window.print(); }, 700);
+  });
+</script>
+</body>
+</html>

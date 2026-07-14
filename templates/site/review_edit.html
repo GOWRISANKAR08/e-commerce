@@ -1,0 +1,125 @@
+{% extends "site/base.html" %}
+{% load store_extras %}
+{% block title %}Edit Review · {{ SITE_NAME }}{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-2xl px-4 py-10 lg:px-8">
+  <div class="mb-6">
+    <a href="/my-reviews" class="inline-flex items-center gap-1.5 text-sm text-brand-600 hover:text-brand-700 transition font-medium">
+      ← Back to My Reviews
+    </a>
+    <h1 class="mt-3 font-display text-2xl font-bold text-ink">Edit Review</h1>
+    <p class="mt-0.5 text-sm text-ink/50">for <span class="font-semibold text-ink">{{ review.product.name }}</span></p>
+  </div>
+
+  <div class="card p-6">
+    <form method="post" action="/api/reviews/{{ review.pk }}/edit" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <!-- Star rating -->
+      <div class="mb-4">
+        <p class="text-sm font-semibold text-ink mb-2">Your Rating</p>
+        <div class="flex items-center gap-1 star-picker" id="star-picker">
+          {% for i in "12345"|make_list %}
+          <label class="cursor-pointer text-3xl transition-transform hover:scale-110">
+            <input type="radio" name="rating" value="{{ i }}" class="sr-only" {% if review.rating == i|add:0 %}checked{% endif %} />
+            <span class="star-icon" data-val="{{ i }}" style="color:{% if forloop.counter <= review.rating %}#e8a800{% else %}rgba(0,0,0,.15){% endif %}">★</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="mb-3">
+        <label class="block text-sm font-semibold text-ink mb-1">Review Title</label>
+        <input type="text" name="title" maxlength="200" value="{{ review.title }}"
+               placeholder="Summarise your experience…"
+               class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+      </div>
+
+      <!-- Comment -->
+      <div class="mb-3">
+        <label class="block text-sm font-semibold text-ink mb-1">Review</label>
+        <textarea name="comment" rows="5" required
+                  class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none">{{ review.comment }}</textarea>
+      </div>
+
+      <!-- Current images -->
+      {% if review.images.all %}
+      <div class="mb-4">
+        <p class="text-sm font-semibold text-ink mb-2">Current Photos</p>
+        <div class="flex flex-wrap gap-2">
+          {% for img in review.images.all %}
+          <img src="{{ img.image_url }}" alt="Review photo" class="h-16 w-16 rounded-lg object-cover border border-black/8" />
+          {% endfor %}
+        </div>
+        <p class="text-xs text-ink/40 mt-1.5">Upload new photos below to replace existing ones.</p>
+      </div>
+      {% endif %}
+
+      <!-- New images -->
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-ink mb-1">Replace Photos (optional, up to 4)</label>
+        <label class="flex items-center gap-3 cursor-pointer w-full rounded-xl border-2 border-dashed border-black/15 hover:border-brand-300 bg-cream/50 px-4 py-3 transition">
+          <svg class="w-5 h-5 text-ink/40 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <span id="img-label" class="text-sm text-ink/45">Click to add photos</span>
+          <input type="file" name="images" multiple accept="image/*" class="hidden" onchange="previewImages(this)" />
+        </label>
+        <div id="img-previews" class="mt-2 flex flex-wrap gap-2 hidden"></div>
+      </div>
+
+      <!-- Anonymous -->
+      <label class="flex items-center gap-2.5 mb-5 cursor-pointer">
+        <input type="checkbox" name="is_anonymous" {% if review.is_anonymous %}checked{% endif %}
+               class="w-4 h-4 rounded border-black/20 accent-brand-600" />
+        <span class="text-sm text-ink/60">Post anonymously</span>
+      </label>
+
+      <div class="flex gap-3">
+        <button type="submit" class="btn-primary">Update Review</button>
+        <a href="/my-reviews" class="btn-ghost">Cancel</a>
+      </div>
+      <p class="mt-2 text-xs text-ink/40">Editing resubmits the review for approval.</p>
+    </form>
+  </div>
+</section>
+
+{% block scripts %}
+<script>
+(function(){
+  const stars = document.querySelectorAll('#star-picker .star-icon');
+  function paint(val){
+    stars.forEach(s => {
+      s.style.color = parseInt(s.dataset.val) <= val ? '#e8a800' : 'rgba(0,0,0,.15)';
+    });
+  }
+  let current = {{ review.rating }};
+  stars.forEach(s => {
+    const inp = s.closest('label').querySelector('input');
+    s.closest('label').addEventListener('mouseover', () => paint(parseInt(s.dataset.val)));
+    s.closest('label').addEventListener('mouseleave', () => paint(current));
+    inp.addEventListener('change', () => { current = parseInt(inp.value); paint(current); });
+  });
+})();
+
+function previewImages(input){
+  const container = document.getElementById('img-previews');
+  const label     = document.getElementById('img-label');
+  const files     = Array.from(input.files).slice(0,4);
+  container.innerHTML = '';
+  if(!files.length){ container.classList.add('hidden'); return; }
+  container.classList.remove('hidden');
+  label.textContent = files.length + ' photo' + (files.length>1?'s':'') + ' selected';
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.className = 'h-16 w-16 object-cover rounded-lg border border-black/10';
+      container.appendChild(img);
+    };
+    reader.readAsDataURL(f);
+  });
+}
+</script>
+{% endblock %}
+{% endblock %}

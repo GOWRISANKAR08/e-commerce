@@ -16,18 +16,23 @@ ADMIN_NAV = [
         {"label": "Cancelled", "href": "/admin-panel/orders?status=CANCELLED", "icon": "x-circle", "count_key": "cancelled"},
         {"label": "Returns", "href": "/admin-panel/orders?status=REFUNDED", "icon": "rotate-ccw", "count_key": "returns"}]},
     {"heading": "Customers", "items": [
-        {"label": "Customer List", "href": "/admin-panel/users", "icon": "users"},
-        {"label": "Loyalty Members", "href": "/admin-panel/loyalty", "icon": "award"},
-        {"label": "Reviews", "href": "/admin-panel/reviews", "icon": "star"}]},
+        {"label": "Customer List",  "href": "/admin-panel/users",         "icon": "users"},
+        {"label": "Loyalty Members","href": "/admin-panel/loyalty",       "icon": "award"},
+        {"label": "Reviews",        "href": "/admin-panel/reviews",       "icon": "star"},
+        {"label": "Testimonials",   "href": "/admin-panel/testimonials",  "icon": "message-square", "count_key": "testimonial_pending"}]},
     {"heading": "Marketing", "items": [
-        {"label": "Coupons", "href": "/admin-panel/coupons", "icon": "percent"},
+        {"label": "Offers & Coupons", "href": "/admin-panel/coupons", "icon": "percent"},
         {"label": "Banners", "href": "/admin-panel/banners", "icon": "image"},
-        {"label": "Offers", "href": "/admin/store/homeoffer/", "icon": "tag"},
-        {"label": "Newsletter", "href": "/admin/store/notification/", "icon": "mail"}]},
+        {"label": "Newsletter", "href": "/admin-panel/marketing/newsletter", "icon": "mail"}]},
     {"heading": "Analytics", "items": [
         {"label": "Sales Reports", "href": "/admin-panel/reports", "icon": "chart"},
         {"label": "Revenue", "href": "/admin-panel/revenue", "icon": "trending-up"},
         {"label": "Performance", "href": "/admin-panel/performance", "icon": "activity"}]},
+    {"heading": "Content", "items": [
+        {"label": "CMS Pages",   "href": "/admin-panel/cms",              "icon": "file-text"},
+        {"label": "FAQ Manager", "href": "/admin-panel/cms/faq",          "icon": "help-circle"},
+        {"label": "Enquiries",   "href": "/admin-panel/cms/enquiries",    "icon": "inbox",    "count_key": "enquiry_unread"},
+        {"label": "About Us",    "href": "/admin-panel/cms/about",        "icon": "users"}]},
     {"heading": "Settings", "items": [
         {"label": "Settings",     "href": "/admin-panel/settings",     "icon": "settings"},
         {"label": "Integrations", "href": "/admin-panel/integrations", "icon": "plug"}]},

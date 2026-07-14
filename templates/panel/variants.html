@@ -1,138 +1,399 @@
-﻿{% extends "panel/base.html" %}
+{% extends "panel/base.html" %}
 {% load store_extras %}
 {% block title %}Product Variants · {{ SITE_NAME }}{% endblock %}
 {% block crumb %}Catalog · Variants{% endblock %}
 {% block content %}
 <div class="space-y-5">
 
-  <!-- Header -->
+  <!-- Page header -->
   <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
       <h1 class="font-display text-2xl font-bold text-ink">Product Variants</h1>
-      <p class="mt-0.5 text-sm text-ink/50">{{ total_v }} variant{{ total_v|pluralize }} across all products</p>
+      <p class="mt-0.5 text-sm text-ink/50">Manage size, weight, and pack variants across all products.</p>
     </div>
-    <button onclick="document.getElementById('addModal').classList.remove('hidden')" class="btn-primary">+ Add Variant</button>
+    <button onclick="openAdd()" class="btn-primary inline-flex items-center gap-1.5">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Variant
+    </button>
   </div>
 
   <!-- Stat cards -->
-  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-    <div class="card p-4"><p class="text-xs text-ink/45 font-medium">Total Variants</p><p class="mt-1 text-2xl font-bold text-ink">{{ total_v }}</p></div>
-    <div class="card p-4"><p class="text-xs text-ink/45 font-medium">In Stock</p><p class="mt-1 text-2xl font-bold text-brand-600">{{ in_stock_v }}</p></div>
-    <div class="card p-4"><p class="text-xs text-ink/45 font-medium">Low Stock</p><p class="mt-1 text-2xl font-bold text-gold-600">{{ low_stock_v }}</p></div>
-    <div class="card p-4"><p class="text-xs text-ink/45 font-medium">Out of Stock</p><p class="mt-1 text-2xl font-bold text-red-500">{{ out_stock_v }}</p></div>
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-ink leading-none">{{ total_v }}</p>
+        <p class="mt-1 text-xs font-medium text-ink/45">Total Variants</p>
+      </div>
+    </div>
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-brand-600 leading-none">{{ in_stock_v }}</p>
+        <p class="mt-1 text-xs font-medium text-ink/45">In Stock</p>
+      </div>
+    </div>
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-amber-600 leading-none">{{ low_stock_v }}</p>
+        <p class="mt-1 text-xs font-medium text-ink/45">Low Stock</p>
+      </div>
+    </div>
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-50">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-red-500 leading-none">{{ out_stock_v }}</p>
+        <p class="mt-1 text-xs font-medium text-ink/45">Out of Stock</p>
+      </div>
+    </div>
   </div>
 
-  <!-- Grouped by product -->
-  <div class="space-y-4">
-    {% for group in grouped %}
-      <div class="card overflow-hidden">
-        <!-- Product header -->
-        <div class="flex items-center gap-3 border-b border-black/5 bg-cream/30 px-4 py-3">
-          <div class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-brand-50">
-            <img src="{{ group.product.image }}" onerror="this.style.display='none'" class="h-full w-full object-cover" />
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="font-semibold text-ink text-sm">{{ group.product.name }}</p>
-            <p class="text-[11px] text-ink/40">{{ group.product.code }} · {{ group.product.category.name }}</p>
-          </div>
-          <span class="shrink-0 text-xs font-medium text-ink/40">{{ group.variants|length }} variant{{ group.variants|length|pluralize }}</span>
-          <a href="/admin-panel/products/{{ group.product.id }}/edit"
-             class="shrink-0 rounded-lg border border-black/10 px-2.5 py-1 text-xs font-medium text-ink/60 hover:bg-cream transition">Edit Product</a>
-        </div>
+  <!-- Table card -->
+  <div class="card overflow-hidden">
 
-        <!-- Variants table -->
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b border-black/5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink/40">
-                <th class="px-4 py-2.5">Variant</th>
-                <th class="px-4 py-2.5">SKU</th>
-                <th class="px-4 py-2.5">Selling Price</th>
-                <th class="px-4 py-2.5">MRP</th>
-                <th class="px-4 py-2.5">Stock</th>
-                <th class="px-4 py-2.5">Status</th>
-                <th class="px-4 py-2.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for v in group.variants %}
-                <tr class="border-b border-black/5 last:border-0 hover:bg-cream/30 align-middle">
-                  <td class="px-4 py-2.5 font-medium text-ink">{{ v.variant }}</td>
-                  <td class="px-4 py-2.5 text-xs text-ink/45 font-mono">{{ v.va_code }}</td>
-                  <td class="px-4 py-2.5 font-semibold text-ink">{{ v.selling_price|inr }}</td>
-                  <td class="px-4 py-2.5 text-ink/35 line-through text-xs">{{ v.mrp_price|inr }}</td>
-                  <td class="px-4 py-2.5">
-                    <span class="font-bold
-                      {% if v.stock_status == 'OUT_OF_STOCK' %}text-red-500
-                      {% elif v.stock_status == 'LOW_STOCK' %}text-gold-600
-                      {% else %}text-brand-600{% endif %}">{{ v.stock }}</span>
-                  </td>
-                  <td class="px-4 py-2.5">
-                    <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold
-                      {% if v.stock_status == 'IN_STOCK' %}bg-brand-50 text-brand-700
-                      {% elif v.stock_status == 'LOW_STOCK' %}bg-gold-400/20 text-gold-700
-                      {% else %}bg-red-50 text-red-700{% endif %}">
-                      {{ v.get_stock_status_display }}
-                    </span>
-                  </td>
-                  <td class="px-4 py-2.5 text-right">
-                    <form method="post" action="/admin-panel/variants/{{ v.id }}/delete"
-                          onsubmit="return confirm('Delete {{ v.variant|escapejs }} variant?')">
-                      {% csrf_token %}
-                      <button type="submit"
-                              class="grid h-7 w-7 place-items-center rounded-lg text-ink/35 hover:bg-red-50 hover:text-red-600 transition ml-auto" title="Delete">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+    <!-- Filter bar -->
+    <div class="flex flex-wrap items-center gap-2 border-b border-black/5 px-4 py-3">
+      <form method="get" class="flex flex-1 flex-wrap items-center gap-2">
+        <div class="relative">
+          <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input name="q" value="{{ q }}" placeholder="Search variants..."
+                 class="w-52 rounded-lg border border-black/8 bg-gray-50 py-2 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
         </div>
+        <select name="product" onchange="this.form.submit()"
+                class="rounded-lg border border-black/8 bg-gray-50 px-3 py-2 text-sm text-ink/70 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <option value="">All Products</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if product_filter == p.id|stringformat:"s" %}selected{% endif %}>{{ p.name }}</option>
+          {% endfor %}
+        </select>
+        <select name="status" onchange="this.form.submit()"
+                class="rounded-lg border border-black/8 bg-gray-50 px-3 py-2 text-sm text-ink/70 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <option value="">All Status</option>
+          {% for val, label in stock_statuses %}
+          <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="sr-only">Search</button>
+        {% if q or product_filter or status_filter %}
+        <a href="/admin-panel/variants" class="text-xs text-ink/40 hover:text-ink underline">Clear</a>
+        {% endif %}
+      </form>
+      <a href="/admin-panel/variants/export"
+         class="inline-flex items-center gap-1.5 rounded-lg border border-black/10 px-3 py-2 text-sm font-medium text-ink/60 hover:bg-gray-50 transition">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </a>
+      <button onclick="openAdd()"
+              class="btn-primary inline-flex items-center gap-1 py-2 text-sm">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Variant
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-black/5 bg-gray-50/70 text-left text-[11px] font-semibold uppercase tracking-wide text-ink/40">
+            <th class="px-5 py-3 min-w-[200px]">Product</th>
+            <th class="px-4 py-3">SKU</th>
+            <th class="px-4 py-3">Variant / Size</th>
+            <th class="px-4 py-3">MRP</th>
+            <th class="px-4 py-3">Selling Price</th>
+            <th class="px-4 py-3">Stock</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3 w-20"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in flat_rows %}
+          {% with v=row.variant %}
+          <tr class="border-b border-black/[.04] align-middle transition hover:bg-gray-50/60">
+
+            <!-- Product column -->
+            <td class="px-5 py-3">
+              {% if row.is_first %}
+              <div class="flex items-center gap-3">
+                <div class="h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                  <img src="{{ v.product.image }}" alt="{{ v.product.name }}"
+                       class="h-full w-full object-cover" onerror="this.style.display='none'">
+                </div>
+                <span class="font-semibold text-ink">{{ v.product.name }}</span>
+              </div>
+              {% else %}
+              <div class="flex items-center gap-2 pl-3">
+                <div class="h-4 w-0.5 rounded-full bg-black/10 shrink-0"></div>
+                <span class="text-xs text-ink/40 font-medium">variant</span>
+              </div>
+              {% endif %}
+            </td>
+
+            <!-- SKU -->
+            <td class="px-4 py-3">
+              <span class="inline-block rounded-md border border-black/8 bg-gray-50 px-2 py-0.5 font-mono text-[11px] text-ink/55">{{ v.va_code }}</span>
+            </td>
+
+            <!-- Variant / Size -->
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center gap-1.5 rounded-full border border-black/8 bg-gray-50 px-2.5 py-1 text-xs font-medium text-ink/65">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                {{ v.variant }}
+              </span>
+            </td>
+
+            <!-- MRP -->
+            <td class="px-4 py-3 text-[12px] font-medium text-ink/35 line-through">{{ v.mrp_price|inr }}</td>
+
+            <!-- Selling Price -->
+            <td class="px-4 py-3 font-bold text-ink">{{ v.selling_price|inr }}</td>
+
+            <!-- Stock -->
+            <td class="px-4 py-3">
+              <span class="font-bold text-sm
+                {% if v.stock_status == 'OUT_OF_STOCK' %}text-red-500
+                {% elif v.stock_status == 'LOW_STOCK' %}text-amber-500
+                {% else %}text-ink{% endif %}">{{ v.stock }}</span>
+            </td>
+
+            <!-- Status -->
+            <td class="px-4 py-3">
+              {% if v.stock_status == 'IN_STOCK' %}
+              <span class="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">In Stock</span>
+              {% elif v.stock_status == 'LOW_STOCK' %}
+              <span class="text-[11px] font-semibold text-amber-600">Low Stock</span>
+              {% else %}
+              <span class="text-[11px] font-semibold text-red-600">Out of Stock</span>
+              {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td class="px-4 py-3">
+              <div class="flex items-center justify-end gap-1">
+                <button
+                  onclick="openEdit({{ v.id }},'{{ v.variant|escapejs }}',{{ v.selling_price }},{{ v.mrp_price }},{{ v.stock }},{{ v.position }})"
+                  class="grid h-7 w-7 place-items-center rounded-lg text-ink/35 transition hover:bg-brand-50 hover:text-brand-700"
+                  title="Edit">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <form method="post" action="/admin-panel/variants/{{ v.id }}/delete"
+                      onsubmit="return confirm('Delete \'{{ v.variant|escapejs }}\' variant?')">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="grid h-7 w-7 place-items-center rounded-lg text-ink/35 transition hover:bg-red-50 hover:text-red-600"
+                          title="Delete">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr>
+            <td colspan="8" class="px-5 py-16 text-center text-sm text-ink/35">
+              No variants found{% if q or product_filter or status_filter %} for the current filters{% endif %}.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex items-center justify-between border-t border-black/5 px-5 py-3">
+      <p class="text-xs text-ink/45">
+        Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ filtered_total }} variant{{ filtered_total|pluralize }}
+      </p>
+      {% if page_obj.paginator.num_pages > 1 %}
+      <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&product={{ product_filter }}&status={{ status_filter }}"
+           class="grid h-7 w-7 place-items-center rounded-lg border border-black/8 text-xs text-ink/50 hover:bg-gray-50 transition">‹</a>
+        {% else %}
+        <span class="grid h-7 w-7 place-items-center rounded-lg border border-black/5 text-xs text-ink/20">‹</span>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+          {% if num == page_obj.number %}
+          <span class="grid h-7 w-7 place-items-center rounded-lg bg-brand-600 text-xs font-bold text-white">{{ num }}</span>
+          {% elif num == 1 or num == page_obj.paginator.num_pages %}
+          <a href="?page={{ num }}&q={{ q }}&product={{ product_filter }}&status={{ status_filter }}"
+             class="grid h-7 w-7 place-items-center rounded-lg border border-black/8 text-xs text-ink/60 hover:bg-gray-50 transition">{{ num }}</a>
+          {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+          <a href="?page={{ num }}&q={{ q }}&product={{ product_filter }}&status={{ status_filter }}"
+             class="grid h-7 w-7 place-items-center rounded-lg border border-black/8 text-xs text-ink/60 hover:bg-gray-50 transition">{{ num }}</a>
+          {% elif num == page_obj.number|add:"-3" or num == page_obj.number|add:"3" %}
+          <span class="grid h-7 w-7 place-items-center text-xs text-ink/25">…</span>
+          {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&product={{ product_filter }}&status={{ status_filter }}"
+           class="grid h-7 w-7 place-items-center rounded-lg border border-black/8 text-xs text-ink/50 hover:bg-gray-50 transition">›</a>
+        {% else %}
+        <span class="grid h-7 w-7 place-items-center rounded-lg border border-black/5 text-xs text-ink/20">›</span>
+        {% endif %}
       </div>
-    {% empty %}
-      <div class="card py-12 text-center">
-        <p class="text-sm text-ink/40">No variants yet. Add your first variant below.</p>
-      </div>
-    {% endfor %}
-  </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /card -->
 </div>
 
-<!-- Add Variant Modal -->
-<div id="addModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-  <div class="w-full max-w-md card p-6 space-y-4">
+<!-- ── Add Variant Modal ──────────────────────────────────────────────── -->
+<div id="addModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+  <div class="card w-full max-w-md space-y-4 p-6">
     <div class="flex items-center justify-between">
       <h2 class="font-display text-lg font-semibold">Add Variant</h2>
-      <button onclick="document.getElementById('addModal').classList.add('hidden')" class="text-ink/40 hover:text-ink">
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button onclick="closeAdd()" class="text-ink/40 hover:text-ink transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
     <form method="post" action="/admin-panel/variants" class="space-y-3">
       {% csrf_token %}
-      <label class="block text-sm"><span class="text-ink/60 text-xs font-medium">Product *</span>
-        <select name="product" required class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-ink/60">Product *</span>
+        <select name="product" id="addVariantProduct" required
+                class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
           {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
-        </select></label>
-      <label class="block text-sm"><span class="text-ink/60 text-xs font-medium">Variant label *</span>
-        <input name="variant" required placeholder="e.g. 100g, 250ml" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        </select>
+      </label>
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-ink/60">Variant label *</span>
+        <input name="variant" required placeholder="e.g. 100g, 250ml"
+               class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+      </label>
       <div class="grid grid-cols-2 gap-3">
-        <label class="block text-sm"><span class="text-ink/60 text-xs font-medium">Selling ₹ *</span>
-          <input name="selling_price" type="number" step="0.01" required class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
-        <label class="block text-sm"><span class="text-ink/60 text-xs font-medium">MRP ₹ *</span>
-          <input name="mrp_price" type="number" step="0.01" required class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Selling ₹ *</span>
+          <input name="selling_price" type="number" step="0.01" required
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">MRP ₹ *</span>
+          <input name="mrp_price" type="number" step="0.01" required
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
       </div>
       <div class="grid grid-cols-2 gap-3">
-        <label class="block text-sm"><span class="text-ink/60 text-xs font-medium">Stock</span>
-          <input name="stock" type="number" value="0" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
-        <label class="block text-sm"><span class="text-ink/60 text-xs font-medium">Position</span>
-          <input name="position" type="number" value="1" class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" /></label>
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Stock</span>
+          <input name="stock" type="number" value="0"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Position <span id="addPosSuggest" class="text-[10px] font-normal text-ink/30"></span></span>
+          <input name="position" id="addVariantPos" type="number"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
       </div>
       <div class="flex gap-2 pt-1">
-        <button type="button" onclick="document.getElementById('addModal').classList.add('hidden')" class="btn-outline flex-1">Cancel</button>
+        <button type="button" onclick="closeAdd()" class="btn-outline flex-1">Cancel</button>
         <button type="submit" class="btn-primary flex-1">Add Variant</button>
       </div>
     </form>
   </div>
 </div>
+
+<!-- ── Edit Variant Modal ─────────────────────────────────────────────── -->
+<div id="editModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+  <div class="card w-full max-w-md space-y-4 p-6">
+    <div class="flex items-center justify-between">
+      <h2 class="font-display text-lg font-semibold">Edit Variant</h2>
+      <button onclick="closeEdit()" class="text-ink/40 hover:text-ink transition">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="editForm" method="post" action="" class="space-y-3">
+      {% csrf_token %}
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-ink/60">Variant label *</span>
+        <input id="edit-variant" name="variant" required
+               class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Selling ₹ *</span>
+          <input id="edit-selling" name="selling_price" type="number" step="0.01" required
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">MRP ₹ *</span>
+          <input id="edit-mrp" name="mrp_price" type="number" step="0.01" required
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Stock</span>
+          <input id="edit-stock" name="stock" type="number"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
+        <label class="block text-sm">
+          <span class="text-xs font-medium text-ink/60">Position</span>
+          <input id="edit-position" name="position" type="number"
+                 class="mt-1 w-full rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </label>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="button" onclick="closeEdit()" class="btn-outline flex-1">Cancel</button>
+        <button type="submit" class="btn-primary flex-1">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── Add modal ────────────────────────────────────────────────────────────────
+function openAdd() {
+  fetchNextPos();
+  document.getElementById('addModal').classList.remove('hidden');
+}
+function closeAdd() { document.getElementById('addModal').classList.add('hidden'); }
+
+function fetchNextPos() {
+  var pid = document.getElementById('addVariantProduct').value;
+  if (!pid) return;
+  fetch('/admin-panel/variants/next-position?product=' + pid)
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      document.getElementById('addVariantPos').value = d.next_pos;
+      document.getElementById('addPosSuggest').textContent = d.next_pos + ' suggested';
+    })
+    .catch(function(){});
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var sel = document.getElementById('addVariantProduct');
+  if (sel) sel.addEventListener('change', fetchNextPos);
+  fetchNextPos();
+});
+
+// ── Edit modal ───────────────────────────────────────────────────────────────
+function openEdit(id, variant, selling, mrp, stock, position) {
+  document.getElementById('editForm').action = '/admin-panel/variants/' + id + '/edit';
+  document.getElementById('edit-variant').value = variant;
+  document.getElementById('edit-selling').value = selling;
+  document.getElementById('edit-mrp').value     = mrp;
+  document.getElementById('edit-stock').value   = stock;
+  document.getElementById('edit-position').value = position;
+  document.getElementById('editModal').classList.remove('hidden');
+}
+function closeEdit() { document.getElementById('editModal').classList.add('hidden'); }
+
+['addModal','editModal'].forEach(function(id) {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) this.classList.add('hidden');
+  });
+});
+</script>
 {% endblock %}

@@ -1,49 +1,381 @@
-﻿{% extends "panel/base.html" %}
+{% extends "panel/base.html" %}
 {% load store_extras %}
-{% block title %}Customers · {{ SITE_NAME }}{% endblock %}
-{% block crumb %}Customers{% endblock %}
+{% block title %}Customer List · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Customers · Customer List{% endblock %}
 {% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+
 <div class="mx-auto max-w-6xl space-y-5">
-  <div class="flex flex-wrap items-center justify-between gap-3">
+
+  {# ── Header ── #}
+  <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
-      <h1 class="font-display text-2xl font-semibold text-ink">Customers</h1>
-      <p class="text-sm text-ink/50">{{ users|length }} registered customer{{ users|length|pluralize }}</p>
+      <h1 class="font-display text-2xl font-semibold text-ink">Customer List</h1>
+      <p class="mt-0.5 text-sm text-ink/50">Browse, segment and manage all your store customers.</p>
     </div>
-    <form method="get" class="flex gap-2">
-      <input name="q" value="{{ q }}" placeholder="Search name, email, mobile…"
-             class="w-full max-w-xs rounded-lg border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
-      <button class="rounded-lg bg-ink/5 px-4 text-sm font-medium hover:bg-ink/10">Search</button>
-    </form>
+    <a href="/admin-panel/users/export"
+       class="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-ink/5 transition-colors shadow-sm">
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v11"/>
+      </svg>
+      Export
+    </a>
   </div>
 
+  {# ── Messages ── #}
+  {% if messages %}
+  <div class="space-y-2">
+    {% for msg in messages %}
+    <div class="flex items-center gap-2 rounded-xl border {% if msg.tags == 'error' %}border-red-200 bg-red-50 text-red-700{% else %}border-green-200 bg-green-50 text-green-700{% endif %} px-4 py-3 text-sm">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Stat cards ── #}
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50">
+        <svg class="h-5 w-5 text-brand-600" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-display text-2xl font-bold text-ink">{{ total_cust }}</p>
+        <p class="text-xs text-ink/50">Total Customers</p>
+      </div>
+    </div>
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50">
+        <svg class="h-5 w-5 text-green-600" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+          <path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-display text-2xl font-bold text-ink">{{ new_month }}</p>
+        <p class="text-xs text-ink/50">New This Month</p>
+      </div>
+    </div>
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gold-400/15">
+        <svg class="h-5 w-5 text-gold-600" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-display text-2xl font-bold text-ink">{{ vip_count }}</p>
+        <p class="text-xs text-ink/50">VIP Customers</p>
+      </div>
+    </div>
+    <div class="card flex items-center gap-4 p-5">
+      <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-50">
+        <svg class="h-5 w-5 text-orange-500" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M16 8h-6a2 2 0 100 4h4a2 2 0 110 4H8"/><line x1="12" y1="18" x2="12" y2="22"/>
+          <line x1="12" y1="2" x2="12" y2="6"/>
+        </svg>
+      </div>
+      <div>
+        <p class="font-display text-2xl font-bold text-ink">{{ avg_clv|inr }}</p>
+        <p class="text-xs text-ink/50">Avg Lifetime Value</p>
+      </div>
+    </div>
+  </div>
+
+  {# ── Toolbar ── #}
+  <form method="get" id="filterForm" class="flex flex-wrap items-center gap-2">
+    {# Search #}
+    <div class="relative min-w-52 flex-1">
+      <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
+           fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input name="q" value="{{ q }}" placeholder="Search customers…"
+             class="w-full rounded-lg border border-black/10 bg-white py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+    </div>
+
+    {# Segment chips #}
+    <div class="flex items-center overflow-hidden rounded-lg border border-black/10 bg-white text-sm font-medium">
+      <a href="?q={{ q }}&sort={{ sort }}&segment="
+         class="px-3 py-2 transition-colors {% if not segment %}bg-brand-600 text-white{% else %}text-ink/60 hover:bg-ink/5{% endif %}">All</a>
+      <a href="?q={{ q }}&sort={{ sort }}&segment=vip"
+         class="border-l border-black/10 px-3 py-2 transition-colors {% if segment == 'vip' %}bg-brand-600 text-white{% else %}text-ink/60 hover:bg-ink/5{% endif %}">VIP</a>
+      <a href="?q={{ q }}&sort={{ sort }}&segment=repeat"
+         class="border-l border-black/10 px-3 py-2 transition-colors {% if segment == 'repeat' %}bg-brand-600 text-white{% else %}text-ink/60 hover:bg-ink/5{% endif %}">Repeat</a>
+      <a href="?q={{ q }}&sort={{ sort }}&segment=new"
+         class="border-l border-black/10 px-3 py-2 transition-colors {% if segment == 'new' %}bg-brand-600 text-white{% else %}text-ink/60 hover:bg-ink/5{% endif %}">New</a>
+    </div>
+
+    {# Sort #}
+    <div class="relative">
+      <select name="sort" onchange="document.getElementById('filterForm').submit()"
+              class="cursor-pointer appearance-none rounded-lg border border-black/10 bg-white py-2 pl-3 pr-8 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <option value="orders" {% if sort == "orders" %}selected{% endif %}>Sort: Most Orders</option>
+        <option value="spend"  {% if sort == "spend"  %}selected{% endif %}>Sort: Highest Spending</option>
+        <option value="newest" {% if sort == "newest" %}selected{% endif %}>Sort: Newest</option>
+        <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Sort: Oldest</option>
+        <option value="last"   {% if sort == "last"   %}selected{% endif %}>Sort: Last Order</option>
+        <option value="alpha"  {% if sort == "alpha"  %}selected{% endif %}>Sort: A–Z</option>
+      </select>
+      <svg class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink/40"
+           fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
+
+    {# Export btn #}
+    <a href="/admin-panel/users/export?q={{ q }}&segment={{ segment }}"
+       class="inline-flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-3 py-2 text-sm text-ink/60 hover:text-ink hover:bg-ink/5 transition-colors">
+      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+        <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v11"/>
+      </svg>
+      Export
+    </a>
+  </form>
+
+  {# ── Bulk action bar ── #}
+  <div id="bulkBar" class="hidden items-center gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3">
+    <span class="text-sm font-medium text-brand-800"><span id="bulkCount">0</span> selected</span>
+    <form method="post" action="/admin-panel/users" id="bulkForm" class="flex items-center gap-2 flex-wrap">
+      {% csrf_token %}
+      <div id="bulkIdInputs"></div>
+      <button name="action" value="activate"
+              class="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700">Activate</button>
+      <button name="action" value="deactivate"
+              class="rounded-lg bg-ink/10 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-ink/20">Deactivate</button>
+      <button name="action" value="export_selected"
+              class="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-ink/5">Export</button>
+      <button name="action" value="delete"
+              onclick="return confirm('Permanently delete selected customers? This cannot be undone.')"
+              class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Delete</button>
+    </form>
+    <button onclick="clearSelection()" class="ml-auto text-xs text-ink/50 hover:text-ink">✕ Clear</button>
+  </div>
+
+  {# ── Table ── #}
   <div class="card overflow-hidden">
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
-        <thead><tr class="border-b border-black/5 bg-cream/50 text-left text-xs uppercase tracking-wide text-ink/45">
-          <th class="px-4 py-3">Customer</th><th class="px-4 py-3">Email</th><th class="px-4 py-3">Mobile</th>
-          <th class="px-4 py-3">City</th><th class="px-4 py-3">Orders</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Joined</th></tr></thead>
+        <thead>
+          <tr class="border-b border-black/5 bg-cream/40 text-left text-[11px] font-semibold uppercase tracking-wide text-ink/45">
+            <th class="px-4 py-3 w-10">
+              <input type="checkbox" id="selectAll" onchange="toggleAll(this)"
+                     class="h-4 w-4 rounded border-black/20 accent-brand-600">
+            </th>
+            <th class="px-4 py-3">Customer</th>
+            <th class="px-4 py-3">Contact</th>
+            <th class="px-4 py-3">Location</th>
+            <th class="px-4 py-3 text-right">Orders</th>
+            <th class="px-4 py-3 text-right">Total Spent</th>
+            <th class="px-4 py-3">Last Order</th>
+            <th class="px-4 py-3">Tags</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3 text-center">Actions</th>
+          </tr>
+        </thead>
         <tbody>
           {% for u in users %}
-            <tr class="border-b border-black/5 last:border-0 hover:bg-cream/40">
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-3">
-                  <span class="grid h-9 w-9 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">{{ u.full_name|initials }}</span>
-                  <span class="font-medium">{{ u.full_name|default:"—" }}</span>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-ink/70">{{ u.email }}</td>
-              <td class="px-4 py-3 text-ink/70">{{ u.mobile|default:"—" }}</td>
-              <td class="px-4 py-3 text-ink/70">{{ u.city|default:"—" }}</td>
-              <td class="px-4 py-3 text-ink/70">{{ u.orders.count }}</td>
-              <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-[11px] font-bold {% if u.status == 'ACTIVE' %}bg-brand-50 text-brand-700{% else %}bg-ink/5 text-ink/50{% endif %}">{{ u.get_status_display }}</span></td>
-              <td class="px-4 py-3 text-ink/50">{{ u.created_at|date:"d M Y" }}</td>
-            </tr>
+          <tr class="group border-b border-black/5 last:border-0 hover:bg-cream/40 align-middle cursor-pointer"
+              onclick="window.location='/admin-panel/users/{{ u.pk }}'">
+            <td class="px-4 py-3" onclick="event.stopPropagation()">
+              <input type="checkbox" value="{{ u.pk }}" onchange="toggleBulk(this)"
+                     class="h-4 w-4 rounded border-black/20 accent-brand-600">
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-3">
+                {% if u.user_image %}
+                <img src="{{ u.user_image }}" alt="{{ u.full_name }}"
+                     class="h-9 w-9 shrink-0 rounded-full object-cover">
+                {% else %}
+                <span class="h-9 w-9 shrink-0 rounded-full {{ u.avatar_style }} flex items-center justify-center text-xs font-bold">
+                  {{ u.initials }}
+                </span>
+                {% endif %}
+                <a href="/admin-panel/users/{{ u.pk }}"
+                   class="font-semibold text-ink hover:text-brand-700 hover:underline"
+                   onclick="event.stopPropagation()">
+                  {{ u.full_name|default:"(no name)" }}
+                </a>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-ink/65">
+              <p class="text-xs">{{ u.email|default:"—" }}</p>
+              <p class="text-xs text-ink/45 mt-0.5">{{ u.mobile|default:"—" }}</p>
+            </td>
+            <td class="px-4 py-3 text-xs text-ink/60">{{ u.city|default:"—" }}</td>
+            <td class="px-4 py-3 text-right font-semibold text-ink">{{ u.order_count|default:0 }}</td>
+            <td class="px-4 py-3 text-right font-semibold text-brand-700">
+              {% if u.total_spend %}{{ u.total_spend|inr }}{% else %}<span class="text-ink/30">₹0</span>{% endif %}
+            </td>
+            <td class="px-4 py-3 text-xs text-ink/55">
+              {% if u.last_order_date %}{{ u.last_order_date|date:"d M Y" }}{% else %}<span class="text-ink/30">—</span>{% endif %}
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex flex-wrap gap-1">
+                {% for tag in u.tags %}
+                  {% if tag == "VIP" %}
+                  <span class="inline-flex items-center gap-0.5 rounded-full bg-gold-400/15 px-2 py-0.5 text-[11px] font-bold text-gold-600">
+                    <svg class="h-2.5 w-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    VIP
+                  </span>
+                  {% elif tag == "Repeat" %}
+                  <span class="inline-flex items-center rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">Repeat</span>
+                  {% elif tag == "New" %}
+                  <span class="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">New</span>
+                  {% elif tag == "Wholesale" %}
+                  <span class="inline-flex items-center rounded-full bg-orange-500 px-2 py-0.5 text-[11px] font-semibold text-white">Wholesale</span>
+                  {% else %}
+                  <span class="inline-flex items-center rounded-full bg-ink/8 px-2 py-0.5 text-[11px] font-semibold text-ink/60">{{ tag }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </td>
+            <td class="px-4 py-3">
+              <button onclick="event.stopPropagation(); toggleStatus({{ u.pk }}, this)"
+                      class="flex items-center gap-1.5 text-xs font-semibold {% if u.status == 'ACTIVE' %}text-brand-600{% else %}text-ink/40{% endif %}">
+                <span class="h-1.5 w-1.5 rounded-full {% if u.status == 'ACTIVE' %}bg-brand-500{% else %}bg-ink/25{% endif %}"></span>
+                {{ u.get_status_display }}
+              </button>
+            </td>
+            <td class="px-4 py-3 text-center" onclick="event.stopPropagation()">
+              <div class="flex items-center justify-center gap-1">
+                <a href="/admin-panel/users/{{ u.pk }}"
+                   class="rounded-lg p-1.5 text-ink/40 hover:bg-brand-50 hover:text-brand-600 transition-colors" title="View">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </a>
+                <a href="mailto:{{ u.email }}"
+                   class="rounded-lg p-1.5 text-ink/40 hover:bg-blue-50 hover:text-blue-600 transition-colors" title="Email">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </a>
+              </div>
+            </td>
+          </tr>
           {% empty %}
-            <tr><td colspan="7" class="px-4 py-10 text-center text-ink/40">No customers found.</td></tr>
+          <tr>
+            <td colspan="10" class="px-4 py-16 text-center">
+              <div class="flex flex-col items-center gap-3">
+                <div class="flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+                  <svg class="h-7 w-7 text-brand-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <p class="font-medium text-ink">No customers found</p>
+                <p class="text-sm text-ink/50">
+                  {% if q or segment %}Try adjusting your filters or
+                    <a href="/admin-panel/users" class="text-brand-600 hover:underline">clear all</a>.
+                  {% else %}Customers who register on your store will appear here.{% endif %}
+                </p>
+              </div>
+            </td>
+          </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
+
+  {# ── Pagination ── #}
+  {% if page_obj.paginator.num_pages > 1 %}
+  <div class="flex items-center justify-between py-1">
+    <p class="text-sm text-ink/50">
+      Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ filtered_total }} customer{{ filtered_total|pluralize }}
+    </p>
+    <nav class="flex items-center gap-1">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&segment={{ segment }}&sort={{ sort }}"
+         class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-ink/5">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      {% endif %}
+      {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-xs font-semibold text-white">{{ num }}</span>
+        {% elif num == 1 or num == page_obj.paginator.num_pages or num|add:"-2" == page_obj.number or num|add:"2" == page_obj.number %}
+        <a href="?page={{ num }}&q={{ q }}&segment={{ segment }}&sort={{ sort }}"
+           class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-xs text-ink/60 hover:bg-ink/5">{{ num }}</a>
+        {% elif num == 2 and page_obj.number > 4 %}
+        <span class="flex h-8 items-center px-1 text-xs text-ink/30">…</span>
+        {% elif num == page_obj.paginator.num_pages|add:"-1" and page_obj.number < page_obj.paginator.num_pages|add:"-3" %}
+        <span class="flex h-8 items-center px-1 text-xs text-ink/30">…</span>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&segment={{ segment }}&sort={{ sort }}"
+         class="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-ink/60 hover:bg-ink/5">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+      {% endif %}
+    </nav>
+  </div>
+  {% endif %}
+
+  {# ── Classification rules info panel ── #}
+  <div class="rounded-xl border border-black/8 bg-cream/40 px-5 py-4 text-xs text-ink/50">
+    <p class="font-semibold text-ink/60 mb-1.5">Auto-classification rules</p>
+    <div class="flex flex-wrap gap-x-6 gap-y-1">
+      <span><span class="font-semibold text-gold-600">VIP</span> — lifetime spend ≥ {{ vip_spend|inr }} or orders ≥ {{ vip_orders }}</span>
+      <span><span class="font-semibold text-brand-600">Repeat</span> — ≥ {{ repeat_min }} orders (and not VIP)</span>
+      <span><span class="font-semibold text-green-600">New</span> — fewer than {{ repeat_min }} orders</span>
+      <span class="text-ink/40">Manual tags (Wholesale, etc.) can be set on the customer detail page.</span>
+    </div>
+  </div>
+
 </div>
+
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+let selected = new Set();
+
+function toggleBulk(cb) {
+  cb.checked ? selected.add(cb.value) : selected.delete(cb.value);
+  renderBulkBar();
+}
+function toggleAll(cb) {
+  document.querySelectorAll('tbody input[type="checkbox"]').forEach(c => {
+    c.checked = cb.checked;
+    cb.checked ? selected.add(c.value) : selected.delete(c.value);
+  });
+  renderBulkBar();
+}
+function clearSelection() {
+  selected.clear();
+  document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+  renderBulkBar();
+}
+function renderBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  if (selected.size > 0) {
+    bar.classList.remove('hidden'); bar.classList.add('flex');
+    document.getElementById('bulkCount').textContent = selected.size;
+    document.getElementById('bulkIdInputs').innerHTML =
+      Array.from(selected).map(pk => `<input type="hidden" name="ids" value="${pk}">`).join('');
+  } else {
+    bar.classList.add('hidden'); bar.classList.remove('flex');
+  }
+}
+
+async function toggleStatus(pk, btn) {
+  const fd = new FormData();
+  fd.append('csrfmiddlewaretoken', CSRF);
+  const res = await fetch(`/admin-panel/users/${pk}/toggle`, {
+    method: 'POST', body: fd, headers: {'X-Requested-With': 'XMLHttpRequest'}
+  });
+  const data = await res.json();
+  if (data.ok) {
+    const isActive = data.status === 'ACTIVE';
+    btn.className = btn.className.replace(isActive ? 'text-ink/40' : 'text-brand-600',
+                                          isActive ? 'text-brand-600' : 'text-ink/40');
+    const dot = btn.querySelector('span');
+    dot.className = dot.className.replace(isActive ? 'bg-ink/25' : 'bg-brand-500',
+                                          isActive ? 'bg-brand-500' : 'bg-ink/25');
+    btn.childNodes[1].textContent = isActive ? ' Active' : ' Inactive';
+  }
+}
+</script>
 {% endblock %}

@@ -1,76 +1,558 @@
 {% extends "site/base.html" %}
 {% load store_extras %}
-{% block title %}Cart · {{ SITE_NAME }}{% endblock %}
+{% block title %}Shopping Cart · {{ SITE_NAME }}{% endblock %}
 {% block content %}
-<section class="mx-auto max-w-7xl px-4 py-10 lg:px-8">
-  <h1 class="font-display text-3xl font-semibold text-ink">Your Cart</h1>
+
+<!-- Breadcrumb -->
+<div class="bg-white border-b border-black/5">
+  <div class="mx-auto max-w-7xl px-4 lg:px-8 py-2.5">
+    <nav class="flex items-center gap-1.5 text-xs text-ink/45">
+      <a href="/" class="hover:text-brand-600 transition">Home</a>
+      <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      <span class="text-ink font-medium">Shopping Cart</span>
+    </nav>
+  </div>
+</div>
+
+<div class="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+
+  <!-- Page heading -->
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="font-display text-2xl font-bold text-ink">Shopping Cart</h1>
+    <a href="/products" class="hidden sm:flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Continue Shopping
+    </a>
+  </div>
 
   {% if items %}
-  <div class="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
-    <div class="space-y-4">
-      {% for it in items %}
-        <div id="cart-item-{{ it.id }}" class="card flex gap-4 p-4">
-          <a href="/product/{{ it.variant.product.slug }}" class="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-brand-50 to-cream">
+
+  <div class="grid gap-6 lg:grid-cols-[1fr_296px]">
+
+    <!-- ── LEFT: main cart card ── -->
+    <div class="card overflow-hidden">
+
+      <!-- Cart card header -->
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-black/6">
+        <div class="flex items-center gap-2 flex-nowrap whitespace-nowrap">
+          <svg class="w-4 h-4 shrink-0 text-ink/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+          <span class="font-semibold text-sm text-ink">Your Cart</span>
+          <span id="cart-item-count" class="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-gold-500 px-1 text-[10px] font-bold text-ink">{{ items|length }}</span>
+        </div>
+        <a href="/products" class="text-ink/30 hover:text-ink/60 transition text-xl leading-none shrink-0" title="Continue shopping">×</a>
+      </div>
+
+      <!-- Free shipping banner -->
+      <div id="ship-banner" class="border-b px-5 py-2.5 text-sm {% if not shipping %}bg-brand-50 border-brand-100{% else %}bg-cream border-black/5{% endif %}">
+        <span id="ship-banner-inner">
+          {% if not shipping %}
+          <span class="flex items-center gap-2 font-medium text-brand-700">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            You qualify for free shipping!
+          </span>
+          {% else %}
+          <span class="flex items-center gap-2 text-ink/55">
+            <svg class="w-4 h-4 shrink-0 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+            Add <strong id="ship-gap" class="text-ink mx-1">{{ FREE_DELIVERY_OVER|sub:subtotal|inr }}</strong> more for free shipping!
+          </span>
+          {% endif %}
+        </span>
+      </div>
+
+      <!-- Cart items -->
+      <div id="cart-items-list" class="divide-y divide-black/5">
+        {% for it in items %}
+        <div id="row-{{ it.id }}"
+             class="flex items-start gap-4 px-5 py-4"
+             data-item-id="{{ it.id }}"
+             data-variant-id="{{ it.variant.id }}"
+             data-price="{{ it.variant.selling_price }}"
+             data-qty="{{ it.qty }}"
+             data-max="{{ it.variant.max_qty_per_order }}">
+
+          <!-- Thumbnail -->
+          <a href="/product/{{ it.variant.product.slug }}"
+             class="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-brand-50 to-cream">
             <img src="{{ it.variant.product.image }}" alt="{{ it.variant.product.name }}"
                  onerror="this.style.display='none'" class="h-full w-full object-cover" />
           </a>
-          <div class="flex flex-1 flex-col">
+
+          <!-- Details -->
+          <div class="flex flex-1 flex-col min-w-0">
             <div class="flex items-start justify-between gap-2">
-              <div>
-                <a href="/product/{{ it.variant.product.slug }}"><h3 class="font-display text-base font-semibold hover:text-brand-600">{{ it.variant.product.name }}</h3></a>
-                <p class="text-sm text-ink/50">{{ it.variant.variant }}</p>
-              </div>
-              <button onclick="removeItem({{ it.id }})" class="text-ink/30 hover:text-red-500" title="Remove">✕</button>
-            </div>
-            <div class="mt-auto flex items-end justify-between">
-              <form method="post" action="/api/cart/add" class="flex items-center gap-2">
-                {% csrf_token %}
-                <input type="hidden" name="variantId" value="{{ it.variant.id }}" />
-                <div class="flex items-center rounded-full border border-black/10">
-                  <button type="button" onclick="stepQty(this,-1)" class="grid h-8 w-8 place-items-center text-ink/60">−</button>
-                  <input name="qty" value="{{ it.qty }}" class="w-10 border-0 bg-transparent text-center text-sm focus:outline-none" />
-                  <button type="button" onclick="stepQty(this,1)" class="grid h-8 w-8 place-items-center text-ink/60">+</button>
+              <div class="min-w-0">
+                <a href="/product/{{ it.variant.product.slug }}">
+                  <h3 class="font-semibold text-sm text-ink hover:text-brand-600 transition line-clamp-2">{{ it.variant.product.name }}</h3>
+                </a>
+                <p class="text-[11px] text-ink/40 mt-0.5">{{ it.variant.variant }}</p>
+                {% if it.combo %}
+                <span class="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">
+                  🎁 {{ it.combo.name }}
+                </span>
+                {% endif %}
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span class="text-sm font-bold text-ink">{{ it.variant.selling_price|inr }}</span>
+                  {% if it.variant.mrp_price > it.variant.selling_price %}
+                    <span class="text-xs text-ink/35 line-through">{{ it.variant.mrp_price|inr }}</span>
+                    {% if it.variant.discount_pct > 0 %}
+                      <span class="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-500">{{ it.variant.discount_pct }}% off</span>
+                    {% endif %}
+                  {% endif %}
                 </div>
-                <button class="btn-ghost text-xs">Update</button>
-              </form>
-              <p class="text-lg font-bold text-ink">{{ it.line_total|inr }}</p>
+              </div>
+              {% if not it.combo %}
+              <button onclick="removeItem({{ it.id }})"
+                      class="shrink-0 text-ink/25 hover:text-red-500 transition text-xl leading-none mt-0.5" title="Remove">×</button>
+              {% endif %}
+            </div>
+
+            <div class="mt-2.5 flex items-center justify-between gap-3 flex-wrap">
+              {% if it.combo %}
+              <!-- Combo: locked qty display + remove-whole-combo button -->
+              <div class="flex items-center rounded-full border border-black/10 bg-cream/60 opacity-60 cursor-not-allowed select-none px-1">
+                <span class="grid h-7 w-7 place-items-center text-ink/30 text-sm">−</span>
+                <span class="w-10 text-center text-sm font-semibold text-ink/50">{{ it.qty }}</span>
+                <span class="grid h-7 w-7 place-items-center text-ink/30 text-sm">+</span>
+              </div>
+              <button onclick="removeCombo('{{ it.combo.slug }}', '{{ it.combo.name|escapejs }}')"
+                      class="text-xs font-semibold text-red-500 hover:text-red-700 transition flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Remove Combo
+              </button>
+              {% else %}
+              <!-- Regular item: qty stepper -->
+              <div class="flex items-center rounded-full border border-black/12 bg-cream">
+                <button type="button"
+                        onclick="adjustQty({{ it.id }}, -1)"
+                        class="grid h-7 w-7 place-items-center text-ink/50 text-sm hover:text-ink transition">−</button>
+                <input id="qty-{{ it.id }}"
+                       type="number" min="1" max="{{ it.variant.max_qty_per_order }}"
+                       value="{{ it.qty }}"
+                       class="w-10 border-0 bg-transparent text-center text-sm font-semibold focus:outline-none"
+                       onchange="onQtyInputChange({{ it.id }}, this)" />
+                <button type="button"
+                        onclick="adjustQty({{ it.id }}, 1)"
+                        class="grid h-7 w-7 place-items-center text-ink/50 text-sm hover:text-ink transition">+</button>
+              </div>
+              <button onclick="removeItem({{ it.id }})"
+                      class="text-xs font-semibold text-red-500 hover:text-red-700 transition flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Remove
+              </button>
+              {% endif %}
             </div>
           </div>
+
+          <!-- Line total -->
+          <p id="line-total-{{ it.id }}" class="shrink-0 text-base font-bold text-ink pt-0.5 min-w-[4rem] text-right">{{ it.line_total|inr }}</p>
         </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
+
+      <!-- Coupon section — brand design system -->
+      <div class="border-t border-black/6 px-5 py-4 bg-brand-50/30">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-4 h-4 text-brand-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"/>
+          </svg>
+          <span class="text-sm font-semibold text-ink">Apply Coupon Code</span>
+        </div>
+
+        {% if has_combo %}
+        <!-- Combo restriction notice -->
+        <div class="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+          <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          <p class="text-xs text-amber-700 leading-relaxed">Coupon codes cannot be applied to Combo Products because they already include a special bundle discount.</p>
+        </div>
+        {% else %}
+
+        <!-- Applied state -->
+        <div id="coupon-applied-banner"
+             class="{% if not applied_code %}hidden {% endif %}mb-3 flex items-center justify-between gap-3 rounded-xl bg-brand-50 border border-brand-200 px-4 py-3">
+          <div class="flex items-center gap-2.5">
+            <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-brand-100">
+              <svg class="w-3.5 h-3.5 text-brand-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/></svg>
+            </span>
+            <div>
+              <p id="applied-code-label" class="text-sm font-bold text-brand-700 font-mono">{{ applied_code }}</p>
+              <p id="applied-code-desc" class="text-[11px] text-brand-600 mt-0.5">Coupon applied successfully!</p>
+            </div>
+          </div>
+          <button onclick="removeCoupon()"
+                  class="shrink-0 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100 transition">Remove</button>
+        </div>
+
+        <!-- Input row -->
+        <div id="coupon-input-wrap" class="{% if applied_code %}hidden {% endif %}space-y-2.5">
+          <div class="flex gap-2">
+            <input id="coupon-input"
+                   type="text" placeholder="Enter coupon code…"
+                   class="flex-1 rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-mono uppercase tracking-widest placeholder-ink/30 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 transition"
+                   oninput="this.value=this.value.toUpperCase()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();applyCoupon()}" />
+            <button onclick="applyCoupon()"
+                    class="shrink-0 rounded-xl bg-brand-600 hover:bg-brand-700 active:bg-brand-800 px-5 py-2.5 text-sm font-bold text-white transition">Apply</button>
+          </div>
+          <p id="coupon-error" class="hidden text-xs text-red-600 px-1"></p>
+          {% if active_offers %}
+          <div class="flex flex-wrap gap-2 pt-0.5">
+            {% for offer in active_offers %}
+            <button onclick="applyFromOffer('{{ offer.code }}')"
+                    class="inline-flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700 hover:bg-brand-100 hover:border-brand-300 transition font-mono">
+              <svg class="w-2.5 h-2.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"/></svg>
+              {{ offer.code }}
+            </button>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Order summary + checkout -->
+      <div class="border-t border-black/6 bg-cream/40 px-5 py-4">
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between">
+            <dt class="text-ink/55">Subtotal (<span id="summary-count">{{ items|length }}</span> item{{ items|length|pluralize }})</dt>
+            <dd class="font-medium text-ink" id="summary-subtotal">{{ subtotal|inr }}</dd>
+          </div>
+          {% if product_savings %}
+          <div class="flex items-center justify-between text-brand-600">
+            <dt class="font-medium">Product Savings</dt>
+            <dd class="font-bold">−{{ product_savings|inr }}</dd>
+          </div>
+          {% endif %}
+          <div class="flex items-center justify-between">
+            <dt class="text-ink/55">Shipping</dt>
+            <dd class="font-medium" id="summary-shipping">
+              {% if shipping %}<span class="text-ink">{{ shipping|inr }}</span>{% else %}<span class="font-semibold text-brand-600">FREE</span>{% endif %}
+            </dd>
+          </div>
+          <div id="discount-row" class="{% if not coupon_discount %}hidden {% endif %}flex items-center justify-between text-brand-600">
+            <dt class="font-medium flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"/></svg>
+              Coupon Discount
+            </dt>
+            <dd class="font-bold" id="summary-discount">{% if coupon_discount %}−{{ coupon_discount|inr }}{% endif %}</dd>
+          </div>
+          <div id="freeship-row" class="{% if not coupon_free_ship %}hidden {% endif %}flex items-center justify-between text-brand-600">
+            <dt class="font-medium">Free Shipping (coupon)</dt>
+            <dd class="font-bold" id="summary-freeship">{% if coupon_free_ship %}−{{ SHIPPING_FEE|inr }}{% endif %}</dd>
+          </div>
+          <div class="flex items-center justify-between border-t border-black/8 pt-3 mt-1">
+            <dt class="text-base font-bold text-ink">Total Payable</dt>
+            <dd class="text-lg font-bold text-ink" id="summary-total">{{ grand_total|inr }}</dd>
+          </div>
+        </dl>
+
+        <a href="/checkout"
+           class="mt-5 flex w-full items-center justify-center gap-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 active:scale-[.98] px-6 py-3.5 text-base font-bold text-ink transition shadow-sm">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          Proceed to Checkout — <span id="checkout-total">{{ grand_total|inr }}</span>
+        </a>
+
+        <div class="mt-3 text-center">
+          <a href="/products" class="inline-flex items-center gap-1 text-xs text-ink/40 hover:text-brand-600 transition">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Continue Shopping
+          </a>
+        </div>
+
+        <div class="mt-4 flex items-center justify-center gap-6 border-t border-black/5 pt-3 text-[11px] text-ink/35">
+          <span>🔒 Secure Payment</span>
+          <span>↩️ Easy Returns</span>
+          <span>🚚 Fast Delivery</span>
+        </div>
+      </div>
     </div>
 
-    <aside class="card h-fit p-6">
-      <h2 class="font-display text-lg font-semibold">Order Summary</h2>
-      <dl class="mt-4 space-y-3 text-sm">
-        <div class="flex justify-between"><dt class="text-ink/60">Subtotal</dt><dd class="font-medium">{{ subtotal|inr }}</dd></div>
-        <div class="flex justify-between"><dt class="text-ink/60">Shipping</dt>
-          <dd class="font-medium">{% if shipping %}{{ shipping|inr }}{% else %}<span class="text-brand-600">FREE</span>{% endif %}</dd></div>
-        {% if shipping %}
-          <p class="rounded-lg bg-gold-400/15 px-3 py-2 text-xs text-ink/70">Add {{ FREE_DELIVERY_OVER|sub:subtotal|inr }} more for free delivery.</p>
-        {% endif %}
-        <div class="flex justify-between border-t border-black/5 pt-3 text-base"><dt class="font-semibold">Total</dt><dd class="font-bold text-brand-700">{{ grand_total|inr }}</dd></div>
-      </dl>
-      <a href="/checkout" class="btn-primary mt-5 w-full">Proceed to Checkout</a>
-      <a href="/products" class="btn-ghost mt-3 w-full justify-center">Continue shopping →</a>
-    </aside>
-  </div>
-  {% else %}
-    <div class="card mt-8 flex flex-col items-center gap-3 py-20 text-center">
-      <span class="text-5xl">🛒</span>
-      <p class="font-display text-xl font-semibold">Your cart is empty</p>
-      <p class="text-ink/50">Discover our organic spice collection.</p>
-      <a href="/products" class="btn-primary mt-2">Browse products</a>
+    <!-- ── RIGHT: Sidebar ── -->
+    <div class="space-y-4">
+
+      <!-- Why Shop With Us -->
+      <div class="card p-5">
+        <h3 class="mb-3 font-semibold text-sm text-ink">Why Shop With Us</h3>
+        <ul class="space-y-2.5 text-sm text-ink/65">
+          <li class="flex items-center gap-2.5">
+            <span class="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-600">✓</span>
+            100% authentic, no additives
+          </li>
+          <li class="flex items-center gap-2.5"><span class="shrink-0">🚚</span> Free shipping above ₹{{ FREE_DELIVERY_OVER|floatformat:0 }}</li>
+          <li class="flex items-center gap-2.5"><span class="shrink-0">🔄</span> 7-day hassle-free returns</li>
+          <li class="flex items-center gap-2.5"><span class="shrink-0">💬</span> WhatsApp support 24/7</li>
+          <li class="flex items-center gap-2.5"><span class="shrink-0">🔒</span> Secure checkout — UPI, Cards, COD</li>
+        </ul>
+      </div>
+
+
+      <!-- Available Coupons -->
+      {% if active_offers %}
+      <div class="rounded-2xl p-5" style="background:linear-gradient(135deg,#1b6b3a 0%,#2d9554 100%)">
+        <div class="mb-3 flex items-center gap-2">
+          <svg class="w-4 h-4 text-gold-400 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"/></svg>
+          <span class="text-sm font-bold text-white">Available Coupons</span>
+        </div>
+        <div class="space-y-2">
+          {% for offer in active_offers %}
+          <div class="flex items-center justify-between rounded-xl bg-white/15 px-3 py-2.5">
+            <div>
+              <p class="text-sm font-bold text-white font-mono">{{ offer.code }}</p>
+              <p class="text-[10px] text-white/65 mt-0.5">
+                {% if offer.coupon_type == "PERCENT" %}{{ offer.discount_value|floatformat:0 }}% off
+                {% elif offer.coupon_type == "FLAT" %}₹{{ offer.discount_value|floatformat:0 }} off
+                {% else %}Free shipping{% endif %}
+              </p>
+            </div>
+            <button onclick="applyFromOffer('{{ offer.code }}')"
+                    class="text-xs font-bold text-white bg-white/20 hover:bg-white/35 px-3 py-1.5 rounded-lg transition">Apply</button>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
     </div>
+  </div>
+
+  <!-- ── You May Also Like ── -->
+  {% if recommendations %}
+  <section class="mt-14">
+    <div class="mb-6 flex items-end justify-between">
+      <div>
+        <h2 class="font-display text-2xl font-bold text-ink">You May Also Like</h2>
+        <p class="mt-1 text-sm text-ink/50">Customers who bought these also added these to their cart</p>
+      </div>
+      <a href="/products" class="btn-ghost hidden text-sm sm:flex">View all →</a>
+    </div>
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      {% for product in recommendations %}
+        {% include "site/_product_card.html" %}
+      {% endfor %}
+    </div>
+  </section>
   {% endif %}
-</section>
+
+  {% else %}
+  <!-- Empty cart -->
+  <div class="card mt-6 flex flex-col items-center gap-4 py-24 text-center">
+    <span class="text-6xl">🛒</span>
+    <p class="font-display text-xl font-semibold text-ink">Your cart is empty</p>
+    <p class="text-sm text-ink/50">Discover our organic spice collection.</p>
+    <a href="/products" class="btn-primary mt-2">Browse Products</a>
+  </div>
+  {% endif %}
+
+</div>
+
 {% endblock %}
+
 {% block scripts %}
 <script>
-  function stepQty(btn,d){ const inp=btn.parentElement.querySelector('input'); inp.value=Math.max(1,(parseInt(inp.value)||1)+d); }
-  async function removeItem(id){
-    const res = await postJSON('/api/cart/remove',{itemId:id});
-    if(res.ok){ const el=document.getElementById('cart-item-'+id); if(el) el.remove(); location.reload(); }
+(function () {
+  const FREE_OVER = {{ FREE_DELIVERY_OVER }};
+  const SHIP_FEE  = {{ SHIPPING_FEE }};
+  let appliedCode = "{{ applied_code }}";
+  const qtyTimers = {};
+
+  function fmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
+
+  function getCsrf() {
+    return (document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)') || []).pop() || '';
+  }
+
+  async function pJSON(url, body) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify(body)
+    });
+    return r.json();
+  }
+
+  function getRows() {
+    return Array.from(document.querySelectorAll('#cart-items-list [data-item-id]'));
+  }
+
+  function calcSubtotal() {
+    return getRows().reduce((sum, row) => {
+      const price = parseFloat(row.dataset.price);
+      const qtyEl = document.getElementById('qty-' + row.dataset.itemId);
+      const qty   = qtyEl ? (parseInt(qtyEl.value) || 1) : (parseInt(row.dataset.qty) || 1);
+      return sum + price * qty;
+    }, 0);
+  }
+
+  function setShipBanner(subtotal, effectiveShipping) {
+    const banner = document.getElementById('ship-banner');
+    const inner  = document.getElementById('ship-banner-inner');
+    if (effectiveShipping === 0) {
+      banner.className = 'border-b px-5 py-2.5 text-sm bg-brand-50 border-brand-100';
+      inner.innerHTML  = `<span class="flex items-center gap-2 font-medium text-brand-700"><svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>You qualify for free shipping!</span>`;
+    } else {
+      banner.className = 'border-b px-5 py-2.5 text-sm bg-cream border-black/5';
+      const gap = FREE_OVER - subtotal;
+      inner.innerHTML  = `<span class="flex items-center gap-2 text-ink/55"><svg class="w-4 h-4 shrink-0 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>Add <strong class="text-ink mx-1">${fmt(gap)}</strong> more for free shipping!</span>`;
+    }
+  }
+
+  function applySummary(subtotal, discount, freeShip, shipping) {
+    const grand = Math.max(0, subtotal + shipping - discount);
+    document.getElementById('summary-subtotal').textContent  = fmt(subtotal);
+    document.getElementById('summary-total').textContent     = fmt(grand);
+    document.getElementById('checkout-total').textContent    = fmt(grand);
+    document.getElementById('summary-shipping').innerHTML    = shipping === 0 ? '<span class="font-semibold text-brand-600">FREE</span>' : fmt(shipping);
+    setShipBanner(subtotal, shipping);
+
+    if (freeShip) {
+      document.getElementById('freeship-row').classList.remove('hidden');
+      const rawShip = subtotal >= FREE_OVER ? 0 : SHIP_FEE;
+      document.getElementById('summary-freeship').textContent = '−' + fmt(rawShip);
+      document.getElementById('discount-row').classList.add('hidden');
+    } else if (discount > 0) {
+      document.getElementById('discount-row').classList.remove('hidden');
+      document.getElementById('summary-discount').textContent = '−' + fmt(discount);
+      document.getElementById('freeship-row').classList.add('hidden');
+    } else {
+      document.getElementById('discount-row').classList.add('hidden');
+      document.getElementById('freeship-row').classList.add('hidden');
+    }
+  }
+
+  async function recalcCart() {
+    const subtotal = calcSubtotal();
+    if (appliedCode) {
+      const res = await pJSON('/api/coupon/apply', { code: appliedCode, subtotal });
+      if (!res.ok) {
+        appliedCode = '';
+        showCouponInput();
+        applySummary(subtotal, 0, false, subtotal >= FREE_OVER ? 0 : SHIP_FEE);
+      } else {
+        const discount  = res.discount || 0;
+        const freeShip  = res.free_ship || false;
+        const shipping  = res.shipping != null ? res.shipping : (subtotal >= FREE_OVER ? 0 : SHIP_FEE);
+        applySummary(subtotal, discount, freeShip, shipping);
+      }
+    } else {
+      applySummary(subtotal, 0, false, subtotal >= FREE_OVER ? 0 : SHIP_FEE);
+    }
+  }
+
+  window.adjustQty = function (itemId, delta) {
+    const inp = document.getElementById('qty-' + itemId);
+    const row = document.querySelector('[data-item-id="' + itemId + '"]');
+    const max = parseInt(row.dataset.max) || 10;
+    let val = (parseInt(inp.value) || 1) + delta;
+    val = Math.max(1, Math.min(max, val));
+    inp.value = val;
+    updateLineTotal(itemId, val, parseFloat(row.dataset.price));
+    scheduleQtyPersist(itemId, parseInt(row.dataset.variantId), val);
+    recalcCart();
+  };
+
+  window.onQtyInputChange = function (itemId, inp) {
+    const row = document.querySelector('[data-item-id="' + itemId + '"]');
+    const max = parseInt(row.dataset.max) || 10;
+    let val = parseInt(inp.value) || 1;
+    val = Math.max(1, Math.min(max, val));
+    inp.value = val;
+    updateLineTotal(itemId, val, parseFloat(row.dataset.price));
+    scheduleQtyPersist(itemId, parseInt(row.dataset.variantId), val);
+    recalcCart();
+  };
+
+  function updateLineTotal(itemId, qty, price) {
+    document.getElementById('line-total-' + itemId).textContent = fmt(price * qty);
+  }
+
+  function scheduleQtyPersist(itemId, variantId, qty) {
+    clearTimeout(qtyTimers[itemId]);
+    qtyTimers[itemId] = setTimeout(() => {
+      pJSON('/api/cart/add', { variantId, qty });
+    }, 350);
+  }
+
+  window.removeItem = async function (itemId) {
+    const res = await pJSON('/api/cart/remove', { itemId });
+    if (!res.ok) return;
+    const row = document.getElementById('row-' + itemId);
+    if (row) row.remove();
+    const rows = getRows();
+    document.getElementById('cart-item-count').textContent = rows.length;
+    if (rows.length === 0) { location.reload(); return; }
+    recalcCart();
+  };
+
+  window.removeCombo = async function (slug, comboName) {
+    const confirmed = confirm(
+      'This item is part of the “' + comboName + '” bundle.\n\n' +
+      'Removing it will remove the entire combo pack from your cart. Continue?'
+    );
+    if (!confirmed) return;
+    const res = await pJSON('/api/combo/' + slug + '/remove', {});
+    if (!res.ok) return;
+    location.reload();
+  };
+
+  window.applyCoupon = async function () {
+    const input  = document.getElementById('coupon-input');
+    const errEl  = document.getElementById('coupon-error');
+    const code   = input.value.trim().toUpperCase();
+    errEl.classList.add('hidden');
+    if (!code) { errEl.textContent = 'Please enter a coupon code.'; errEl.classList.remove('hidden'); return; }
+
+    const btn = document.querySelector('[onclick="applyCoupon()"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Applying…'; }
+
+    const subtotal = calcSubtotal();
+    const res = await pJSON('/api/coupon/apply', { code, subtotal });
+
+    if (btn) { btn.disabled = false; btn.textContent = 'Apply'; }
+
+    if (!res.ok) {
+      errEl.textContent = res.error;
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    appliedCode = res.code;
+    document.getElementById('applied-code-label').textContent = res.code;
+    document.getElementById('applied-code-desc').textContent  = res.message || 'Coupon applied!';
+    document.getElementById('coupon-applied-banner').classList.remove('hidden');
+    document.getElementById('coupon-input-wrap').classList.add('hidden');
+
+    const discount = res.discount || 0;
+    const freeShip = res.free_ship || false;
+    const shipping = res.shipping != null ? res.shipping : (subtotal >= FREE_OVER ? 0 : SHIP_FEE);
+    applySummary(subtotal, discount, freeShip, shipping);
+  };
+
+  window.removeCoupon = async function () {
+    await fetch('/api/coupon/remove', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    appliedCode = '';
+    showCouponInput();
+    const subtotal = calcSubtotal();
+    applySummary(subtotal, 0, false, subtotal >= FREE_OVER ? 0 : SHIP_FEE);
+  };
+
+  function showCouponInput() {
+    document.getElementById('coupon-applied-banner').classList.add('hidden');
+    document.getElementById('coupon-input-wrap').classList.remove('hidden');
+    document.getElementById('coupon-input').value = '';
+    document.getElementById('coupon-error').classList.add('hidden');
+  }
+
+  window.applyFromOffer = function (code) {
+    showCouponInput();
+    document.getElementById('coupon-input').value = code;
+    applyCoupon();
+  };
+})();
 </script>
 {% endblock %}

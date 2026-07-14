@@ -1,0 +1,208 @@
+{% extends "panel/base.html" %}
+{% block title %}About Us · CMS · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}CMS › About Us{% endblock %}
+
+{% block content %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<style>
+.ql-container { min-height:300px; }
+.ql-editor    { min-height:300px; font-size:.9rem; }
+.ql-toolbar   { border-radius:.5rem .5rem 0 0; }
+.ql-container { border-radius:0 0 .5rem .5rem; }
+</style>
+
+<div class="mb-5 flex items-center gap-3">
+  <a href="/admin-panel/cms" class="text-ink/50 hover:text-ink text-sm">CMS</a>
+  <span class="text-ink/30">›</span>
+  <h1 class="font-display text-xl font-bold text-ink">About Us</h1>
+</div>
+
+{% for m in messages %}
+<div class="mb-4 rounded-xl px-4 py-3 text-sm font-medium {% if 'error' in m.tags %}bg-red-50 text-red-700{% else %}bg-brand-50 text-brand-700{% endif %} border border-current/20">{{ m }}</div>
+{% endfor %}
+
+<!-- Rich content editor -->
+<div class="card p-5 mb-5">
+  <div class="flex items-start justify-between gap-3 mb-4">
+    <div>
+      <h2 class="font-semibold text-ink">Page Content</h2>
+      <p class="text-xs text-ink/50 mt-0.5">Story, mission, vision, values shown on the About Us page</p>
+    </div>
+    <button onclick="submitAbout()" class="btn-gold text-xs shrink-0">Save &amp; Publish</button>
+  </div>
+
+  <form id="aboutForm" method="POST">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_content">
+    <input type="hidden" name="content" id="aboutContent">
+    <div class="mb-3">
+      <label class="text-xs font-medium text-ink/50">Page Title</label>
+      <input name="title" value="{{ page.title|default:'About Us' }}" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-400" placeholder="About Us">
+    </div>
+    <div class="mb-3">
+      <label class="text-xs font-medium text-ink/50 mb-1 block">Content</label>
+      <div id="toolbar-about">
+        <span class="ql-formats"><select class="ql-header"><option value="1">H1</option><option value="2">H2</option><option selected>Normal</option></select></span>
+        <span class="ql-formats"><button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button></span>
+        <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button></span>
+        <span class="ql-formats"><button class="ql-link"></button><button class="ql-image"></button><button class="ql-blockquote"></button></span>
+        <span class="ql-formats"><button class="ql-clean"></button></span>
+      </div>
+      <div id="about-editor">{% if page %}{{ page.content|safe }}{% endif %}</div>
+    </div>
+    <div class="grid sm:grid-cols-2 gap-3 mt-4 border-t border-black/[.06] pt-4">
+      <div>
+        <label class="text-xs font-medium text-ink/50">Meta Title</label>
+        <input name="meta_title" value="{{ page.meta_title }}" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-400" placeholder="About Us · {{ SITE_NAME }}">
+      </div>
+      <div>
+        <label class="text-xs font-medium text-ink/50">Meta Description</label>
+        <input name="meta_description" value="{{ page.meta_description }}" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-400" placeholder="Short description for search engines">
+      </div>
+    </div>
+  </form>
+
+  {% if revisions %}
+  <div class="mt-4 border-t border-black/[.06] pt-4">
+    <p class="text-xs font-semibold text-ink/40 uppercase tracking-wide mb-2">Version History</p>
+    <div class="flex flex-wrap gap-2">
+      {% for rev in revisions %}
+      <form method="POST" action="/admin-panel/cms/revisions/{{ rev.pk }}/restore" class="inline">
+        {% csrf_token %}
+        <button class="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] text-ink/60 hover:border-brand-400 hover:text-brand-600 transition">
+          {{ rev.created_at|date:"d M, g:i a" }}
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Team Members -->
+<div class="card overflow-hidden">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-black/[.06]">
+    <div>
+      <h2 class="font-semibold text-ink">Team Members</h2>
+      <p class="text-xs text-ink/50 mt-0.5">Shown on the About Us page · drag to reorder</p>
+    </div>
+    <button onclick="document.getElementById('addMemberModal').style.display='flex'" class="btn-primary text-xs">+ Add Member</button>
+  </div>
+
+  <div id="teamGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+    {% for m in team %}
+    <div class="team-card relative rounded-xl border border-black/[.07] p-4 bg-gray-50 flex items-start gap-3 hover:shadow-sm transition" data-id="{{ m.pk }}">
+      <span class="drag-handle select-none text-ink/30 cursor-grab text-lg mt-1">⠿</span>
+      {% if m.photo_url %}
+      <img src="{{ m.photo_url }}" alt="{{ m.name }}" class="h-12 w-12 shrink-0 rounded-full object-cover border border-black/10">
+      {% else %}
+      <span class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-700">{{ m.name|slice:":1"|upper }}</span>
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <p class="font-semibold text-sm text-ink">{{ m.name }}</p>
+        <p class="text-xs text-ink/50">{{ m.role }}</p>
+        {% if m.bio %}<p class="text-xs text-ink/40 mt-1 line-clamp-2">{{ m.bio }}</p>{% endif %}
+        <div class="mt-2 flex gap-2">
+          <form method="POST" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="toggle_member">
+            <input type="hidden" name="pk" value="{{ m.pk }}">
+            <button class="text-[10px] rounded-full px-2 py-0.5 {% if m.is_active %}bg-green-50 text-green-700{% else %}bg-gray-200 text-ink/50{% endif %}">
+              {% if m.is_active %}Active{% else %}Hidden{% endif %}
+            </button>
+          </form>
+          <form method="POST" class="inline" onsubmit="return confirm('Remove this team member?')">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_member">
+            <input type="hidden" name="pk" value="{{ m.pk }}">
+            <button class="text-[10px] text-red-400 hover:text-red-600">Remove</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full py-10 text-center text-sm text-ink/40">
+      No team members yet. Add one to feature your team on the About Us page.
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div id="addMemberModal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div class="w-full max-w-md rounded-2xl bg-white shadow-2xl p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-ink">Add Team Member</h3>
+      <button onclick="document.getElementById('addMemberModal').style.display='none'" class="text-ink/40 hover:text-ink text-xl">&times;</button>
+    </div>
+    <form method="POST" enctype="multipart/form-data" class="space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_member">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-medium text-ink/50">Name</label>
+          <input name="name" required class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-400" placeholder="Priya Sharma">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-ink/50">Role / Title</label>
+          <input name="role" required class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-400" placeholder="Co-founder &amp; CEO">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-ink/50">Bio <span class="text-ink/30">(optional)</span></label>
+        <textarea name="bio" rows="2" class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:border-brand-400 resize-none" placeholder="Short bio…"></textarea>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-ink/50">Photo <span class="text-ink/30">(optional, uploads to Cloudinary)</span></label>
+        <input type="file" name="photo" accept="image/*" class="mt-1 block text-xs text-ink/60">
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="btn-primary text-sm">Add Member</button>
+        <button type="button" onclick="document.getElementById('addMemberModal').style.display='none'" class="btn-outline text-sm">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+var quillAbout = new Quill('#about-editor', { modules:{toolbar:'#toolbar-about'}, theme:'snow' });
+
+function submitAbout() {
+  document.getElementById('aboutContent').value = quillAbout.root.innerHTML;
+  document.getElementById('aboutForm').submit();
+}
+
+// Team drag-and-drop
+(function() {
+  var grid = document.getElementById('teamGrid');
+  var dragging = null;
+
+  grid.querySelectorAll('.team-card').forEach(function(card) {
+    card.draggable = true;
+    card.addEventListener('dragstart', function() { dragging = this; this.style.opacity='.4'; });
+    card.addEventListener('dragend',   function() { this.style.opacity='1'; saveTeamOrder(); });
+    card.addEventListener('dragover',  function(e) { e.preventDefault(); this.style.outline='2px solid #1f6b3a'; });
+    card.addEventListener('dragleave', function()  { this.style.outline=''; });
+    card.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.style.outline='';
+      if (dragging && dragging !== this) {
+        var cards = [...grid.querySelectorAll('.team-card')];
+        var fi = cards.indexOf(dragging), ti = cards.indexOf(this);
+        grid.insertBefore(dragging, fi < ti ? this.nextSibling : this);
+      }
+    });
+  });
+
+  function saveTeamOrder() {
+    var ids = [...grid.querySelectorAll('.team-card')].map(function(c) { return parseInt(c.dataset.id); });
+    var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    fetch('/admin-panel/cms/about/team/reorder', {
+      method:'POST', headers:{'X-CSRFToken':csrf,'Content-Type':'application/json'},
+      body: JSON.stringify({order: ids})
+    });
+  }
+})();
+</script>
+{% endblock %}

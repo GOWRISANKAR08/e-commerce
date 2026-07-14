@@ -1,0 +1,226 @@
+{% extends "panel/base.html" %}
+{% block title %}{{ label }} · CMS · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}CMS › {{ label }}{% endblock %}
+
+{% block content %}
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+
+<style>
+.ql-container { font-size: .9rem; min-height: 400px; }
+.ql-editor { min-height: 400px; }
+.ql-toolbar { border-radius: .5rem .5rem 0 0; }
+.ql-container { border-radius: 0 0 .5rem .5rem; }
+.rev-row:hover { background: #f9fafb; }
+.seo-char { font-size:.7rem; color:#9ca3af; }
+</style>
+
+<div class="mb-4 flex items-center gap-2 text-sm text-ink/50">
+  <a href="/admin-panel/cms" class="hover:text-brand-600">CMS</a>
+  <span>›</span>
+  <span class="font-medium text-ink">{{ label }}</span>
+</div>
+
+{% for m in messages %}
+<div class="mb-4 rounded-xl px-4 py-3 text-sm font-medium {% if 'error' in m.tags %}bg-red-50 text-red-700 border border-red-200{% else %}bg-brand-50 text-brand-700 border border-brand-200{% endif %}">{{ m }}</div>
+{% endfor %}
+
+<div class="flex gap-5 items-start">
+
+  <!-- ── Editor column ── -->
+  <div class="flex-1 min-w-0 space-y-4">
+
+    <!-- Title -->
+    <div class="card p-4">
+      <label class="text-xs font-medium text-ink/50">Page Title</label>
+      <input id="titleInput" value="{{ page.title }}" class="mt-1 w-full text-xl font-bold text-ink border-none outline-none bg-transparent" placeholder="Page title…">
+    </div>
+
+    <!-- Rich text editor -->
+    <div class="card overflow-hidden">
+      <div id="toolbar">
+        <span class="ql-formats">
+          <select class="ql-header"><option value="1">H1</option><option value="2">H2</option><option value="3">H3</option><option selected>Normal</option></select>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-bold"></button>
+          <button class="ql-italic"></button>
+          <button class="ql-underline"></button>
+          <button class="ql-strike"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-list" value="ordered"></button>
+          <button class="ql-list" value="bullet"></button>
+          <button class="ql-indent" value="-1"></button>
+          <button class="ql-indent" value="+1"></button>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-link"></button>
+          <button class="ql-image"></button>
+          <button class="ql-blockquote"></button>
+          <button class="ql-code-block"></button>
+        </span>
+        <span class="ql-formats">
+          <select class="ql-color"></select>
+          <select class="ql-background"></select>
+        </span>
+        <span class="ql-formats">
+          <button class="ql-clean"></button>
+        </span>
+      </div>
+      <div id="editor">{{ page.content|safe }}</div>
+    </div>
+
+    <!-- SEO card -->
+    <div class="card p-5">
+      <h3 class="text-sm font-semibold text-ink mb-3">SEO &amp; Meta</h3>
+      <div class="space-y-3">
+        <div>
+          <div class="flex justify-between">
+            <label class="text-xs font-medium text-ink/50">Meta Title</label>
+            <span class="seo-char" id="mt-count">0 / 60</span>
+          </div>
+          <input id="metaTitle" value="{{ page.meta_title }}" maxlength="60"
+                 oninput="document.getElementById('mt-count').textContent=this.value.length+' / 60'"
+                 class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:bg-white focus:outline-none"
+                 placeholder="Defaults to page title if empty">
+        </div>
+        <div>
+          <div class="flex justify-between">
+            <label class="text-xs font-medium text-ink/50">Meta Description</label>
+            <span class="seo-char" id="md-count">0 / 160</span>
+          </div>
+          <textarea id="metaDesc" maxlength="160" rows="2"
+                    oninput="document.getElementById('md-count').textContent=this.value.length+' / 160'"
+                    class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:bg-white focus:outline-none resize-none"
+                    placeholder="Short description for search engines (150–160 chars)">{{ page.meta_description }}</textarea>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-ink/50">Keywords <span class="text-ink/30">(comma-separated)</span></label>
+          <input id="metaKw" value="{{ page.meta_keywords }}"
+                 class="mt-1 w-full rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-sm focus:border-brand-400 focus:bg-white focus:outline-none"
+                 placeholder="organic spices, natural masala, …">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-ink/50">OG Image <span class="text-ink/30">(social preview)</span></label>
+          <input type="file" id="ogImageFile" name="og_image" accept="image/*" class="mt-1 block text-xs text-ink/60">
+          {% if page.og_image %}
+          <img src="{{ page.og_image }}" class="mt-2 h-16 rounded-lg object-cover border border-black/10">
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Sidebar ── -->
+  <div class="w-[240px] shrink-0 space-y-4">
+
+    <!-- Publish card -->
+    <div class="card p-4">
+      <p class="text-xs font-semibold text-ink/50 uppercase tracking-wide mb-3">Publish</p>
+      <div class="flex items-center gap-2 rounded-lg {% if page.is_published %}bg-green-50{% else %}bg-amber-50{% endif %} px-3 py-2 mb-4">
+        <span class="h-2 w-2 rounded-full {% if page.is_published %}bg-green-500{% else %}bg-amber-400{% endif %}"></span>
+        <span class="text-sm font-medium {% if page.is_published %}text-green-700{% else %}text-amber-700{% endif %}">
+          {% if page.is_published %}Published{% else %}Draft{% endif %}
+        </span>
+      </div>
+      <div class="space-y-2">
+        <button onclick="submitForm('save')" class="btn-outline w-full text-sm justify-center">Save Draft</button>
+        <button onclick="submitForm('publish')" class="btn-primary w-full text-sm justify-center">Publish</button>
+      </div>
+      <a href="{{ page_type|lower|default:'#' }}" target="_blank"
+         class="mt-3 flex items-center justify-center gap-1 text-xs text-ink/50 hover:text-brand-600">
+        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        View Live Page
+      </a>
+    </div>
+
+    <!-- Page info -->
+    <div class="card p-4">
+      <p class="text-xs font-semibold text-ink/50 uppercase tracking-wide mb-2">Page Info</p>
+      <div class="space-y-1.5 text-xs text-ink/60">
+        <div class="flex justify-between"><span>Type</span><span class="font-medium text-ink">{{ label }}</span></div>
+        <div class="flex justify-between"><span>Updated</span><span class="font-medium text-ink">{{ page.updated_at|date:"d M Y" }}</span></div>
+      </div>
+    </div>
+
+    <!-- Revision history -->
+    {% if revisions %}
+    <div class="card p-4">
+      <p class="text-xs font-semibold text-ink/50 uppercase tracking-wide mb-3">Version History</p>
+      <div class="space-y-1">
+        {% for rev in revisions %}
+        <div class="rev-row flex items-center justify-between rounded-lg px-2 py-1.5 gap-2">
+          <div class="min-w-0">
+            <p class="text-[11px] font-medium text-ink truncate">{{ rev.created_at|date:"d M, g:i a" }}</p>
+            {% if rev.saved_by %}<p class="text-[10px] text-ink/40 truncate">{{ rev.saved_by.first_name|default:rev.saved_by.email }}</p>{% endif %}
+          </div>
+          <form method="POST" action="/admin-panel/cms/revisions/{{ rev.pk }}/restore">
+            {% csrf_token %}
+            <button class="shrink-0 text-[10px] font-semibold text-brand-600 hover:underline">Restore</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- Hidden form for submission -->
+<form id="cmsForm" method="POST" enctype="multipart/form-data" style="display:none">
+  {% csrf_token %}
+  <input type="hidden" name="action" id="formAction" value="save">
+  <input type="hidden" name="title" id="formTitle">
+  <input type="hidden" name="content" id="formContent">
+  <input type="hidden" name="meta_title" id="formMetaTitle">
+  <input type="hidden" name="meta_description" id="formMetaDesc">
+  <input type="hidden" name="meta_keywords" id="formMetaKw">
+</form>
+
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+var quill = new Quill('#editor', {
+  modules: { toolbar: '#toolbar' },
+  theme: 'snow'
+});
+
+// Update char counters on load
+(function(){
+  var mt = document.getElementById('metaTitle');
+  var md = document.getElementById('metaDesc');
+  if (mt) document.getElementById('mt-count').textContent = mt.value.length + ' / 60';
+  if (md) document.getElementById('md-count').textContent = md.value.length + ' / 160';
+})();
+
+function submitForm(action) {
+  var form = document.getElementById('cmsForm');
+  // Copy og_image file input into form
+  var ogFile = document.getElementById('ogImageFile');
+  if (ogFile && ogFile.files.length) {
+    var clone = ogFile.cloneNode(true);
+    clone.style.display = 'none';
+    form.appendChild(clone);
+  }
+  document.getElementById('formAction').value       = action;
+  document.getElementById('formTitle').value        = document.getElementById('titleInput').value;
+  document.getElementById('formContent').value      = quill.root.innerHTML;
+  document.getElementById('formMetaTitle').value    = document.getElementById('metaTitle').value;
+  document.getElementById('formMetaDesc').value     = document.getElementById('metaDesc').value;
+  document.getElementById('formMetaKw').value       = document.getElementById('metaKw').value;
+  form.submit();
+}
+
+// Auto-save every 90 seconds
+setInterval(function() {
+  document.getElementById('formAction').value  = 'save';
+  document.getElementById('formTitle').value   = document.getElementById('titleInput').value;
+  document.getElementById('formContent').value = quill.root.innerHTML;
+  document.getElementById('formMetaTitle').value = document.getElementById('metaTitle').value;
+  document.getElementById('formMetaDesc').value  = document.getElementById('metaDesc').value;
+  document.getElementById('formMetaKw').value    = document.getElementById('metaKw').value;
+  document.getElementById('cmsForm').submit();
+}, 90000);
+</script>
+{% endblock %}

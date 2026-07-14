@@ -14,9 +14,8 @@
       </h1>
       <p class="mt-0.5 text-sm text-ink/50">{% if banner %}Update banner details and image.{% else %}Add a new banner to the storefront.{% endif %}</p>
     </div>
-    <a href="/admin-panel/banners"
-       class="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-ink/5 transition-colors">
-      ← Back
+    <a href="/admin-panel/banners" onclick="event.preventDefault();goBack('/admin-panel/banners')" class="back-btn" title="Back to Banners">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
     </a>
   </div>
 
@@ -131,8 +130,9 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-semibold text-ink mb-1.5">Position</label>
-          <input name="position" type="number" min="1" value="{{ banner.position|default:1 }}"
+          <label class="block text-sm font-semibold text-ink mb-1">Position</label>
+          {% if next_pos %}<p class="text-[11px] text-ink/35 mb-1.5">{{ next_pos }} suggested</p>{% endif %}
+          <input name="position" type="number" min="1" value="{{ banner.position|default:next_pos }}"
                  class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
         </div>
       </div>
@@ -159,7 +159,7 @@
                 class="rounded-xl bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors">
           {% if banner %}Save Changes{% else %}Create Banner{% endif %}
         </button>
-        <a href="/admin-panel/banners"
+        <a href="/admin-panel/banners" onclick="event.preventDefault();goBack('/admin-panel/banners')"
            class="rounded-xl border border-black/10 bg-white px-6 py-2.5 text-sm font-medium text-ink/70 hover:bg-ink/5 transition-colors">
           Cancel
         </a>

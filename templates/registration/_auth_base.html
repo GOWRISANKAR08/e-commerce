@@ -27,7 +27,11 @@
     <div class="relative hidden flex-col justify-between overflow-hidden bg-brand-700 p-12 text-white lg:flex">
       <div style="background-image:radial-gradient(800px 400px at 80% -10%, rgba(242,192,20,.18), transparent 60%);" class="pointer-events-none absolute inset-0"></div>
       <a href="/" class="relative flex items-center gap-2">
-        <span class="grid h-10 w-10 place-items-center rounded-full bg-white/10 font-display text-lg font-bold text-gold-500">S</span>
+        {% if SITE_LOGO %}
+        <img src="{{ SITE_LOGO }}" alt="{{ SITE_NAME }}" class="h-10 w-10 rounded-full object-cover">
+        {% else %}
+        <span class="grid h-10 w-10 place-items-center rounded-full bg-white/10 font-display text-lg font-bold text-gold-500">{{ SITE_NAME|slice:":1" }}</span>
+        {% endif %}
         <span class="font-display text-2xl font-semibold">{{ SITE_NAME }}</span>
       </a>
       <div class="relative">
@@ -41,7 +45,11 @@
     <div class="flex items-center justify-center p-6 sm:p-12">
       <div class="w-full max-w-md">
         <a href="/" class="mb-8 flex items-center gap-2 lg:hidden">
-          <span class="grid h-9 w-9 place-items-center rounded-full bg-brand-600 font-display text-lg font-bold text-gold-500">S</span>
+          {% if SITE_LOGO %}
+          <img src="{{ SITE_LOGO }}" alt="{{ SITE_NAME }}" class="h-9 w-9 rounded-full object-cover">
+          {% else %}
+          <span class="grid h-9 w-9 place-items-center rounded-full bg-brand-600 font-display text-lg font-bold text-gold-500">{{ SITE_NAME|slice:":1" }}</span>
+          {% endif %}
           <span class="font-display text-xl font-semibold text-ink">{{ SITE_NAME }}</span>
         </a>
 

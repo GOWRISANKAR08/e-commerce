@@ -1,0 +1,822 @@
+{% extends "panel/base.html" %}
+{% block title %}Settings · {{ SITE_NAME }}{% endblock %}
+{% block crumb %}Settings{% endblock %}
+{% block content %}
+
+<style>
+/* Toggle switch — gold when ON */
+.tog { position:relative; display:inline-block; width:48px; height:26px; flex-shrink:0; }
+.tog input { opacity:0; width:0; height:0; position:absolute; }
+.tog-track { position:absolute; cursor:pointer; inset:0; background:#d1d5db; border-radius:26px; transition:.25s; }
+.tog-track:before { content:""; position:absolute; height:20px; width:20px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.25s; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.tog input:checked + .tog-track { background:#f2c014; }
+.tog input:checked + .tog-track:before { transform:translateX(22px); }
+
+/* Settings sub-nav */
+.s-nav-item { display:flex; align-items:center; gap:.6rem; border-radius:.6rem; padding:.55rem .75rem; font-size:.8125rem; font-weight:500; color:#4b5563; cursor:pointer; transition:all .15s; text-decoration:none; }
+.s-nav-item:hover { background:#f3f4f6; color:#1b2420; }
+.s-nav-item.active { background:#f2c014; color:#103d24; font-weight:600; }
+
+/* Section cards */
+.s-card { background:#fff; border-radius:1rem; box-shadow:0 2px 14px -6px rgba(16,61,36,.09); outline:1px solid rgba(0,0,0,.05); margin-bottom:1.25rem; overflow:hidden; }
+.s-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:1.25rem 1.5rem; border-bottom:1px solid rgba(0,0,0,.06); }
+.s-card-body { padding:1.5rem; }
+
+/* Form field */
+.f-group { display:flex; flex-direction:column; gap:.25rem; }
+.f-label { font-size:.75rem; font-weight:500; color:#6b7280; }
+.f-input { border:1px solid rgba(0,0,0,.12); border-radius:.5rem; padding:.5rem .75rem; font-size:.875rem; color:#1b2420; background:#f9fafb; width:100%; transition:border .15s,background .15s; }
+.f-input:focus { outline:none; border-color:#1f6b3a; background:#fff; }
+.f-select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M19 9l-7 7-7-7'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right .65rem center; background-size:1rem; padding-right:2.25rem; }
+
+/* Row toggle line */
+.tog-row { display:flex; align-items:center; justify-content:space-between; padding:.75rem 0; border-bottom:1px solid rgba(0,0,0,.05); }
+.tog-row:last-child { border-bottom:none; }
+.tog-row-label p { font-size:.875rem; font-weight:500; color:#1b2420; margin:0; }
+.tog-row-label span { font-size:.75rem; color:#9ca3af; }
+
+/* Password eye toggle */
+.pw-wrap { position:relative; }
+.pw-wrap .f-input { padding-right:2.5rem; }
+.pw-eye { position:absolute; right:.65rem; top:50%; transform:translateY(-50%); cursor:pointer; color:#9ca3af; }
+.pw-eye:hover { color:#1f6b3a; }
+
+/* Logo preview */
+#logo-preview { width:72px; height:72px; border-radius:12px; object-fit:cover; border:2px solid rgba(0,0,0,.08); }
+.logo-placeholder { width:72px; height:72px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.75rem; font-weight:700; background:#f2c014; color:#103d24; }
+</style>
+
+<div class="mb-5">
+  <h1 class="font-display text-2xl font-bold text-ink">Settings</h1>
+  <p class="mt-0.5 text-sm text-ink/50">Manage your store configuration, team access, and preferences.</p>
+</div>
+
+{% for m in messages %}
+<div class="mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium
+  {% if 'error' in m.tags %}bg-red-50 text-red-700 border border-red-200
+  {% elif 'warning' in m.tags %}bg-amber-50 text-amber-700 border border-amber-200
+  {% else %}bg-brand-50 text-brand-700 border border-brand-200{% endif %}">
+  <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+    {% if 'error' in m.tags %}
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    {% else %}
+    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    {% endif %}
+  </svg>
+  {{ m }}
+</div>
+{% endfor %}
+
+<div class="flex flex-col gap-5 lg:flex-row lg:gap-6 lg:items-start">
+
+  <!-- Sub Navigation -->
+  <aside class="w-full lg:w-[190px] lg:shrink-0 rounded-2xl bg-white p-2 shadow-[0_2px_14px_-6px_rgba(16,61,36,.10)] outline outline-1 outline-black/[.04]">
+    <div class="flex gap-1 overflow-x-auto pb-0.5 lg:flex-col lg:overflow-visible lg:pb-0">
+    <a href="?tab=store" class="s-nav-item shrink-0 {% if tab == 'store' %}active{% endif %}">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Store
+    </a>
+    <a href="?tab=account" class="s-nav-item shrink-0 {% if tab == 'account' %}active{% endif %}">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Account
+    </a>
+    <a href="?tab=payments" class="s-nav-item shrink-0 {% if tab == 'payments' %}active{% endif %}">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      Payments
+    </a>
+    <a href="?tab=notifications" class="s-nav-item shrink-0 {% if tab == 'notifications' %}active{% endif %}">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      Notifications
+    </a>
+    <a href="?tab=integrations" class="s-nav-item shrink-0 {% if tab == 'integrations' %}active{% endif %}">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+      Integrations
+    </a>
+    <a href="?tab=team" class="s-nav-item shrink-0 {% if tab == 'team' %}active{% endif %}">
+      <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Team
+    </a>
+    </div>
+  </aside>
+
+  <!-- Content area -->
+  <div class="flex-1 min-w-0">
+
+    {% if tab == 'store' %}
+
+    <!-- Store Identity -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Store Identity</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Your store name, logo and contact info shown to customers</p>
+        </div>
+        <button type="submit" form="form-identity" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-identity" method="POST" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="store_identity">
+          <div class="flex items-start gap-5 mb-5">
+            <div>
+              {% if cfg.logo_url %}
+              <img id="logo-preview" src="{{ cfg.logo_url }}" alt="Logo">
+              {% else %}
+              <div class="logo-placeholder" id="logo-placeholder">{{ SITE_NAME|slice:":1" }}</div>
+              <img id="logo-preview" src="" alt="" style="display:none">
+              {% endif %}
+            </div>
+            <div>
+              <label class="btn-outline cursor-pointer text-xs">
+                Upload Logo
+                <input type="file" name="logo" accept="image/*" class="sr-only" onchange="previewLogo(this)">
+              </label>
+              <p class="mt-1.5 text-[11px] text-ink/40">PNG, JPG, SVG · Max 2 MB · Uploaded to Cloudinary</p>
+            </div>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="f-group">
+              <label class="f-label">Store Name</label>
+              <input name="store_name" value="{{ cfg.store_name }}" class="f-input" required>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Store Tagline</label>
+              <input name="store_tagline" value="{{ cfg.store_tagline }}" class="f-input">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Business Email</label>
+              <input name="business_email" type="email" value="{{ cfg.business_email }}" class="f-input">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Support Phone</label>
+              <input name="support_phone" value="{{ cfg.support_phone }}" class="f-input">
+            </div>
+            <div class="f-group sm:col-span-2">
+              <label class="f-label">Store Address</label>
+              <input name="store_address" value="{{ cfg.store_address }}" class="f-input">
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Regional Settings -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Regional Settings</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Currency, timezone, language and date format</p>
+        </div>
+        <button type="submit" form="form-regional" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-regional" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="regional">
+          <div class="grid gap-4 sm:grid-cols-3">
+            <div class="f-group">
+              <label class="f-label">Currency</label>
+              <select name="currency" class="f-input f-select">
+                <option {% if cfg.currency == "INR — Indian Rupee (₹)" %}selected{% endif %}>INR — Indian Rupee (₹)</option>
+                <option {% if cfg.currency == "USD — US Dollar ($)" %}selected{% endif %}>USD — US Dollar ($)</option>
+                <option {% if cfg.currency == "EUR — Euro (€)" %}selected{% endif %}>EUR — Euro (€)</option>
+                <option {% if cfg.currency == "GBP — British Pound (£)" %}selected{% endif %}>GBP — British Pound (£)</option>
+              </select>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Timezone</label>
+              <select name="timezone" class="f-input f-select">
+                <option {% if cfg.timezone == "IST — Asia/Kolkata (UTC+5:30)" %}selected{% endif %}>IST — Asia/Kolkata (UTC+5:30)</option>
+                <option {% if cfg.timezone == "UTC — Coordinated Universal Time" %}selected{% endif %}>UTC — Coordinated Universal Time</option>
+                <option {% if cfg.timezone == "EST — US Eastern (UTC-5:00)" %}selected{% endif %}>EST — US Eastern (UTC-5:00)</option>
+                <option {% if cfg.timezone == "PST — US Pacific (UTC-8:00)" %}selected{% endif %}>PST — US Pacific (UTC-8:00)</option>
+                <option {% if cfg.timezone == "GMT — Greenwich Mean Time" %}selected{% endif %}>GMT — Greenwich Mean Time</option>
+              </select>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Language</label>
+              <select name="language" class="f-input f-select">
+                <option {% if cfg.language == "English (India)" %}selected{% endif %}>English (India)</option>
+                <option {% if cfg.language == "English (US)" %}selected{% endif %}>English (US)</option>
+                <option {% if cfg.language == "English (UK)" %}selected{% endif %}>English (UK)</option>
+                <option {% if cfg.language == "Hindi" %}selected{% endif %}>Hindi</option>
+                <option {% if cfg.language == "Tamil" %}selected{% endif %}>Tamil</option>
+                <option {% if cfg.language == "Telugu" %}selected{% endif %}>Telugu</option>
+                <option {% if cfg.language == "Kannada" %}selected{% endif %}>Kannada</option>
+              </select>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Date Format</label>
+              <select name="date_format" class="f-input f-select">
+                <option {% if cfg.date_format == "DD MMM YYYY" %}selected{% endif %}>DD MMM YYYY</option>
+                <option {% if cfg.date_format == "DD/MM/YYYY" %}selected{% endif %}>DD/MM/YYYY</option>
+                <option {% if cfg.date_format == "MM/DD/YYYY" %}selected{% endif %}>MM/DD/YYYY</option>
+                <option {% if cfg.date_format == "YYYY-MM-DD" %}selected{% endif %}>YYYY-MM-DD</option>
+              </select>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Weight Unit</label>
+              <select name="weight_unit" class="f-input f-select">
+                <option {% if cfg.weight_unit == "Grams (g)" %}selected{% endif %}>Grams (g)</option>
+                <option {% if cfg.weight_unit == "Kilograms (kg)" %}selected{% endif %}>Kilograms (kg)</option>
+                <option {% if cfg.weight_unit == "Milligrams (mg)" %}selected{% endif %}>Milligrams (mg)</option>
+                <option {% if cfg.weight_unit == "Ounces (oz)" %}selected{% endif %}>Ounces (oz)</option>
+                <option {% if cfg.weight_unit == "Pounds (lb)" %}selected{% endif %}>Pounds (lb)</option>
+              </select>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Order ID Prefix</label>
+              <input name="order_id_prefix" value="{{ cfg.order_id_prefix }}" class="f-input" maxlength="10">
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Shipping & Delivery -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Shipping &amp; Delivery</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Free shipping thresholds, delivery zones and lead times</p>
+        </div>
+        <button type="submit" form="form-shipping" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-shipping" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="shipping">
+          <div class="grid gap-4 sm:grid-cols-2 mb-5">
+            <div class="f-group">
+              <label class="f-label">Free Shipping Above (₹)</label>
+              <input name="free_shipping_above" type="number" value="{{ cfg.free_shipping_above }}" class="f-input" min="0">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Default Shipping Charge (₹)</label>
+              <input name="default_shipping_charge" type="number" value="{{ cfg.default_shipping_charge }}" class="f-input" min="0">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Processing Time</label>
+              <input name="processing_time" value="{{ cfg.processing_time }}" class="f-input" placeholder="e.g. 1-2 days">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Estimated Delivery</label>
+              <input name="estimated_delivery" value="{{ cfg.estimated_delivery }}" class="f-input" placeholder="e.g. 3-7 days">
+            </div>
+          </div>
+          <div class="tog-row">
+            <div class="tog-row-label">
+              <p>Enable Cash on Delivery (COD)</p>
+              <span>Allow customers to pay at their doorstep</span>
+            </div>
+            <label class="tog"><input type="checkbox" name="cod_enabled" {% if cfg.cod_enabled %}checked{% endif %}><span class="tog-track"></span></label>
+          </div>
+          <div class="tog-row">
+            <div class="tog-row-label"><p>Show delivery estimate on product page</p></div>
+            <label class="tog"><input type="checkbox" name="show_delivery_estimate" {% if cfg.show_delivery_estimate %}checked{% endif %}><span class="tog-track"></span></label>
+          </div>
+          <div class="tog-row">
+            <div class="tog-row-label">
+              <p>International shipping</p>
+              <span>Ship to countries outside India</span>
+            </div>
+            <label class="tog"><input type="checkbox" name="international_shipping" {% if cfg.international_shipping %}checked{% endif %}><span class="tog-track"></span></label>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Tax Configuration -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Tax Configuration</h2>
+          <p class="mt-0.5 text-xs text-ink/50">GST and tax settings applied at checkout</p>
+        </div>
+        <button type="submit" form="form-tax" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-tax" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="tax">
+          <div class="grid gap-4 sm:grid-cols-2 mb-5">
+            <div class="f-group">
+              <label class="f-label">GSTIN</label>
+              <input name="gstin" value="{{ cfg.gstin }}" class="f-input" placeholder="e.g. 29ABCDE1234F1Z5" maxlength="20">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Default GST Rate</label>
+              <select name="default_gst_rate" class="f-input f-select">
+                <option value="0"  {% if cfg.default_gst_rate == "0"  %}selected{% endif %}>0% — Exempt</option>
+                <option value="5"  {% if cfg.default_gst_rate == "5"  %}selected{% endif %}>5% — Food Products</option>
+                <option value="12" {% if cfg.default_gst_rate == "12" %}selected{% endif %}>12% — Standard</option>
+                <option value="18" {% if cfg.default_gst_rate == "18" %}selected{% endif %}>18% — Standard Plus</option>
+                <option value="28" {% if cfg.default_gst_rate == "28" %}selected{% endif %}>28% — Luxury</option>
+              </select>
+            </div>
+          </div>
+          <div class="tog-row">
+            <div class="tog-row-label">
+              <p>Display prices inclusive of GST</p>
+              <span>Show GST-included price to customers</span>
+            </div>
+            <label class="tog"><input type="checkbox" name="prices_inclusive_of_gst" {% if cfg.prices_inclusive_of_gst %}checked{% endif %}><span class="tog-track"></span></label>
+          </div>
+          <div class="tog-row">
+            <div class="tog-row-label"><p>Show GST breakdown in invoice</p></div>
+            <label class="tog"><input type="checkbox" name="show_gst_in_invoice" {% if cfg.show_gst_in_invoice %}checked{% endif %}><span class="tog-track"></span></label>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notification Preferences (Store tab preview) -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Notification Preferences</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Control which alerts you and your team receive</p>
+        </div>
+        <button type="submit" form="form-notif-store" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-notif-store" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="notif_store">
+          <div class="grid sm:grid-cols-2 gap-x-10">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">ORDERS</p>
+              <div class="tog-row"><div class="tog-row-label"><p>New order placed</p></div><label class="tog"><input type="checkbox" name="notif_new_order" {% if cfg.notif_new_order %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Order cancelled</p></div><label class="tog"><input type="checkbox" name="notif_order_cancelled" {% if cfg.notif_order_cancelled %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Return / refund request</p></div><label class="tog"><input type="checkbox" name="notif_refund_request" {% if cfg.notif_refund_request %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Order delivered</p></div><label class="tog"><input type="checkbox" name="notif_order_delivered" {% if cfg.notif_order_delivered %}checked{% endif %}><span class="tog-track"></span></label></div>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-2">INVENTORY</p>
+              <div class="tog-row"><div class="tog-row-label"><p>Low stock alert (&lt; 20 units)</p></div><label class="tog"><input type="checkbox" name="notif_low_stock" {% if cfg.notif_low_stock %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Out of stock alert</p></div><label class="tog"><input type="checkbox" name="notif_out_of_stock" {% if cfg.notif_out_of_stock %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Restock reminder</p></div><label class="tog"><input type="checkbox" name="notif_restock" {% if cfg.notif_restock %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>New product review posted</p></div><label class="tog"><input type="checkbox" name="notif_new_review" {% if cfg.notif_new_review %}checked{% endif %}><span class="tog-track"></span></label></div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% elif tab == 'account' %}
+
+    <!-- Profile Details -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Profile Details</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Your admin account information</p>
+        </div>
+        <button type="submit" form="form-profile" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-profile" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="account_profile">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="f-group">
+              <label class="f-label">First Name</label>
+              <input name="first_name" value="{{ request.user.first_name }}" class="f-input">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Last Name</label>
+              <input name="last_name" value="{{ request.user.last_name }}" class="f-input">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Email Address</label>
+              <input value="{{ request.user.email }}" class="f-input" disabled style="background:#f3f4f6;color:#9ca3af;">
+              <p class="text-[11px] text-ink/40 mt-0.5">Email cannot be changed here.</p>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Mobile Number</label>
+              <input name="mobile" value="{{ request.user.mobile }}" class="f-input">
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Change Password -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Change Password</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Use a strong password of at least 6 characters</p>
+        </div>
+        <button type="submit" form="form-password" class="btn-gold shrink-0 text-xs">Update Password</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-password" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="account_password">
+          <div class="grid gap-4 sm:grid-cols-3">
+            <div class="f-group">
+              <label class="f-label">Current Password</label>
+              <div class="pw-wrap">
+                <input id="pw-cur" type="password" name="current_password" class="f-input">
+                <span class="pw-eye" onclick="togglePw('pw-cur')">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="f-group">
+              <label class="f-label">New Password</label>
+              <div class="pw-wrap">
+                <input id="pw-new" type="password" name="new_password" class="f-input">
+                <span class="pw-eye" onclick="togglePw('pw-new')">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Confirm Password</label>
+              <div class="pw-wrap">
+                <input id="pw-con" type="password" name="confirm_password" class="f-input">
+                <span class="pw-eye" onclick="togglePw('pw-con')">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Account Security -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Account Security</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Login activity and session management</p>
+        </div>
+      </div>
+      <div class="s-card-body">
+        <div class="grid sm:grid-cols-2 gap-4 mb-4">
+          <div class="rounded-xl border border-black/[.07] bg-gray-50 p-4">
+            <p class="text-xs font-medium text-ink/50 mb-0.5">Account Status</p>
+            <p class="font-semibold text-sm text-brand-700">Active &amp; Verified</p>
+          </div>
+          <div class="rounded-xl border border-black/[.07] bg-gray-50 p-4">
+            <p class="text-xs font-medium text-ink/50 mb-0.5">Account Type</p>
+            <p class="font-semibold text-sm text-ink">{{ request.user.user_type }}</p>
+          </div>
+          <div class="rounded-xl border border-black/[.07] bg-gray-50 p-4">
+            <p class="text-xs font-medium text-ink/50 mb-0.5">Email</p>
+            <p class="font-semibold text-sm text-ink">{{ request.user.email|default:"—" }}</p>
+          </div>
+          <div class="rounded-xl border border-black/[.07] bg-gray-50 p-4">
+            <p class="text-xs font-medium text-ink/50 mb-0.5">Mobile</p>
+            <p class="font-semibold text-sm text-ink">{{ request.user.mobile|default:"Not set" }}</p>
+          </div>
+        </div>
+        <a href="/logout" class="btn-outline text-xs text-red-600 border-red-200 hover:bg-red-50">Sign Out</a>
+      </div>
+    </div>
+
+    {% elif tab == 'payments' %}
+
+    <div class="s-card">
+      <div class="s-card-header">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-[#3395FF] flex items-center justify-center shrink-0">
+            <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          </div>
+          <div>
+            <h2 class="font-display text-base font-semibold text-ink">Razorpay</h2>
+            <p class="text-xs text-ink/50">Payment gateway configuration</p>
+          </div>
+        </div>
+        <button type="submit" form="form-payments" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-payments" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="payments">
+          <div class="flex items-center gap-3 mb-5 rounded-xl bg-gray-50 border border-black/[.07] p-3.5">
+            <label class="tog"><input type="checkbox" name="enabled" {% if rz.enabled %}checked{% endif %}><span class="tog-track"></span></label>
+            <div>
+              <p class="text-sm font-semibold">Enable Razorpay</p>
+              <p class="text-xs text-ink/50">Customers can pay with UPI, cards, netbanking, wallets</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-4 mb-5">
+            <span class="text-xs font-medium text-ink/60">Mode:</span>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="environment" value="test" {% if rz.environment != "live" %}checked{% endif %} class="accent-brand-600">
+              <span class="text-sm">Test Mode</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="environment" value="live" {% if rz.environment == "live" %}checked{% endif %} class="accent-brand-600">
+              <span class="text-sm">Live Mode</span>
+            </label>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="f-group">
+              <label class="f-label">Key ID</label>
+              <input name="key_id" value="{{ rz.key_id }}" class="f-input font-mono text-xs" placeholder="rzp_test_...">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Key Secret</label>
+              <div class="pw-wrap">
+                <input id="rzp-secret" type="password" name="key_secret" value="{{ rz.key_secret }}" class="f-input font-mono text-xs">
+                <span class="pw-eye" onclick="togglePw('rzp-secret')">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="f-group sm:col-span-2">
+              <label class="f-label">Webhook Secret</label>
+              <div class="pw-wrap">
+                <input id="rzp-webhook" type="password" name="webhook_secret" value="{{ rz.webhook_secret }}" class="f-input font-mono text-xs">
+                <span class="pw-eye" onclick="togglePw('rzp-webhook')">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="mt-5">
+            <p class="text-xs font-medium text-ink/60 mb-2">Accepted Payment Methods</p>
+            <div class="flex flex-wrap gap-4">
+              <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked class="accent-brand-600"> UPI</label>
+              <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked class="accent-brand-600"> Debit / Credit Cards</label>
+              <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked class="accent-brand-600"> Net Banking</label>
+              <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked class="accent-brand-600"> Wallets</label>
+              <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="checkbox" checked class="accent-brand-600"> EMI</label>
+            </div>
+          </div>
+        </form>
+        <div class="mt-5 border-t border-black/[.06] pt-4 flex items-center gap-3">
+          <button onclick="testConn('RAZORPAY','rzp-result')" class="btn-outline text-xs flex items-center gap-1.5">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Test Connection
+          </button>
+          <span id="rzp-result" class="text-xs"></span>
+        </div>
+      </div>
+    </div>
+
+    {% elif tab == 'notifications' %}
+
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Notification Preferences</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Choose which events trigger alerts for you and your team</p>
+        </div>
+        <button type="submit" form="form-notif-full" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-notif-full" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="notif_full">
+          <div class="grid sm:grid-cols-2 gap-x-10">
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">ORDERS</p>
+              <div class="tog-row"><div class="tog-row-label"><p>New order placed</p></div><label class="tog"><input type="checkbox" name="notif_new_order" {% if cfg.notif_new_order %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Order cancelled</p></div><label class="tog"><input type="checkbox" name="notif_order_cancelled" {% if cfg.notif_order_cancelled %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Return / refund request</p></div><label class="tog"><input type="checkbox" name="notif_refund_request" {% if cfg.notif_refund_request %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Order delivered</p></div><label class="tog"><input type="checkbox" name="notif_order_delivered" {% if cfg.notif_order_delivered %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-5 mb-3">PAYMENTS</p>
+              <div class="tog-row"><div class="tog-row-label"><p>Payment success</p></div><label class="tog"><input type="checkbox" name="notif_payment_success" {% if cfg.notif_payment_success %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Payment failed</p></div><label class="tog"><input type="checkbox" name="notif_payment_failed" {% if cfg.notif_payment_failed %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Promotional campaign</p></div><label class="tog"><input type="checkbox" name="notif_promotional" {% if cfg.notif_promotional %}checked{% endif %}><span class="tog-track"></span></label></div>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-3">INVENTORY</p>
+              <div class="tog-row"><div class="tog-row-label"><p>Low stock alert (&lt; 20 units)</p></div><label class="tog"><input type="checkbox" name="notif_low_stock" {% if cfg.notif_low_stock %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Out of stock alert</p></div><label class="tog"><input type="checkbox" name="notif_out_of_stock" {% if cfg.notif_out_of_stock %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>Restock reminder</p></div><label class="tog"><input type="checkbox" name="notif_restock" {% if cfg.notif_restock %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <div class="tog-row"><div class="tog-row-label"><p>New product review posted</p></div><label class="tog"><input type="checkbox" name="notif_new_review" {% if cfg.notif_new_review %}checked{% endif %}><span class="tog-track"></span></label></div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-ink/40 mt-5 mb-3">CUSTOMERS</p>
+              <div class="tog-row"><div class="tog-row-label"><p>New customer registered</p></div><label class="tog"><input type="checkbox" name="notif_customer_registered" {% if cfg.notif_customer_registered %}checked{% endif %}><span class="tog-track"></span></label></div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    {% elif tab == 'integrations' %}
+
+    <div class="s-card">
+      <div class="s-card-header">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-[#3448c5] flex items-center justify-center shrink-0">
+            <svg class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04A7.49 7.49 0 0012 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 000 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+          </div>
+          <div>
+            <h2 class="font-display text-base font-semibold text-ink">Cloudinary</h2>
+            <p class="text-xs text-ink/50">Media storage and image management</p>
+          </div>
+        </div>
+        <button type="submit" form="form-cloudinary" class="btn-gold shrink-0 text-xs">Save Changes</button>
+      </div>
+      <div class="s-card-body">
+        <div class="flex items-center gap-3 mb-5 rounded-xl bg-gray-50 border border-black/[.07] p-3.5">
+          <label class="tog"><input type="checkbox" name="cl_enabled" form="form-cloudinary" {% if cl.enabled %}checked{% endif %}><span class="tog-track"></span></label>
+          <div>
+            <p class="text-sm font-semibold">Enable Cloudinary</p>
+            <p class="text-xs text-ink/50">Product images, banners, and media are uploaded to Cloudinary</p>
+          </div>
+        </div>
+        <form id="form-cloudinary" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="integrations">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="f-group">
+              <label class="f-label">Cloud Name</label>
+              <input name="cloud_name" value="{{ cl.cloud_name }}" class="f-input font-mono text-xs" placeholder="e.g. my-cloud">
+            </div>
+            <div class="f-group">
+              <label class="f-label">API Key</label>
+              <input name="api_key" value="{{ cl.api_key }}" class="f-input font-mono text-xs" placeholder="123456789012345">
+            </div>
+            <div class="f-group">
+              <label class="f-label">API Secret</label>
+              <div class="pw-wrap">
+                <input id="cl-secret" type="password" name="api_secret" value="{{ cl.api_secret }}" class="f-input font-mono text-xs">
+                <span class="pw-eye" onclick="togglePw('cl-secret')">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Default Folder</label>
+              <input name="folder" value="{{ cl.folder }}" class="f-input font-mono text-xs" placeholder="products">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Upload Preset (optional)</label>
+              <input name="upload_preset" value="{{ cl.upload_preset }}" class="f-input font-mono text-xs">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Max File Size (MB)</label>
+              <input name="max_size_mb" type="number" value="{{ cl.max_size_mb }}" class="f-input" min="1" max="50">
+            </div>
+          </div>
+        </form>
+        <div class="mt-5 border-t border-black/[.06] pt-4 flex items-center gap-3">
+          <button onclick="testConn('CLOUDINARY','cl-result')" class="btn-outline text-xs flex items-center gap-1.5">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Test Connection
+          </button>
+          <span id="cl-result" class="text-xs"></span>
+        </div>
+      </div>
+    </div>
+
+    {% elif tab == 'team' %}
+
+    <!-- Add Member -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Add Team Member</h2>
+          <p class="mt-0.5 text-xs text-ink/50">Create a new admin account with full panel access</p>
+        </div>
+        <button type="submit" form="form-team-add" class="btn-gold shrink-0 text-xs">Add Member</button>
+      </div>
+      <div class="s-card-body">
+        <form id="form-team-add" method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="section" value="team_add">
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="f-group">
+              <label class="f-label">First Name</label>
+              <input name="first_name" class="f-input" placeholder="John">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Last Name</label>
+              <input name="last_name" class="f-input" placeholder="Doe">
+            </div>
+            <div class="f-group">
+              <label class="f-label">Email Address</label>
+              <input name="email" type="email" class="f-input" placeholder="admin@example.com" required>
+            </div>
+            <div class="f-group">
+              <label class="f-label">Temporary Password</label>
+              <div class="pw-wrap">
+                <input id="team-pw" type="password" name="password" class="f-input" placeholder="Min. 6 characters" required minlength="6">
+                <span class="pw-eye" onclick="togglePw('team-pw')">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Team Members Table -->
+    <div class="s-card">
+      <div class="s-card-header">
+        <div>
+          <h2 class="font-display text-base font-semibold text-ink">Team Members</h2>
+          <p class="mt-0.5 text-xs text-ink/50">{{ team|length }} admin account{{ team|length|pluralize }}</p>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-black/[.06] bg-gray-50">
+              <th class="px-5 py-3 text-left text-xs font-semibold text-ink/50 uppercase tracking-wide">Member</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-ink/50 uppercase tracking-wide">Email</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-ink/50 uppercase tracking-wide">Role</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-ink/50 uppercase tracking-wide">Status</th>
+              <th class="px-5 py-3 text-right text-xs font-semibold text-ink/50 uppercase tracking-wide">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-black/[.05]">
+            {% for member in team %}
+            <tr class="hover:bg-gray-50/50">
+              <td class="px-5 py-3.5">
+                <div class="flex items-center gap-2.5">
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-xs text-brand-700">
+                    {{ member.first_name|default:member.email|slice:":1"|upper }}
+                  </span>
+                  <span class="font-medium">{{ member.first_name }} {{ member.last_name }}</span>
+                </div>
+              </td>
+              <td class="px-5 py-3.5 text-ink/60">{{ member.email }}</td>
+              <td class="px-5 py-3.5">
+                <span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-semibold text-brand-700">{{ member.user_type }}</span>
+              </td>
+              <td class="px-5 py-3.5">
+                {% if member.status == 'ACTIVE' %}
+                <span class="rounded-full bg-green-50 px-2.5 py-0.5 text-[11px] font-semibold text-green-700">Active</span>
+                {% else %}
+                <span class="rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-semibold text-red-600">Inactive</span>
+                {% endif %}
+              </td>
+              <td class="px-5 py-3.5 text-right">
+                {% if member.pk != request.user.pk %}
+                <form method="POST" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="section" value="team_toggle">
+                  <input type="hidden" name="user_id" value="{{ member.pk }}">
+                  <button class="text-xs font-medium {% if member.status == 'ACTIVE' %}text-red-500 hover:text-red-700{% else %}text-brand-600 hover:text-brand-800{% endif %}">
+                    {% if member.status == 'ACTIVE' %}Disable{% else %}Enable{% endif %}
+                  </button>
+                </form>
+                {% else %}
+                <span class="text-xs text-ink/30 italic">You</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="px-5 py-10 text-center text-sm text-ink/40">No admin accounts found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePw(id) {
+  var inp = document.getElementById(id);
+  if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function previewLogo(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var ph  = document.getElementById('logo-placeholder');
+    var img = document.getElementById('logo-preview');
+    if (ph)  ph.style.display  = 'none';
+    if (img) { img.src = e.target.result; img.style.display = ''; }
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function testConn(integration, resultId) {
+  var el   = document.getElementById(resultId);
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  el.textContent = 'Testing…';
+  el.className   = 'text-xs text-ink/50';
+  fetch('/admin-panel/settings/test/' + integration, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    el.textContent = (d.ok ? '✓ ' : '✗ ') + d.message;
+    el.className   = 'text-xs ' + (d.ok ? 'text-brand-700 font-medium' : 'text-red-500');
+  })
+  .catch(function() {
+    el.textContent = '✗ Network error';
+    el.className   = 'text-xs text-red-500';
+  });
+}
+</script>
+{% endblock %}

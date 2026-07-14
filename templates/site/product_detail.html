@@ -13,9 +13,9 @@
         <div style="display:none" class="h-full w-full items-center justify-center font-display text-3xl text-brand-600/40">{{ product.name }}</div>
       </div>
       {% if images %}
-      <div class="mt-4 flex gap-3">
+      <div class="mt-4 flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
         {% for im in images %}
-          <button onclick="document.getElementById('hero-img').src='{{ im.image }}'" class="h-16 w-16 overflow-hidden rounded-xl bg-cream ring-1 ring-black/5">
+          <button onclick="document.getElementById('hero-img').src='{{ im.image }}'" class="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-cream ring-1 ring-black/5">
             <img src="{{ im.image }}" onerror="this.style.display='none'" class="h-full w-full object-cover" />
           </button>
         {% endfor %}
@@ -29,7 +29,7 @@
         <span class="text-xs font-medium uppercase tracking-wide text-brand-500">{{ product.category.name }}</span>
         {% if product.badge %}<span class="rounded-full bg-gold-500 px-2 py-0.5 text-[11px] font-bold text-ink">{{ product.badge }}</span>{% endif %}
       </div>
-      <h1 class="mt-2 font-display text-4xl font-semibold">{{ product.name }}</h1>
+      <h1 class="mt-2 font-display text-2xl sm:text-3xl lg:text-4xl font-semibold">{{ product.name }}</h1>
       <div class="mt-2 flex items-center gap-2 text-sm">
         <span class="text-gold-500">{% for _ in "12345"|make_list %}{% if forloop.counter <= product.avg_rating %}★{% else %}☆{% endif %}{% endfor %}</span>
         <span class="text-ink/50">{{ product.avg_rating }} ({{ reviews|length }} review{{ reviews|length|pluralize }})</span>
@@ -49,8 +49,8 @@
         </div>
 
         <div class="mt-5 flex items-end gap-3">
-          <span id="price" class="text-3xl font-bold">{{ product.default_variant.selling_price|inr }}</span>
-          <span id="mrp" class="mb-1 text-lg text-ink/40 line-through">{% if product.default_variant.mrp_price > product.default_variant.selling_price %}{{ product.default_variant.mrp_price|inr }}{% endif %}</span>
+          <span id="price" class="text-2xl sm:text-3xl font-bold">{{ product.default_variant.selling_price|inr }}</span>
+          <span id="mrp" class="mb-1 text-base sm:text-lg text-ink/40 line-through">{% if product.default_variant.mrp_price > product.default_variant.selling_price %}{{ product.default_variant.mrp_price|inr }}{% endif %}</span>
         </div>
 
         <div class="mt-6 flex items-center gap-4">
@@ -62,12 +62,42 @@
           <button type="button" data-add-cart data-variant="{{ product.default_variant.id }}" data-qty="1" data-label="Add to Cart"
                   id="add-btn" class="btn-primary flex-1">Add to Cart</button>
           <button type="button" data-fav="{{ product.id }}"
-                  class="grid h-12 w-12 place-items-center rounded-xl border border-black/10 text-xl {% if favourited %}text-red-500{% else %}text-ink/30{% endif %}">♥</button>
+                  class="grid h-12 w-12 place-items-center rounded-xl border border-black/10 transition hover:scale-105 {% if favourited %}text-red-500{% else %}text-ink/30{% endif %}">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+          </button>
         </div>
       </form>
 
+      {% if active_offers %}
+      <div class="mt-6 rounded-xl bg-brand-50/60 border border-brand-100 p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-4 h-4 text-gold-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z"/>
+          </svg>
+          <span class="text-sm font-semibold text-ink">Available Offers</span>
+        </div>
+        <ul class="space-y-2">
+          {% for offer in active_offers %}
+          <li class="flex items-start gap-2 text-sm">
+            <svg class="w-3.5 h-3.5 mt-0.5 text-brand-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+            </svg>
+            <span class="text-ink/80">
+              Use code&nbsp;<span class="font-mono font-bold text-brand-700">{{ offer.code }}</span>
+              &nbsp;—&nbsp;
+              {% if offer.coupon_type == "PERCENT" %}{{ offer.discount_value|floatformat:0 }}% off{% elif offer.coupon_type == "FLAT" %}₹{{ offer.discount_value|floatformat:0 }} off{% else %}Free Shipping{% endif %}
+              {% if offer.min_order_value %}<span class="text-ink/40 text-xs">(Min ₹{{ offer.min_order_value|floatformat:0 }})</span>{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
       {% if product.description %}
-        <div class="mt-8 border-t border-black/5 pt-6">
+        <div class="mt-6 border-t border-black/5 pt-6">
           <h3 class="font-display text-lg font-semibold">Description</h3>
           <p class="mt-2 text-ink/70">{{ product.description }}</p>
         </div>
@@ -78,40 +108,171 @@
     </div>
   </div>
 
-  {# Reviews #}
-  <div class="mt-16">
-    <h2 class="font-display text-2xl font-semibold">Customer Reviews</h2>
-    {% if can_review %}
-      <form method="post" action="/api/reviews" class="card mt-4 p-5">
-        {% csrf_token %}
-        <input type="hidden" name="productId" value="{{ product.id }}" />
-        <label class="text-sm font-semibold">Your rating</label>
-        <select name="rating" class="ml-2 rounded-lg border border-black/10 px-2 py-1">{% for i in "54321"|make_list %}<option value="{{ i }}">{{ i }} ★</option>{% endfor %}</select>
-        <textarea name="comment" rows="3" placeholder="Share your experience…" class="mt-3 w-full rounded-xl border border-black/10 p-3 text-sm"></textarea>
-        <button class="btn-primary mt-3 !py-2">Submit Review</button>
-      </form>
-    {% elif already_reviewed %}
-      <p class="mt-3 text-sm text-ink/50">You've already reviewed this product.</p>
-    {% elif user.is_authenticated %}
-      <p class="mt-3 text-sm text-ink/50">You can review this product after purchasing it.</p>
-    {% endif %}
+  <!-- Customer Reviews -->
+  <div class="mt-16" id="reviews">
 
-    <div class="mt-6 grid gap-4 md:grid-cols-2">
-      {% for r in reviews %}
-        <div class="card p-5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <span class="grid h-9 w-9 place-items-center rounded-full bg-brand-600 font-bold text-white">{{ r.user.full_name|initials }}</span>
-              <p class="font-semibold">{{ r.user.full_name|default:"Customer" }}</p>
-            </div>
-            <span class="text-gold-500">{% for _ in "12345"|make_list %}{% if forloop.counter <= r.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
-          </div>
-          <p class="mt-3 text-sm text-ink/70">{{ r.comment }}</p>
+    <!-- Rating summary header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div>
+        <h2 class="font-display text-2xl font-semibold text-ink">Customer Reviews</h2>
+        {% if total_reviews %}
+        <div class="mt-1 flex items-center gap-2">
+          <span class="text-3xl font-bold text-ink">{{ avg_rating }}</span>
+          <span class="text-gold-500 text-lg">{% for i in "12345"|make_list %}{% if forloop.counter <= avg_rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+          <span class="text-sm text-ink/50">{{ total_reviews }} review{{ total_reviews|pluralize }}</span>
         </div>
-      {% empty %}
-        <p class="text-ink/50">No reviews yet.</p>
+        {% endif %}
+      </div>
+      {% if can_review %}
+      <a href="#write-review" class="btn-primary shrink-0">✏️ Write a Review</a>
+      {% endif %}
+    </div>
+
+    <!-- Rating distribution -->
+    {% if total_reviews %}
+    <div class="card p-4 mb-6 grid grid-cols-1 sm:grid-cols-5 gap-1.5">
+      {% for star in "54321"|make_list %}
+      {% with cnt=rating_dist|get_item:star|default:0 %}
+      <div class="flex items-center gap-2 text-sm">
+        <span class="w-4 text-right text-ink/60 font-medium">{{ star }}</span>
+        <span class="text-gold-500 text-xs">★</span>
+        <div class="flex-1 h-2 rounded-full bg-black/6 overflow-hidden">
+          {% if total_reviews %}<div class="h-full rounded-full bg-gold-400" style="width:{% widthratio cnt total_reviews 100 %}%"></div>{% endif %}
+        </div>
+        <span class="w-4 text-ink/45 text-xs">{{ cnt }}</span>
+      </div>
+      {% endwith %}
       {% endfor %}
     </div>
+    {% endif %}
+
+    <!-- Write a Review form -->
+    {% if can_review %}
+    <div id="write-review" class="card p-6 mb-8 border-2 border-brand-100">
+      <h3 class="font-display text-lg font-semibold text-ink mb-4">Write Your Review</h3>
+      <form method="post" action="/api/reviews" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="productId" value="{{ product.id }}" />
+
+        <!-- Star rating -->
+        <div class="mb-4">
+          <p class="text-sm font-semibold text-ink mb-2">Your Rating <span class="text-red-500">*</span></p>
+          <div class="flex items-center gap-1 star-picker" id="star-picker">
+            {% for i in "12345"|make_list %}
+            <label class="cursor-pointer text-3xl transition-transform hover:scale-110">
+              <input type="radio" name="rating" value="{{ i }}" class="sr-only" {% if forloop.last %}checked{% endif %} />
+              <span class="star-icon text-black/20" data-val="{{ i }}">★</span>
+            </label>
+            {% endfor %}
+          </div>
+          <p id="star-label" class="mt-1 text-xs text-ink/45">Select a rating</p>
+        </div>
+
+        <!-- Title -->
+        <div class="mb-3">
+          <label class="block text-sm font-semibold text-ink mb-1">Review Title</label>
+          <input type="text" name="title" maxlength="200" placeholder="Summarise your experience…"
+                 class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        </div>
+
+        <!-- Comment -->
+        <div class="mb-3">
+          <label class="block text-sm font-semibold text-ink mb-1">Review <span class="text-red-500">*</span></label>
+          <textarea name="comment" rows="4" required placeholder="Tell others about your experience with this product…"
+                    class="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 resize-none"></textarea>
+        </div>
+
+        <!-- Image upload -->
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-ink mb-1">Photos (optional, up to 4)</label>
+          <label class="flex items-center gap-3 cursor-pointer w-full rounded-xl border-2 border-dashed border-black/15 hover:border-brand-300 bg-cream/50 px-4 py-3 transition">
+            <svg class="w-5 h-5 text-ink/40 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span id="img-label" class="text-sm text-ink/45">Click to add photos</span>
+            <input type="file" name="images" multiple accept="image/*" class="hidden" id="img-input" onchange="previewImages(this)" />
+          </label>
+          <div id="img-previews" class="mt-2 flex flex-wrap gap-2 hidden"></div>
+        </div>
+
+        <!-- Anonymous -->
+        <label class="flex items-center gap-2.5 mb-4 cursor-pointer">
+          <input type="checkbox" name="is_anonymous" class="w-4 h-4 rounded border-black/20 accent-brand-600" />
+          <span class="text-sm text-ink/60">Post anonymously (your name won't be shown)</span>
+        </label>
+
+        <button type="submit" class="btn-primary">Submit Review</button>
+        <p class="mt-2 text-xs text-ink/40">Your review will be visible after admin approval (usually within 24h).</p>
+      </form>
+    </div>
+    {% elif already_reviewed %}
+    <div class="card p-4 mb-6 flex items-center gap-3 bg-brand-50/50 border border-brand-100">
+      {% if user_review.status == 'PENDING' %}
+        <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p class="text-sm text-ink/70">Your review is <strong class="text-amber-700">pending approval</strong>. It will be visible once approved by our team.</p>
+      {% elif user_review.status == 'APPROVED' %}
+        <svg class="w-5 h-5 text-brand-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p class="text-sm text-ink/70">Your review is live. <a href="/my-reviews" class="text-brand-600 font-semibold">Manage your reviews →</a></p>
+      {% else %}
+        <svg class="w-5 h-5 text-red-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p class="text-sm text-ink/70">You've submitted a review for this product. <a href="/my-reviews" class="text-brand-600 font-semibold">View in My Reviews →</a></p>
+      {% endif %}
+    </div>
+    {% elif user.is_authenticated %}
+    <div class="card p-4 mb-6 flex items-center gap-3 bg-cream border border-black/8">
+      <svg class="w-5 h-5 text-ink/40 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <p class="text-sm text-ink/60">Only customers who have received this product can write a review.</p>
+    </div>
+    {% endif %}
+
+    <!-- Published reviews list -->
+    {% if reviews %}
+    <div class="space-y-4">
+      {% for r in reviews %}
+      <div class="card p-5">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            {% if r.is_anonymous %}
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/10 font-bold text-ink/50 text-sm">A</span>
+            {% else %}
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-600 font-bold text-white text-sm">{{ r.user.full_name|initials }}</span>
+            {% endif %}
+            <div class="min-w-0">
+              <p class="font-semibold text-sm text-ink">
+                {% if r.is_anonymous %}Anonymous{% else %}{{ r.user.full_name|default:"Customer" }}{% endif %}
+              </p>
+              <div class="flex items-center flex-wrap gap-2 mt-0.5">
+                <span class="text-gold-500 text-sm">{% for i in "12345"|make_list %}{% if forloop.counter <= r.rating %}★{% else %}☆{% endif %}{% endfor %}</span>
+                {% if r.is_verified %}<span class="text-[10px] font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-full">✓ Verified Purchase</span>{% endif %}
+                <span class="text-[11px] text-ink/40">{{ r.created_at|date:"d M Y" }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% if r.title %}<h4 class="mt-3 font-semibold text-sm text-ink">{{ r.title }}</h4>{% endif %}
+        <p class="mt-2 text-sm text-ink/70 leading-relaxed">{{ r.comment }}</p>
+        {% if r.images.all %}
+        <div class="mt-3 flex flex-wrap gap-2">
+          {% for img in r.images.all %}
+          <a href="{{ img.image_url }}" target="_blank" rel="noopener">
+            <img src="{{ img.image_url }}" alt="Review photo" class="h-16 w-16 rounded-lg object-cover border border-black/8 hover:opacity-90 transition" />
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if r.reply %}
+        <div class="mt-3 rounded-xl bg-brand-50/60 border border-brand-100 px-4 py-3">
+          <p class="text-xs font-bold text-brand-700 mb-1">🌿 Response from Spicearog</p>
+          <p class="text-sm text-ink/70">{{ r.reply }}</p>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card p-10 text-center">
+      <p class="text-4xl mb-3">⭐</p>
+      <p class="text-ink/50 text-sm">No reviews yet. Be the first to share your experience!</p>
+    </div>
+    {% endif %}
   </div>
 
   {# Related #}
@@ -138,6 +299,54 @@
   }
   function qd(d){ const q=document.getElementById('qty'); let n=Math.max(1,Number(q.value)+d); q.value=n;
     document.getElementById('add-btn').dataset.qty=n; }
+
+  // Star rating picker
+  (function(){
+    const labels = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+    const stars  = document.querySelectorAll('#star-picker .star-icon');
+    const lbl    = document.getElementById('star-label');
+    function paint(val){
+      stars.forEach(s => {
+        s.style.color = parseInt(s.dataset.val) <= val ? '#e8a800' : '';
+        s.style.textShadow = parseInt(s.dataset.val) <= val ? '0 0 0 #e8a800' : '';
+        s.classList.toggle('text-gold-400', parseInt(s.dataset.val) <= val);
+        s.classList.toggle('text-black/20', parseInt(s.dataset.val) > val);
+      });
+      if(lbl) lbl.textContent = val ? labels[val] + ' (' + val + '/5)' : 'Select a rating';
+    }
+    stars.forEach(s => {
+      const inp = s.closest('label').querySelector('input');
+      s.closest('label').addEventListener('mouseover', () => paint(parseInt(s.dataset.val)));
+      s.closest('label').addEventListener('mouseleave', () => {
+        const checked = document.querySelector('#star-picker input:checked');
+        paint(checked ? parseInt(checked.value) : 0);
+      });
+      inp.addEventListener('change', () => paint(parseInt(inp.value)));
+    });
+    // Init to 5 stars (last radio is checked)
+    paint(5);
+  })();
+
+  // Image preview
+  function previewImages(input){
+    const container = document.getElementById('img-previews');
+    const label     = document.getElementById('img-label');
+    const files     = Array.from(input.files).slice(0, 4);
+    container.innerHTML = '';
+    if(!files.length){ container.classList.add('hidden'); return; }
+    container.classList.remove('hidden');
+    label.textContent = files.length + ' photo' + (files.length > 1 ? 's' : '') + ' selected';
+    files.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        img.className = 'h-16 w-16 object-cover rounded-lg border border-black/10';
+        container.appendChild(img);
+      };
+      reader.readAsDataURL(f);
+    });
+  }
 </script>
 {% endblock %}
 {% endblock %}
