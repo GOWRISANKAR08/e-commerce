@@ -17,6 +17,10 @@ urlpatterns = [
     path("signup", auth_views.signup_view, name="signup"),
     path("logout", auth_views.logout_view, name="logout"),
     path("admin-login", auth_views.admin_login_view, name="admin_login"),
+    path("api/signup/email-otp-send",    auth_views.signup_email_otp_send,    name="signup_email_otp_send"),
+    path("api/signup/email-otp-verify",  auth_views.signup_email_otp_verify,  name="signup_email_otp_verify"),
+    path("api/signup/mobile-otp-send",   auth_views.signup_mobile_otp_send,   name="signup_mobile_otp_send"),
+    path("api/signup/mobile-otp-verify", auth_views.signup_mobile_otp_verify, name="signup_mobile_otp_verify"),
 
     # ---- Custom admin panel (rich dashboard + CRUD) ----
     path("admin-panel", panel.dashboard, name="admin_dashboard"),

@@ -118,7 +118,7 @@
               </button>
             </form>
 
-            <form method="POST" action="/admin-panel/testimonials/{{ t.pk }}/delete" class="inline" onsubmit="return confirm('Delete this testimonial?')">
+            <form method="POST" action="/admin-panel/testimonials/{{ t.pk }}/delete" class="inline" onsubmit="SA.deleteForm(event,'Delete this testimonial?')">
               {% csrf_token %}
               <button class="rounded-lg border border-black/10 px-2.5 py-1 text-[11px] font-semibold text-red-400 hover:border-red-300 hover:bg-red-50 transition">✕</button>
             </form>

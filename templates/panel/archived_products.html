@@ -48,12 +48,12 @@
           Select all
         </label>
         <div class="flex gap-2">
-          <button type="submit" name="bulk_action" value="restore"
+          <button type="button"
                   class="btn-primary text-sm"
-                  onclick="return confirmBulk('restore')">Restore Selected</button>
-          <button type="submit" name="bulk_action" value="delete"
+                  onclick="doArchiveBulk('restore')">Restore Selected</button>
+          <button type="button"
                   class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
-                  onclick="return confirmBulk('delete')">Delete Permanently</button>
+                  onclick="doArchiveBulk('delete')">Delete Permanently</button>
         </div>
       </div>
 
@@ -102,8 +102,8 @@
                     </button>
                   </form>
                   <!-- Permanent delete (single) -->
-                  <button type="submit" form="archiveForm" name="bulk_action" value="delete"
-                          onclick="document.querySelector('[name=product_ids][value=\'{{ p.id }}\']').checked=true; return confirm('Permanently delete {{ p.name }}? This cannot be undone.')"
+                  <button type="button"
+                          onclick="SA.del('Permanently delete {{ p.name|escapejs }}? This cannot be undone.').then(ok=>{if(!ok)return;document.querySelector('[name=product_ids][value=\'{{ p.id }}\']').checked=true;doArchiveBulk('delete');})"
                           class="inline-flex items-center gap-1 rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">
                     {% include "panel/_icon.html" with icon="trash" %}
                     Delete
@@ -134,11 +134,21 @@
     selectAll.checked = [...checks()].every(x => x.checked);
   }));
 
-  function confirmBulk(action) {
+  function doArchiveBulk(action) {
     const selected = [...checks()].filter(c => c.checked);
-    if (!selected.length) { alert('Please select at least one product.'); return false; }
-    if (action === 'delete') return confirm(`Permanently delete ${selected.length} product(s)? This cannot be undone.`);
-    return confirm(`Restore ${selected.length} product(s)?`);
+    if (!selected.length) { SA.warn('Please select at least one product.'); return; }
+    const form = document.getElementById('archiveForm');
+    const doSubmit = () => {
+      const h = document.createElement('input');
+      h.type = 'hidden'; h.name = 'bulk_action'; h.value = action;
+      form.appendChild(h);
+      form.submit();
+    };
+    if (action === 'delete') {
+      SA.del(`Permanently delete ${selected.length} product(s)? This cannot be undone.`).then(ok => { if (ok) doSubmit(); });
+    } else {
+      SA.confirm(`Restore ${selected.length} product(s)?`).then(ok => { if (ok) doSubmit(); });
+    }
   }
 </script>
 {% endblock %}

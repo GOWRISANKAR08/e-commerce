@@ -114,11 +114,11 @@
               </a>
               {% endif %}
               {% if customer.mobile %}
-              <a href="tel:{{ customer.mobile }}" class="flex items-center gap-1.5 hover:text-brand-600 transition-colors">
+              <a href="tel:{{ customer.country_code }}{{ customer.mobile }}" class="flex items-center gap-1.5 hover:text-brand-600 transition-colors">
                 <svg class="h-3.5 w-3.5 text-ink/35" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
                   <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.82a19.79 19.79 0 01-3.07-8.67A2 2 0 012 1h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 15z"/>
                 </svg>
-                {{ customer.mobile }}
+                {% if customer.country_code %}{{ customer.country_code }} {% endif %}{{ customer.mobile }}
               </a>
               {% endif %}
               {% if customer.city %}
@@ -365,7 +365,7 @@
                 </div>
                 <p class="mt-0.5 text-sm text-ink/70">{{ n.note }}</p>
               </div>
-              <form method="post" action="" onsubmit="return confirm('Delete this note?')">
+              <form method="post" action="" onsubmit="SA.deleteForm(event,'Delete this note?')">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="delete_note">
                 <input type="hidden" name="note_id" value="{{ n.pk }}">
@@ -425,7 +425,7 @@
           Send Email
         </a>
         {% if customer.mobile %}
-        <a href="tel:{{ customer.mobile }}"
+        <a href="tel:{{ customer.country_code }}{{ customer.mobile }}"
            class="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-ink hover:bg-cream/60 transition-colors">
           <svg class="h-4 w-4 text-ink/40" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.82a19.79 19.79 0 01-3.07-8.67A2 2 0 012 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16z"/>
@@ -521,8 +521,12 @@
       </div>
       <div>
         <label class="block text-xs font-semibold text-ink/60 mb-1">Mobile</label>
-        <input name="mobile" value="{{ customer.mobile|default:'' }}"
-               class="w-full rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <div class="flex gap-2">
+          <input name="country_code" value="{{ customer.country_code|default:'' }}" placeholder="+91"
+                 class="w-20 rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <input name="mobile" value="{{ customer.mobile|default:'' }}"
+                 class="flex-1 rounded-xl border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
       </div>
       <div>
         <label class="block text-xs font-semibold text-ink/60 mb-1">City</label>

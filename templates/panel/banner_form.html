@@ -165,7 +165,7 @@
         </a>
         {% if banner %}
         <form method="post" action="/admin-panel/banners/{{ banner.pk }}/delete" class="ml-auto"
-              onsubmit="return confirm('Permanently delete this banner?')">
+              onsubmit="SA.deleteForm(event,'Permanently delete this banner?')">
           {% csrf_token %}
           <button type="submit" class="text-sm text-red-500 hover:text-red-700 hover:underline">Delete banner</button>
         </form>

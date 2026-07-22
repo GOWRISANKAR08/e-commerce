@@ -229,7 +229,7 @@
       <button name="action" value="approve" class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">Approve</button>
       <button name="action" value="reject" class="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600">Reject</button>
       <button name="action" value="unflag" class="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-600">Unflag</button>
-      <button name="action" value="delete" onclick="return confirm('Permanently delete selected reviews?')"
+      <button name="action" value="delete" type="button" onclick="SA.deleteBtn(this,'Permanently delete selected reviews?')"
               class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Delete</button>
     </form>
     <button onclick="clearSelection()" class="ml-auto text-xs text-ink/50 hover:text-ink">✕ Clear</button>
@@ -297,7 +297,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
               </form>
-              <button type="button" onclick="if(confirm('Reject this review?')) document.getElementById('rejf{{ review.pk }}').submit()"
+              <button type="button" onclick="SA.confirm('Reject this review?').then(ok=>{if(ok)document.getElementById('rejf{{ review.pk }}').submit();})"
                       title="Reject" class="rounded-lg px-2 py-1 text-xs font-bold text-orange-700 bg-orange-50 border border-orange-200 hover:bg-orange-100 transition">Reject</button>
               {% endif %}
               <button onclick="openFlagModal({{ review.pk }}, {{ review.is_flagged|yesno:'true,false' }}, '{{ review.flag_reason|escapejs }}')"
@@ -313,7 +313,7 @@
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
               </form>
               <button type="button"
-                      onclick="if(confirm('Delete this review permanently?')) document.getElementById('delf{{ review.pk }}').submit()"
+                      onclick="SA.del('Delete this review permanently?').then(ok=>{if(ok)document.getElementById('delf{{ review.pk }}').submit();})"
                       title="Delete review"
                       class="rounded-lg p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">

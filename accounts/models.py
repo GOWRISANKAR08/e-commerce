@@ -86,6 +86,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name      = models.CharField(max_length=120, null=True, blank=True)
     email          = models.EmailField(unique=True, null=True, blank=True)
     mobile         = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    country_code   = models.CharField(max_length=10, null=True, blank=True, default="")
     user_image     = models.CharField(max_length=255, null=True, blank=True)
     city           = models.CharField(max_length=120, null=True, blank=True)
     status         = models.CharField(max_length=10, choices=Status.choices, default=Status.ACTIVE)

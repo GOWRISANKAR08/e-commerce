@@ -146,8 +146,8 @@
               class="rounded-lg bg-ink/10 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-ink/20">Deactivate</button>
       <button name="action" value="export_selected"
               class="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-ink/5">Export</button>
-      <button name="action" value="delete"
-              onclick="return confirm('Permanently delete selected customers? This cannot be undone.')"
+      <button name="action" value="delete" type="button"
+              onclick="SA.deleteBtn(this,'Permanently delete selected customers? This cannot be undone.')"
               class="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Delete</button>
     </form>
     <button onclick="clearSelection()" class="ml-auto text-xs text-ink/50 hover:text-ink">✕ Clear</button>

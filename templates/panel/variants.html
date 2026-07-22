@@ -185,7 +185,7 @@
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
                 <form method="post" action="/admin-panel/variants/{{ v.id }}/delete"
-                      onsubmit="return confirm('Delete \'{{ v.variant|escapejs }}\' variant?')">
+                      onsubmit="SA.deleteForm(event,'Delete {{ v.variant|escapejs }} variant?')">
                   {% csrf_token %}
                   <button type="submit"
                           class="grid h-7 w-7 place-items-center rounded-lg text-ink/35 transition hover:bg-red-50 hover:text-red-600"
@@ -358,6 +358,7 @@ function openAdd() {
   fetchNextPos();
   document.getElementById('addModal').classList.remove('hidden');
 }
+
 function closeAdd() { document.getElementById('addModal').classList.add('hidden'); }
 
 function fetchNextPos() {
@@ -378,7 +379,6 @@ document.addEventListener('DOMContentLoaded', function(){
   fetchNextPos();
 });
 
-// ── Edit modal ───────────────────────────────────────────────────────────────
 function openEdit(id, variant, selling, mrp, stock, position) {
   document.getElementById('editForm').action = '/admin-panel/variants/' + id + '/edit';
   document.getElementById('edit-variant').value = variant;
@@ -388,6 +388,7 @@ function openEdit(id, variant, selling, mrp, stock, position) {
   document.getElementById('edit-position').value = position;
   document.getElementById('editModal').classList.remove('hidden');
 }
+
 function closeEdit() { document.getElementById('editModal').classList.add('hidden'); }
 
 ['addModal','editModal'].forEach(function(id) {

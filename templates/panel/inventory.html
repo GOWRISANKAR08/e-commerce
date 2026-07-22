@@ -13,7 +13,7 @@
     </div>
     <div class="flex items-center gap-2">
       <!-- Apply rules to all -->
-      <form method="post" action="/admin-panel/inventory" onsubmit="return confirm('Recompute stock status for ALL variants using current threshold rules?')">
+      <form method="post" action="/admin-panel/inventory" onsubmit="SA.confirmForm(event,'Recompute stock status for ALL variants using current threshold rules?','Apply Thresholds')">
         {% csrf_token %}
         <input type="hidden" name="action" value="apply_thresholds">
         <button type="submit" class="btn-outline text-sm gap-1.5">

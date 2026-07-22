@@ -552,7 +552,7 @@
       var city = document.querySelector('[name="deliveryCity"]').value.trim();
       var pin = document.querySelector('[name="deliveryPincode"]').value.trim();
       if (!line1 || !city || !pin) {
-        alert('Please fill in the required address fields.');
+        SA.warn('Please fill in the required address fields.');
         return;
       }
     }
@@ -819,13 +819,13 @@
       is_default:   g('editIsDefault').checked,
     };
     if (!body.address || !body.city || !body.pin_code) {
-      alert('Please fill in Street/Area, City and Pincode.'); return;
+      SA.warn('Please fill in Street/Area, City and Pincode.'); return;
     }
     var btn = form.querySelector('button[onclick^="saveAddr"]');
     btn.textContent = 'Saving…'; btn.disabled = true;
     var res = await postJSON('/api/address/' + pk + '/update', body);
     btn.textContent = 'Save Changes'; btn.disabled = false;
-    if (!res.ok) { alert(res.error || 'Failed to update address.'); return; }
+    if (!res.ok) { SA.error(res.error || 'Failed to update address.'); return; }
     if (body.is_default) {
       window.location.reload(); return;
     }

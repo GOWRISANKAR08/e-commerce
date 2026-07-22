@@ -820,7 +820,7 @@
     try {
       const res = await postJSON('/api/combo/add', {slug: slug, qty: 1});
       if (!res.ok) {
-        alert(res.error || 'Could not add combo to cart.');
+        SA.error(res.error || 'Could not add combo to cart.');
         btn.innerHTML = orig; btn.disabled = false; return;
       }
       btn.innerHTML = '✓ Added to Cart!';
@@ -828,7 +828,7 @@
       if (cc) { cc.textContent = res.cart_count; cc.classList.remove('hidden'); }
       setTimeout(function(){ btn.innerHTML = orig; btn.disabled = false; }, 1800);
     } catch(e) {
-      alert('Network error. Please try again.');
+      SA.error('Network error. Please try again.');
       btn.innerHTML = orig; btn.disabled = false;
     }
   }

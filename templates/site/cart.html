@@ -487,9 +487,9 @@
   };
 
   window.removeCombo = async function (slug, comboName) {
-    const confirmed = confirm(
-      'This item is part of the “' + comboName + '” bundle.\n\n' +
-      'Removing it will remove the entire combo pack from your cart. Continue?'
+    const confirmed = await SA.confirm(
+      'Removing it will remove the entire “' + comboName + '” bundle from your cart.',
+      'Remove combo pack?'
     );
     if (!confirmed) return;
     const res = await pJSON('/api/combo/' + slug + '/remove', {});

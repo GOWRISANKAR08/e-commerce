@@ -1356,10 +1356,11 @@ def user_detail(request, pk):
             return redirect(f"/admin-panel/users/{pk}#notes")
 
         if action == "update_info":
-            customer.first_name = request.POST.get("first_name", "").strip() or None
-            customer.last_name  = request.POST.get("last_name",  "").strip() or None
-            customer.mobile     = request.POST.get("mobile", "").strip() or None
-            customer.city       = request.POST.get("city", "").strip() or None
+            customer.first_name   = request.POST.get("first_name", "").strip() or None
+            customer.last_name    = request.POST.get("last_name",  "").strip() or None
+            customer.country_code = request.POST.get("country_code", "").strip() or None
+            customer.mobile       = request.POST.get("mobile", "").strip() or None
+            customer.city         = request.POST.get("city", "").strip() or None
             dob_str = request.POST.get("date_of_birth", "").strip()
             if dob_str:
                 try:
@@ -1380,7 +1381,7 @@ def user_detail(request, pk):
             except (ValueError, TypeError):
                 pass
             customer.save(update_fields=[
-                "first_name", "last_name", "mobile", "city",
+                "first_name", "last_name", "country_code", "mobile", "city",
                 "date_of_birth", "gender", "loyalty_points", "wallet_balance", "updated_at",
             ])
             messages.success(request, "Customer info updated.")

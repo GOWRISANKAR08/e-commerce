@@ -95,7 +95,7 @@
             <td class="px-4 py-3 text-right whitespace-nowrap">
               <button onclick="openEdit({{ f.pk }}, {{ f.question|escapejs|json_script:f.pk }}, `{{ f.answer|escapejs }}`, `{{ f.category.pk|default:'' }}`)"
                       class="text-xs font-medium text-brand-600 hover:underline mr-3">Edit</button>
-              <form method="POST" class="inline" onsubmit="return confirm('Delete this FAQ?')">
+              <form method="POST" class="inline" onsubmit="SA.deleteForm(event,'Delete this FAQ?')">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="delete_faq">
                 <input type="hidden" name="pk" value="{{ f.pk }}">
@@ -128,7 +128,7 @@
         {% for c in cats %}
         <div class="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-gray-50">
           <span class="text-sm text-ink truncate">{{ c.name }}</span>
-          <form method="POST" class="ml-2 shrink-0" onsubmit="return confirm('Delete category?')">
+          <form method="POST" class="ml-2 shrink-0" onsubmit="SA.deleteForm(event,'Delete category?')">
             {% csrf_token %}
             <input type="hidden" name="action" value="delete_category">
             <input type="hidden" name="pk" value="{{ c.pk }}">

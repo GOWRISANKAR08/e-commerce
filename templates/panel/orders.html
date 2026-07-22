@@ -215,8 +215,8 @@
                   </a>
                   <!-- Cancel (only if not terminal) -->
                   {% if o.status != 'CANCELLED' and o.status != 'REFUNDED' and o.status != 'DELIVERED' %}
-                    <button form="cancel{{ o.id }}"
-                            onclick="return confirm('Cancel order {{ o.order_id }}? {% if o.status == 'ORDER_CONFIRMED' or o.status == 'PACKED' or o.status == 'DISPATCHED' %}Stock will be restored automatically.{% endif %}')"
+                    <button type="button"
+                            onclick="SA.del('Cancel order {{ o.order_id }}?{% if o.status == 'ORDER_CONFIRMED' or o.status == 'PACKED' or o.status == 'DISPATCHED' %} Stock will be restored automatically.{% endif %}','Cancel Order').then(ok=>{if(ok)document.getElementById('cancel{{ o.id }}').submit();})"
                             class="grid h-7 w-7 place-items-center rounded-lg text-ink/40 hover:bg-red-50 hover:text-red-600 transition" title="Cancel Order">
                       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                     </button>
@@ -359,7 +359,7 @@
   });
 
   function exportOrders(){
-    alert('Export feature coming soon.');
+    SA.info('Export feature coming soon.');
   }
 </script>
 {% endblock %}

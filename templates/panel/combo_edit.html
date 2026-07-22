@@ -708,10 +708,10 @@ async function uploadImage(file) {
     bar.style.width = '100%';
     setTimeout(() => progress.classList.add('hidden'), 600);
     if (data.url) addImageThumb(data.url);
-    else alert(data.error || 'Upload failed');
+    else SA.error(data.error || 'Upload failed');
   } catch(e) {
     progress.classList.add('hidden');
-    alert('Upload failed. Check your Cloudinary settings.');
+    SA.error('Upload failed. Check your Cloudinary settings.');
   }
 }
 
@@ -800,8 +800,8 @@ loadSuggested();
 
 function previewCombo() {
   const name = document.querySelector('[name=name]').value.trim();
-  if (!name) { alert('Please enter a combo name first.'); return; }
-  alert('Preview: ' + name + '\n(Preview available once combo is published)');
+  if (!name) { SA.warn('Please enter a combo name first.'); return; }
+  SA.info('Preview is available once the combo is published.', name);
 }
 </script>
 {% endblock %}

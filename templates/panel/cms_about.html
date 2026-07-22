@@ -111,7 +111,7 @@
               {% if m.is_active %}Active{% else %}Hidden{% endif %}
             </button>
           </form>
-          <form method="POST" class="inline" onsubmit="return confirm('Remove this team member?')">
+          <form method="POST" class="inline" onsubmit="SA.deleteForm(event,'Remove this team member?')">
             {% csrf_token %}
             <input type="hidden" name="action" value="delete_member">
             <input type="hidden" name="pk" value="{{ m.pk }}">
